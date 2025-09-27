@@ -14,12 +14,12 @@ internal static class WindowManager
     private static readonly Queue<IWindow> _windowsToClose = [];
     private static Vector2 _currentAutoOffset = new(50, 50);
     private static readonly Vector2 _autoOffsetStep = new(50, 50);
+    public static bool HasOpenWindows => _windowsRunning.Count > 0 || !_windowsToCreate.IsEmpty;
 
     public static void AddWindow(IWindow window)
     {
         _windowsToCreate.Enqueue(window);
         _runTask ??= CreateRunTask();
-
     }
 
     private static Task CreateRunTask()
@@ -94,13 +94,5 @@ internal static class WindowManager
             }
             _runTask = null;
         });
-    }
-
-    public static void WaitWhileAnyWindowOpen()
-    {
-        while (_windowsRunning.Count > 0 || _windowsToCreate.Count > 0)
-        {
-            Thread.Sleep(100);
-        }
     }
 }

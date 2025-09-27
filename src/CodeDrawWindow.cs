@@ -8,7 +8,7 @@ using SkiaSharp;
 
 namespace MarcoZechner.CodeDraw.Net;
 
-public partial class CodeDraw
+public partial class CodeDrawWindow
 {
     private WindowOptions _windowOptions;
     private readonly IWindow _window;
@@ -61,25 +61,25 @@ public partial class CodeDraw
     public bool FlipY { get; set; } = false;
     public bool FlipX { get; set; } = false;
 
-    public CodeDraw(float xLeft = -1, float yTop = -1, float width = 600, float height = 600, string title = "CodeDraw") : this(
+    public CodeDrawWindow(float xLeft = -1, float yTop = -1, float width = 600, float height = 600, string title = "CodeDraw") : this(
         new Vector2(xLeft, yTop), 
         new Vector2(width, height), 
         title
     ) {}
 
-    public CodeDraw() : this(
+    public CodeDrawWindow() : this(
         new Vector2(-1, -1), 
         new Vector2(600, 600), 
         "CodeDraw"
     ) {}
 
-    public CodeDraw(string title = "CodeDraw") : this(
+    public CodeDrawWindow(string title = "CodeDraw") : this(
         new Vector2(-1, -1), 
         new Vector2(600, 600), 
         title
     ) {}
 
-    public CodeDraw(Vector2? position = null, Vector2? size = null, string title = "CodeDraw") : this(
+    public CodeDrawWindow(Vector2? position = null, Vector2? size = null, string title = "CodeDraw") : this(
         new CodeDrawOptions()
         {
             Position = position ?? new Vector2(-1, -1),
@@ -88,7 +88,7 @@ public partial class CodeDraw
         }
     ) {}
 
-    public CodeDraw(CodeDrawOptions options)
+    public CodeDrawWindow(CodeDrawOptions options)
     {
         _windowOptions = options;
         _window = Window.Create(_windowOptions);
@@ -99,8 +99,17 @@ public partial class CodeDraw
 
         WindowManager.AddWindow(_window);
     }
+    
+    public static void WaitTillAllWindowsClosed()
+    {
+        while (WindowManager.HasOpenWindows)
+        {
+            Task.Delay(100);
+        }
+    }
 
-    private void OnLoad() {
+    private void OnLoad()
+    {
         _gl = _window.CreateOpenGL();
 
         var glInterface = GRGlInterface.Create();
@@ -135,16 +144,12 @@ public partial class CodeDraw
 
         if (_clearColor.A >= 1) {
             canvas.Clear(_clearColor);
-            Console.SetCursorPosition(0, 0);
-            Console.WriteLine($"Clear color: {_clearColor}");
         } else {
             canvas.Clear(new SKColor(0, 0, 0, 0));
             // canvas.DrawRect(0, 0, _window.FramebufferSize.X, _window.FramebufferSize.Y, new SKPaint
             // {
             //     Color = _clearColor
             // });
-            Console.SetCursorPosition(0, 1);
-            Console.WriteLine($"Clear color: {_clearColor} (transparent)");
         }
 
         Matrix3x3 automaticMatrix;
@@ -176,10 +181,6 @@ public partial class CodeDraw
         }
     }
 
-    public void Error() {
-        throw new Exception("CodeDraw Error: Window is null!");
-    }
-
     public void Clear(Color? clearColor = null) {
         _drawQueue.Clear();
         if (clearColor == null) _clearColor = Color.BLACK;
@@ -192,8 +193,6 @@ public partial class CodeDraw
         _backendRenderTarget?.Dispose();
         _grContext?.Dispose();
     }
-
-    // transparent test
 
 
     const int GWL_EXSTYLE = -20;

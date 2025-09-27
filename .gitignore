@@ -1,0 +1,36 @@
+# Logs and databases
+*.log
+*.sqlite3
+
+# .NET
+bin/
+obj/
+*.pdb
+*.user
+*.vs/
+
+# IDEs and editors
+.editorconfig
+.vscode/
+.idea/
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.old
+
+# Archives
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# Build outputs
+/dist/
+/build/
+/target/
+
+# Other
+.env
+*.lock

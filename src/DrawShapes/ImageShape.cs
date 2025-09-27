@@ -1,0 +1,17 @@
+using MarcoZechner.Math;
+using SkiaSharp;
+
+namespace MarcoZechner.CodeDraw.Net;
+
+public record ImageShape(SKImage Image, Vector2 Position, Vector2 Size, bool Antialias) : IDrawShape
+{
+    public void Draw(SKCanvas canvas, SKPaint paint)
+    {
+        var sampling = new SKSamplingOptions(
+            Antialias ? SKFilterMode.Linear : SKFilterMode.Nearest,
+            SKMipmapMode.None
+        );
+        var dest = new SKRect(Position.X, Position.Y, Position.X + Size.X, Position.Y + Size.Y);
+        canvas.DrawImage(Image, dest, sampling);
+    }
+}

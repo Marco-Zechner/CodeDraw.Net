@@ -173,7 +173,7 @@ public partial class CodeDrawWindow
         _drawnNextFrame = true;
     }
 
-    public void Show() {
+    public void Show() { //TODO will cause the "Clear" from other windows to render? maybe even more...
         _drawBuffer.DequeueInto(_drawQueue);
         _drawnNextFrame = false;
         while (!_drawnNextFrame) {

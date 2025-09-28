@@ -14,7 +14,7 @@ public class CodeDrawOptions {
     /// The position of the top left corner for drawing area in pixels.
     /// Title bar and borders are not included.
     /// </summary>
-    public Vector2 Position { get; set; } = new Vector2(50, 50);
+    public Vector2 Position { get; set; } = new Vector2(-1, -1);
     /// <summary>
     /// The title of the window that is displayed in the title bar.
     /// </summary>

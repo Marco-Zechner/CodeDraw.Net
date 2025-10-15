@@ -1,8 +1,7 @@
 using System.Collections.Concurrent;
 using SkiaSharp;
-using MarcoZechner.Math;
 
-namespace MarcoZechner.CodeDraw.Net;
+namespace MarcoZechner.CodeDrawDotNet;
 
 public static class ImageHandler
 {
@@ -19,7 +18,6 @@ public static class ImageHandler
         var data = SKData.Create(filePath);
         var skimg = SKImage.FromEncodedData(data) ?? throw new InvalidOperationException($"Failed to decode image: {filePath}");
         var handle = new ImageHandle(skimg);
-        Console.WriteLine($"Loaded image: {filePath} ({handle.NaturalSize.X}x{handle.NaturalSize.Y})");
         _imageCache[filePath] = handle;
         return handle;
     }

@@ -1,6 +1,6 @@
 using MarcoZechner.ColorLib;
 
-namespace MarcoZechner.CodeDraw.Net;
+namespace MarcoZechner.CodeDrawDotNet;
 
 public record ShapeSettings(
     Color DrawColor,

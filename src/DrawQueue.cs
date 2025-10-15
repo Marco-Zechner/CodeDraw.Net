@@ -1,6 +1,6 @@
 using SkiaSharp;
 
-namespace MarcoZechner.CodeDraw.Net;
+namespace MarcoZechner.CodeDrawDotNet;
 
 public class DrawQueue {
     private readonly List<IDrawShape> _drawQueue = [];

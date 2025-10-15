@@ -1,7 +1,7 @@
 using MarcoZechner.Math;
 using SkiaSharp;
 
-namespace MarcoZechner.CodeDraw.Net;
+namespace MarcoZechner.CodeDrawDotNet;
 
 public record CircleShape(Vector2 Position, float Radius) : IDrawShape
 {

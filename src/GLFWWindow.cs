@@ -1,10 +1,11 @@
 using System.Diagnostics;
+using MarcoZechner.ColorLib;
 using MarcoZechner.Math;
 using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
 using SkiaSharp;
 
-namespace MarcoZechner.CodeDraw.Net;
+namespace MarcoZechner.CodeDrawDotNet;
 
 public unsafe partial class GLFWWindow //: IDisposable
 {
@@ -13,15 +14,148 @@ public unsafe partial class GLFWWindow //: IDisposable
     /// If true, the window will automatically swap buffers after each render call.
     /// </summary>
     public bool AutoRender { get; set; } = true;
-    public int TargetFramerate { get; set; } = 0;
+    /// <summary>
+    /// If true, the window will clear the last frame before drawing the next with the set clearcolor
+    /// Shapes drawn via cd.Shapes.xyz will persist until cd.Clear is called.
+    /// </summary>
+    public bool AutoClear { get; set; } = true;
+    public int TargetFramerate { get; set; } = 60;
     public double TargetFrameTime => TargetFramerate > 0 ? 1000.0 / TargetFramerate : 0;
+    private string _title;
+    public string Title
+    {
+        get
+        {
+            return _title;
+        }
+        set
+        {
+            Glfw.SetWindowTitle(_windowHandle, value); // not on render thread
+            _title = value;
+        }
+    }
+
+    public bool Decorated
+    {
+        get
+        {
+            return Glfw.GetWindowAttrib(_windowHandle, WindowAttributeGetter.Decorated);
+        }
+        set
+        {
+            Glfw.SetWindowAttrib(_windowHandle, WindowAttributeSetter.Decorated, value);  // not on render thread
+        }
+    }
+
+    public bool AlwaysOnTop
+    {
+        get
+        {
+            return Glfw.GetWindowAttrib(_windowHandle, WindowAttributeGetter.Floating);
+        }
+        set
+        {
+            Glfw.SetWindowAttrib(_windowHandle, WindowAttributeSetter.Floating, value);  // not on render thread
+        }
+    }
+
+    public Vector2<int> Position
+    {
+        get
+        {
+            Glfw.GetWindowPos(_windowHandle, out int x, out int y);
+            return new Vector2<int>(x, y);
+        }
+        set
+        {
+            Glfw.SetWindowPos(_windowHandle, value.X, value.Y);
+        }
+    }
+    public Vector2<int> Size
+    {
+        get
+        {
+            Glfw.GetWindowSize(_windowHandle, out int w, out int h);
+            return new Vector2<int>(w, h);
+        }
+        set
+        {
+
+            Glfw.SetWindowSize(_windowHandle, value.X, value.Y);  // not on render thread
+        }
+    }
+
+    public float AspectRatio
+    {
+        get
+        {
+            var size = Size;
+            return (float)size.X / size.Y;
+        }
+    }
+
+    public bool Resizable
+    {
+        get
+        {
+            return Glfw.GetWindowAttrib(_windowHandle, WindowAttributeGetter.Resizable);
+        }
+        set
+        {
+            Glfw.SetWindowAttrib(_windowHandle, WindowAttributeSetter.Resizable, value);  // not on render thread
+        }
+    }
+
+    // bugged?
+    // public bool IsFullscreen
+    // {
+    //     get
+    //     {
+    //         return Glfw.GetWindowMonitor(_windowHandle) != null;
+    //     }
+    //     set
+    //     {
+    //         if (value == IsFullscreen) return;
+
+    //         if (value)
+    //         {
+    //             var monitor = Glfw.GetPrimaryMonitor();
+    //             var mode = Glfw.GetVideoMode(monitor);
+    //             Glfw.SetWindowMonitor(_windowHandle, monitor, 0, 0, mode->Width, mode->Height, mode->RefreshRate);
+    //         }
+    //         else
+    //         {
+    //             Glfw.SetWindowMonitor(_windowHandle, null, 100, 100, 800, 600, 0);
+    //         }
+    //     }
+    // }
+
+    public string? Clipboard
+    {
+        get
+        {
+            var str = Glfw.GetClipboardString(_windowHandle);
+            return str;
+        }
+        set
+        {
+            if (value == null)
+                throw new ArgumentNullException(nameof(value), "Clipboard value cannot be set to null.");
+            Glfw.SetClipboardString(_windowHandle, value.ToString());
+        }
+    }
+
     #endregion
 
 
-
-    private readonly TaskCompletionSource<bool> _setupTCS = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private bool _renderNextFrame = false;
+    private bool _nextFrameRendered = false;
+    private Color _clearColor = Color.WHITE;
+    private readonly TaskCompletionSource<bool> _initTCS = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly TaskCompletionSource<bool> _onLoadTCS = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly TaskCompletionSource<bool> _runTCS = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly CancellationTokenSource _renderTaskCTS = new();
-    private readonly Task _renderTask;
+    private readonly Task? _renderTask;
     private WindowHandle* _windowHandle;
     public static int WindowCount { get; private set; } = 0;
     private static Glfw? _glfw;
@@ -29,52 +163,112 @@ public unsafe partial class GLFWWindow //: IDisposable
     {
         get
         {
-            if (_glfw == null)
-            {
-                throw new InvalidOperationException("GLFW is not initialized. Make sure to create at least one window before accessing GLFW.");
-            }
-            return _glfw;
+            return _glfw == null
+                ? throw new InvalidOperationException("GLFW is not initialized. Make sure to create at least one window before accessing GLFW.")
+                : _glfw;
+        }
+        private set
+        {
+            _glfw = value;
         }
     }
 
-    private GL _gl;
-    public GL GL => _gl;
+    private GL? _gl;
+    public GL GL => _gl ?? throw new InvalidOperationException("OpenGL is not initialized. Make sure to create at least one window before accessing OpenGL.");
     private GRContext? _grContext;
     private GRGlFramebufferInfo _fbInfo;
     private GRBackendRenderTarget? _backendRenderTarget;
     private SKSurface? _surface;
+    public bool IsRunning => !Glfw.WindowShouldClose(_windowHandle) && !_renderTaskCTS.IsCancellationRequested;
 
-    public event Action<Vector2<int>>? Resize;
+    public event Action<Vector2<int>>? OnResize;
+    private bool _resizeEndPending = false;
+    public event Action<Vector2<int>>? OnResizeEnd;
+    public event Action<Vector2<int>>? OnMove;
+    /// <summary>
+    /// true means it gained focus. <para>
+    /// false means it lost focus. </para>
+    /// </summary>
+    public event Action<bool>? OnFocusChanged;
+
+    public event Action? OnClosing;
+
+    public event Action<int, string[]>? OnFileDrop;
+
+
+    #region ManagementEvents
+    /// <summary>
+    /// <para>if true, the window will be created but not rendering until Run() is called.</para>
+    /// It will then use its internal render loop and provide events "OnLoad" and "OnRender"<br></br>
+    /// OnLoad will be called once after the OpenGL context has been created and before the first frame is rendered.<br></br>
+    /// OnRender will be called before every frame gets rendered in the window, there you can do your drawing.
+    /// </summary>
+    public readonly bool UseManagementEvents = false;
+
+    private event Action? _onLoad;
     // public event Action? Closing;
     // public event Action<bool>? FocusChanged;
     /// <summary>
     /// Called once after the OpenGL context has been created and before the first frame is rendered.
     /// After this event, the constructor will return control to the caller.
     /// </summary>
-    private event Action? Load;
-    //TODO implement
-    // /// <summary>
-    // /// 
-    // /// </summary>
-    // public event Action<double>? Update;
+    public event Action? OnLoad
+    {
+        add
+        {
+            if (UseManagementEvents)
+                _onLoad += value;
+            else
+                throw new InvalidOperationException("OnLoad can only be used when UseManagementEvents is set to true in the constructor.");
+        }
+        remove
+        {
+            if (UseManagementEvents)
+                _onLoad -= value;
+            else
+                throw new InvalidOperationException("OnLoad can only be used when UseManagementEvents is set to true in the constructor.");
+        }
+    }
+
+    private event Action<double, SKCanvas, GL>? _onRender;
     /// <summary>
     /// Called before every frame gets rendered in the window
     /// <para>Related Settings:</para>
     /// <list type="bullet">
     /// <see cref="AutoRender"/>
+    /// <see cref="AutoClear"/> 
     /// </list>
     /// </summary>
-    public event Action<double>? Render;
-
-    public event Action? Closing;
-
-    public GLFWWindow(Action? onLoad = null)
+    public event Action<double, SKCanvas, GL>? OnRender
     {
-        if (onLoad != null)
-            Load += onLoad;
+        add
+        {
+            if (UseManagementEvents)
+                _onRender += value;
+            else
+                throw new InvalidOperationException("OnRender can only be used when UseManagementEvents is set to true in the constructor.");
+        }
+        remove
+        {
+            if (UseManagementEvents)
+                _onRender -= value;
+            else
+                throw new InvalidOperationException("OnRender can only be used when UseManagementEvents is set to true in the constructor.");
+        }
+    }
+
+    #endregion
+
+
+    public GLFWWindow(string title = "title", bool useManagementEvents = false)
+    {
+        _title = title;
+        UseManagementEvents = useManagementEvents;
 
         if (WindowCount == 0)
             InitializeGLFW();
+
+        WindowCount++;
 
         _renderTask = Task.Factory.StartNew(
             SetupRenderLoop,
@@ -83,55 +277,46 @@ public unsafe partial class GLFWWindow //: IDisposable
             TaskScheduler.Default
         );
 
-        _setupTCS.Task.Wait();
-        if (_glfw == null || _gl == null || _windowHandle == null)
+        _initTCS.Task.Wait();
+        if (Glfw == null || _gl == null || _windowHandle == null)
         {
             throw new Exception("Failed to initialize GLFW or OpenGL.");
         }
-
-        WindowCount++;
     }
 
-    //TODO: Fatal Error xD
-    // public void Dispose()
-    // {
-    //     _renderTaskCTS.Cancel();
-    //     _renderTask.Wait();
-    //     _renderTaskCTS.Dispose();
-    //     _setupTCS.TrySetCanceled();
-    //     _renderTask.Dispose();
-    //     _surface?.Dispose();
-    //     _grContext?.Dispose();
-    //     _backendRenderTarget?.Dispose();
-    //     _glfw?.DestroyWindow(_windowHandle);
+    public void Run()
+    {
+        if (!UseManagementEvents)
+            throw new InvalidOperationException("Run can only be called when UseManagementEvents is set to true in the constructor.");
 
-    //     WindowCount--;
-    //     if (WindowCount == 0)
-    //     {
-    //         _glfw?.Terminate();
-    //         _glfw = null;
-    //     }
-
-    //     GC.SuppressFinalize(this); //TODO what is this, was a "hint" by the IDE?
-    // }
+        _runTCS.TrySetResult(true); // signal that Run has been called, allow render loop to continue
+        _onLoadTCS.Task.Wait(); // wait until setup is done
+        if (Glfw == null || _gl == null || _windowHandle == null)
+        {
+            throw new Exception("Failed to initialize GLFW or OpenGL.");
+        }
+    }
 
     private static void InitializeGLFW()
     {
-        _glfw = Glfw.GetApi();
-        _glfw.Init();
-        _glfw.WindowHint(WindowHintBool.TransparentFramebuffer, true);
-        _glfw.WindowHint(WindowHintBool.Resizable, true);
-        _glfw.WindowHint(WindowHintClientApi.ClientApi, ClientApi.OpenGL);
-        _glfw.WindowHint(WindowHintInt.ContextVersionMajor, 3);
-        _glfw.WindowHint(WindowHintInt.ContextVersionMinor, 3);
-        _glfw.WindowHint(WindowHintOpenGlProfile.OpenGlProfile, OpenGlProfile.Core);
+        Glfw = Glfw.GetApi();
+        Glfw.Init();
+        Glfw.WindowHint(WindowHintBool.TransparentFramebuffer, true);
+        Glfw.WindowHint(WindowHintBool.Resizable, true);
+        Glfw.WindowHint(WindowHintBool.Decorated, true);
+        Glfw.WindowHint(WindowHintClientApi.ClientApi, ClientApi.OpenGL);
+        Glfw.WindowHint(WindowHintInt.ContextVersionMajor, 3);
+        Glfw.WindowHint(WindowHintInt.ContextVersionMinor, 3);
+        Glfw.WindowHint(WindowHintOpenGlProfile.OpenGlProfile, OpenGlProfile.Core);
+        // _glfw.WindowHint(WindowHintBool.OpenGLDebugContext, true);
     }
 
-    private static WindowHandle* CreateWindow()
+    private WindowHandle* CreateWindow()
     {
-        if (_glfw == null)
+        if (Glfw == null)
             throw new InvalidOperationException("GLFW is not initialized.");
-        var windowHandle = _glfw.CreateWindow(800, 600, "title", null, null);
+
+        var windowHandle = Glfw.CreateWindow(800, 600, _title, null, null); //TODO: maybe this sharing could work for passing textures between windows
         return windowHandle switch
         {
             null => throw new InvalidOperationException("Failed to create GLFW window."),
@@ -148,6 +333,8 @@ public unsafe partial class GLFWWindow //: IDisposable
 
             Glfw.MakeContextCurrent(_windowHandle);
 
+            #region Callbacks
+
             Glfw.SetErrorCallback((error, description) =>
             {
                 Console.WriteLine($"GLFW Error: {error} - {description}");
@@ -155,35 +342,77 @@ public unsafe partial class GLFWWindow //: IDisposable
 
             Glfw.SetWindowCloseCallback(_windowHandle, (w) =>
             {
-                Closing?.Invoke();
+                OnClosing?.Invoke();
                 WindowCount--;
             });
+
+            Glfw.SetFramebufferSizeCallback(_windowHandle, (w, x, y) =>
+            {
+                ResizeSkiaSurface();
+                RenderCall(false);
+            });
+
+            Glfw.SetInputMode(_windowHandle, (StickyAttributes)0x00033004, true);
+
+            Glfw.SetWindowFocusCallback(_windowHandle, (w, focus) =>
+            {
+                OnFocusChanged?.Invoke(focus);
+                if (!focus)
+                {
+                    ClearHoldKeys();
+                }
+            });
+
+            Glfw.SetKeyCallback(_windowHandle, HandleKeyCallback);
+
+            Glfw.SetCharCallback(_windowHandle, HandleCharCallback);
+
+            Glfw.SetCharModsCallback(_windowHandle, HandleCharModCallback);
+
+            Glfw.SetScrollCallback(_windowHandle, HandleScrollCallback);
+
+            Glfw.SetCursorPosCallback(_windowHandle, HandleCursorPosCallback);
+
+            Glfw.SetCursorEnterCallback(_windowHandle, HandleCursorEnterCallback);
+
+            Glfw.SetMouseButtonCallback(_windowHandle, HandleMouseButtonCallback);
+
+            Glfw.SetJoystickCallback(HandleJoystickCallback);
+
+            Glfw.SetDropCallback(_windowHandle, HandleFileDropCallback);
+
+            #endregion
+
 
             #region Attempt to rendering window while its being moved or resized
             Glfw.SetWindowPosCallback(_windowHandle, (w, x, y) =>
             {
+                OnMove?.Invoke(new Vector2<int>(x, y));
                 RenderCall(false);
             });
 
             Glfw.SetWindowSizeCallback(_windowHandle, (w, width, height) =>
             {
-                ResizeSkiaSurface();
-                Resize?.Invoke(new Vector2<int>(width, height));
+                _resizeEndPending = true;
+                OnResize?.Invoke(new Vector2<int>(width, height));
                 RenderCall(false);
             });
 
             Glfw.SetWindowRefreshCallback(_windowHandle, (w) =>
             {
-                ResizeSkiaSurface();
                 RenderCall(false);
             });
             #endregion
 
             InitGL();
-            Load?.Invoke();
+            _initTCS.TrySetResult(true); // signal that GLFW and OpenGL are initialized, allow main thread to continue
 
-            _setupTCS.TrySetResult(true);
-
+            if (UseManagementEvents)
+            {
+                _runTCS.Task.Wait();
+                _onLoad?.Invoke();
+                _onLoadTCS.TrySetResult(true); // signal that setup is done, allow main thread to continue        
+            }
 
             // 4) Main Loop
             RenderLoop();
@@ -222,22 +451,19 @@ public unsafe partial class GLFWWindow //: IDisposable
             GRSurfaceOrigin.BottomLeft, SKColorType.Rgba8888);
     }
 
-    private double _dtInternalRender = 0;
-    private double _dtClient = 0;
-    private double _dtLoop = 0;
-    private double _dt;
-    private readonly Stopwatch _stopwatch = new();
-
 
     private void RenderLoop()
     {
-        //Debugging
         Task.Run(() =>
         {
             while (!_renderTaskCTS.IsCancellationRequested && !Glfw.WindowShouldClose(_windowHandle))
-                RenderMonitor();
+            {
+                if (MonitorRendering)
+                    RenderMonitor();
+                else
+                    Thread.Sleep(500);
+            }
         });
-        //==========
 
         while (!_renderTaskCTS.IsCancellationRequested && !Glfw.WindowShouldClose(_windowHandle))
         {
@@ -247,24 +473,24 @@ public unsafe partial class GLFWWindow //: IDisposable
 
     private void RenderCall(bool processesEvents)
     {
+        if (processesEvents && _resizeEndPending)
+        {
+            _resizeEndPending = false;
+            OnResizeEnd?.Invoke(Size);
+        }
+
         _stopwatch.Stop();
         _dtLoop = _stopwatch.Elapsed.TotalMilliseconds;
         _stopwatch.Restart();
-        _dt = _dtInternalRender + _dtClient + _dtLoop;
-        if (TargetFrameTime > 0 && _dt < TargetFrameTime)
+        _dt = _dtInternalRender + _dtLoop;
+        _dtWait = 0;
+        if (TargetFrameTime > 0 && _dt < TargetFrameTime && processesEvents)
         {
-            int sleepTime = (int)(TargetFrameTime - _dt);
-            if (sleepTime > 0)
-                Thread.Sleep(sleepTime);
+            _dtWait = TargetFrameTime - _dt;
+            if (_dtWait > 0)
+                Thread.Sleep((int)_dtWait);
             _dt = TargetFrameTime;
         }
-
-        _stopwatch.Restart();
-
-        Render?.Invoke(_dt);
-        _stopwatch.Stop();
-        _dtClient = _stopwatch.Elapsed.TotalMilliseconds;
-
 
         _stopwatch.Restart();
         if (_surface == null || _grContext == null)
@@ -275,85 +501,91 @@ public unsafe partial class GLFWWindow //: IDisposable
 
         var canvas = _surface.Canvas;
 
-        RenderPendingActions();
-
-        if (AutoRender)
+        if (AutoClear)
         {
+            if (_clearColor.A >= 1)
+                canvas.Clear(_clearColor);
+            else
+                canvas.Clear(new SKColor(0, 0, 0, 0));
+        }
+
+        if (UseManagementEvents)
+            _onRender?.Invoke(_dt, canvas, GL);
+
+        Render(_dt, canvas, GL);
+
+        if (AutoRender || _renderNextFrame || !processesEvents)
+        {
+            _renderNextFrame = false;
             canvas.Flush();
             _grContext.Flush();
             Glfw.SwapBuffers(_windowHandle);
+            _nextFrameRendered = true;
         }
+        else
+        {
+            Glfw.WaitEvents();
+        }
+
         _stopwatch.Stop();
         _dtInternalRender = _stopwatch.Elapsed.TotalMilliseconds;
         _stopwatch.Restart();
     }
 
-    private void RenderPendingActions()
+    protected virtual void Render(double dt, SKCanvas canvas, GL gl)
     {
+        
     }
 
-
-
-
-    #region Debugging
-    private readonly List<double> _fpsTimes = [];
-    private readonly Stopwatch _consolePrintStopwatch = Stopwatch.StartNew();
-    private void RenderMonitor()
+    /// <summary>
+    /// Waits this the next frame is rendered, then returns.
+    /// </summary>
+    public virtual void Show()
     {
-        // Debug rendering time
-        int max = 150;
-        int fps = (int)(1000.0 / _dt);
-        _fpsTimes.Add(_dt);
-        if (_fpsTimes.Count > 100)
-            _fpsTimes.RemoveAt(0);
-        int fpsAvg = (int)(1000.0 / _fpsTimes.Average());
-
-        if (_consolePrintStopwatch.ElapsedMilliseconds < 1000 / 10) // 10 times per second
-            return;
-
-        Console.Write('[');
-        Console.ForegroundColor = ConsoleColor.Green;
-        Console.Write(new string('#', (int)_dtInternalRender));
-        Console.ForegroundColor = ConsoleColor.Red;
-        Console.Write(new string('#', (int)_dtClient));
-        Console.ForegroundColor = ConsoleColor.Yellow;
-        Console.Write(new string('#', (int)_dtLoop));
-        Console.ResetColor();
-        Console.Write(new string(' ', (int)MathF.Max(0, max - (int)_dtInternalRender - (int)_dtClient - (int)_dtLoop)));
-        Console.ResetColor();
-        Console.Write($"] {_dt:00.00}ms (int: ");
-        Console.ForegroundColor = ConsoleColor.Green;
-        Console.Write($"{_dtInternalRender:00.00}");
-        Console.ResetColor();
-        Console.Write("ms, client: ");
-        Console.ForegroundColor = ConsoleColor.Red;
-        Console.Write($"{_dtClient:00.00}");
-        Console.ResetColor();
-        Console.Write("ms, loop: ");
-        Console.ForegroundColor = ConsoleColor.Yellow;
-        Console.Write($"{_dtLoop:00.00}");
-        Console.ResetColor();
-        Console.Write("ms) - ");
-        Console.ForegroundColor = fps switch
+        _renderNextFrame = true;
+        Glfw.PostEmptyEvent();
+        _nextFrameRendered = false;
+        while (!_nextFrameRendered)
         {
-            >= 60 => ConsoleColor.Green,
-            >= 30 => ConsoleColor.Yellow,
-            _ => ConsoleColor.Red,
-        };
-        Console.Write($"{fps}");
-        Console.ResetColor();
-        Console.Write(" FPS - Avg: ");
-        Console.ForegroundColor = fpsAvg switch
-        {
-            >= 60 => ConsoleColor.Green,
-            >= 30 => ConsoleColor.Yellow,
-            _ => ConsoleColor.Red,
-        };
-        Console.Write($"{fpsAvg}");
-        Console.ResetColor();
-        Console.WriteLine(" FPS");
-
-        _consolePrintStopwatch.Restart();
+            Task.Delay(5).Wait();
+        }
     }
-    #endregion
+
+    public virtual void Clear(Color? clearColor = null)
+    {
+        if (clearColor == null) _clearColor = Color.BLACK;
+        else _clearColor = clearColor;
+    }
+
+    public void Close()
+    {
+        if (_windowHandle != null && !Glfw.WindowShouldClose(_windowHandle))
+            Glfw.SetWindowShouldClose(_windowHandle, true);
+        _renderTaskCTS.Cancel();
+        try
+        {
+            _renderTask?.Wait();
+        }
+        catch (AggregateException ex) when (ex.InnerExceptions.All(e => e is TaskCanceledException))
+        {
+            Console.WriteLine("Render task cancelled with exception: " + ex.InnerException);
+        }
+        _renderTaskCTS.Dispose();
+        _surface?.Dispose();
+        _backendRenderTarget?.Dispose();
+        _grContext?.Dispose();
+        Glfw.MakeContextCurrent(null);
+        if (WindowCount == 0)
+        {
+            Glfw.Terminate();
+        }
+    }
+
+    public static void WaitForOpenWindows()
+    {
+        while (WindowCount > 0)
+        {
+            Thread.Sleep(100);
+        }
+    }
 }

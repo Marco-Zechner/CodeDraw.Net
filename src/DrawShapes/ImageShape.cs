@@ -1,7 +1,7 @@
 using MarcoZechner.Math;
 using SkiaSharp;
 
-namespace MarcoZechner.CodeDraw.Net;
+namespace MarcoZechner.CodeDrawDotNet;
 
 public record ImageShape(SKImage Image, Vector2 Position, Vector2 Size, bool Antialias) : IDrawShape
 {

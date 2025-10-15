@@ -1,67 +1,74 @@
+using MarcoZechner.ColorLib;
 using MarcoZechner.Math;
 using Topten.RichTextKit;
 
-namespace MarcoZechner.CodeDraw.Net;
+namespace MarcoZechner.CodeDrawDotNet;
 
-public partial class CodeDrawWindow
+public partial class Shapes
 {
-
-
+    public readonly DrawQueue DrawBuffer = new();
+    public int LineWidth { get; set; } = 1;
+    public Color DrawColor { get; set; } = Color.BLACK;
+    public CornerStyle CornerStyle { get; set; }
+    public int CornerRadius { get; set; } = 0;
+    public bool IsAntiAliased { get; set; }
+    public TextFormat TextFormat { get; set; } = new TextFormat();
+    public bool IsInstantDraw { get; set; } = false;
+    
     #region Outline Shapes
-
     public void DrawSquare(Vector2 leftTop, float sideLength)
     {
-        _drawBuffer.Enqueue(
+        DrawBuffer.Enqueue(
             new RectShape(leftTop, new Vector2(sideLength, sideLength)),
-            new(DrawColor, LineWidth, CornerStyle, CornerRadius, IsAntiAliased),
+            new ShapeSettings(DrawColor, LineWidth, CornerStyle, CornerRadius, IsAntiAliased),
             IsInstantDraw);
     }
 
     public void DrawRectangle(Vector2 leftTop, Vector2 size)
     {
-        _drawBuffer.Enqueue(
+        DrawBuffer.Enqueue(
             new RectShape(leftTop, size),
-        new(DrawColor, LineWidth, CornerStyle, CornerRadius, IsAntiAliased),
+            new ShapeSettings(DrawColor, LineWidth, CornerStyle, CornerRadius, IsAntiAliased),
         IsInstantDraw);
     }
 
     public void DrawCircle(Vector2 center, float radius)
     {
-        _drawBuffer.Enqueue(
+        DrawBuffer.Enqueue(
             new CircleShape(center, radius),
-        new(DrawColor, LineWidth, CornerStyle, CornerRadius, IsAntiAliased),
+            new ShapeSettings(DrawColor, LineWidth, CornerStyle, CornerRadius, IsAntiAliased),
         IsInstantDraw);
     }
 
     public void DrawEllipse(Vector2 center, Vector2 size)
     {
-        _drawBuffer.Enqueue(
+        DrawBuffer.Enqueue(
             new EllipseShape(center, size),
-            new(DrawColor, LineWidth, CornerStyle, CornerRadius, IsAntiAliased),
+            new ShapeSettings(DrawColor, LineWidth, CornerStyle, CornerRadius, IsAntiAliased),
             IsInstantDraw);
     }
 
     public void DrawPie(Vector2 center, float radius, float startAngle, float sweepAngle, AngleUnit angleUnit = AngleUnit.Degrees)
     {
-        _drawBuffer.Enqueue(
+        DrawBuffer.Enqueue(
             new PieShape(center, radius, startAngle, sweepAngle, angleUnit),
-            new(DrawColor, LineWidth, CornerStyle, CornerRadius, IsAntiAliased),
+            new ShapeSettings(DrawColor, LineWidth, CornerStyle, CornerRadius, IsAntiAliased),
             IsInstantDraw);
     }
 
     public void DrawTriangle(Vector2 p1, Vector2 p2, Vector2 p3)
     {
-        _drawBuffer.Enqueue(
+        DrawBuffer.Enqueue(
             new TriangleShape(p1, p2, p3),
-            new(DrawColor, LineWidth, CornerStyle, CornerRadius, IsAntiAliased),
+            new ShapeSettings(DrawColor, LineWidth, CornerStyle, CornerRadius, IsAntiAliased),
             IsInstantDraw);
     }
 
     public void DrawPolygon(params Vector2[] vertices)
     {
-        _drawBuffer.Enqueue(
+        DrawBuffer.Enqueue(
             new PolygonShape(vertices),
-            new(DrawColor, LineWidth, CornerStyle, CornerRadius, IsAntiAliased),
+            new ShapeSettings(DrawColor, LineWidth, CornerStyle, CornerRadius, IsAntiAliased),
             IsInstantDraw);
     }
 
@@ -71,58 +78,58 @@ public partial class CodeDrawWindow
 
     public void FillSquare(Vector2 leftTop, float sideLength)
     {
-        _drawBuffer.Enqueue(
+        DrawBuffer.Enqueue(
             new RectShape(leftTop, new Vector2(sideLength, sideLength)),
-            new(DrawColor, LineWidth, CornerStyle, CornerRadius, IsAntiAliased, true),
+            new ShapeSettings(DrawColor, LineWidth, CornerStyle, CornerRadius, IsAntiAliased, true),
             IsInstantDraw);
     }
 
     public void FillRectangle(Vector2 leftTop, Vector2 size)
     {
-        _drawBuffer.Enqueue(
+        DrawBuffer.Enqueue(
             new RectShape(leftTop, size),
-            new(DrawColor, LineWidth, CornerStyle, CornerRadius, IsAntiAliased, true),
+            new ShapeSettings(DrawColor, LineWidth, CornerStyle, CornerRadius, IsAntiAliased, true),
             IsInstantDraw);
     }
 
     public void FillCircle(Vector2 center, float radius)
     {
-        _drawBuffer.Enqueue(
+        DrawBuffer.Enqueue(
             new CircleShape(center, radius),
-            new(DrawColor, LineWidth, CornerStyle, CornerRadius, IsAntiAliased, true),
+            new ShapeSettings(DrawColor, LineWidth, CornerStyle, CornerRadius, IsAntiAliased, true),
             IsInstantDraw);
     }
 
     public void FillEllipse(Vector2 center, Vector2 size)
     {
-        _drawBuffer.Enqueue(
+        DrawBuffer.Enqueue(
             new EllipseShape(center, size),
-            new(DrawColor, LineWidth, CornerStyle, CornerRadius, IsAntiAliased, true),
+            new ShapeSettings(DrawColor, LineWidth, CornerStyle, CornerRadius, IsAntiAliased, true),
             IsInstantDraw);
     }
 
     public void FillPie(Vector2 center, float radius, float startAngle, float sweepAngle, AngleUnit angleUnit = AngleUnit.Degrees)
     {
-        _drawBuffer.Enqueue(
+        DrawBuffer.Enqueue(
             new PieShape(center, radius, startAngle, sweepAngle, angleUnit),
-            new(DrawColor, LineWidth, CornerStyle, CornerRadius, IsAntiAliased, true),
+            new ShapeSettings(DrawColor, LineWidth, CornerStyle, CornerRadius, IsAntiAliased, true),
             IsInstantDraw);
     }
 
     public void FillTriangle(Vector2 p1, Vector2 p2, Vector2 p3)
     {
-        _drawBuffer.Enqueue(
+        DrawBuffer.Enqueue(
             new TriangleShape(p1, p2, p3),
-            new(DrawColor, LineWidth, CornerStyle, CornerRadius, IsAntiAliased, true),
+            new ShapeSettings(DrawColor, LineWidth, CornerStyle, CornerRadius, IsAntiAliased, true),
             IsInstantDraw);
     }
 
 
     public void FillPolygon(params Vector2[] vertices)
     {
-        _drawBuffer.Enqueue(
+        DrawBuffer.Enqueue(
             new PolygonShape(vertices),
-            new(DrawColor, LineWidth, CornerStyle, CornerRadius, IsAntiAliased, true),
+            new ShapeSettings(DrawColor, LineWidth, CornerStyle, CornerRadius, IsAntiAliased, true),
             IsInstantDraw);
     }
 
@@ -132,41 +139,41 @@ public partial class CodeDrawWindow
 
     public void DrawPoint(Vector2 point)
     {
-        _drawBuffer.Enqueue(
+        DrawBuffer.Enqueue(
             new PointShape(point),
-            new(DrawColor, LineWidth, CornerStyle, CornerRadius, IsAntiAliased),
+            new ShapeSettings(DrawColor, LineWidth, CornerStyle, CornerRadius, IsAntiAliased),
             IsInstantDraw);
     }
 
     public void DrawLine(Vector2 start, Vector2 end)
     {
-        _drawBuffer.Enqueue(
+        DrawBuffer.Enqueue(
             new LineShape(start, end),
-            new(DrawColor, LineWidth, CornerStyle, CornerRadius, IsAntiAliased),
+            new ShapeSettings(DrawColor, LineWidth, CornerStyle, CornerRadius, IsAntiAliased),
             IsInstantDraw);
     }
 
     public void DrawCurve(Vector2 start, Vector2 control, Vector2 end)
     {
-        _drawBuffer.Enqueue(
+        DrawBuffer.Enqueue(
             new CurveShape(start, control, end),
-            new(DrawColor, LineWidth, CornerStyle, CornerRadius, IsAntiAliased),
+            new ShapeSettings(DrawColor, LineWidth, CornerStyle, CornerRadius, IsAntiAliased),
             IsInstantDraw);
     }
 
     public void DrawBezier(Vector2 start, Vector2 control1, Vector2 control2, Vector2 end)
     {
-        _drawBuffer.Enqueue(
+        DrawBuffer.Enqueue(
             new BezierShape(start, control1, control2, end),
-            new(DrawColor, LineWidth, CornerStyle, CornerRadius, IsAntiAliased),
+            new ShapeSettings(DrawColor, LineWidth, CornerStyle, CornerRadius, IsAntiAliased),
             IsInstantDraw);
     }
 
     public void DrawArc(Vector2 center, float radius, float startAngle, float sweepAngle, AngleUnit angleUnit = AngleUnit.Degrees)
     {
-        _drawBuffer.Enqueue(
+        DrawBuffer.Enqueue(
             new ArcShape(center, radius, startAngle, sweepAngle, angleUnit),
-            new(DrawColor, LineWidth, CornerStyle, CornerRadius, IsAntiAliased),
+            new ShapeSettings(DrawColor, LineWidth, CornerStyle, CornerRadius, IsAntiAliased),
             IsInstantDraw);
     }
 
@@ -176,25 +183,25 @@ public partial class CodeDrawWindow
 
     public void FillCurve(Vector2 start, Vector2 control, Vector2 end)
     {
-        _drawBuffer.Enqueue(
+        DrawBuffer.Enqueue(
             new CurveShape(start, control, end),
-            new(DrawColor, LineWidth, CornerStyle, CornerRadius, IsAntiAliased, true),
+            new ShapeSettings(DrawColor, LineWidth, CornerStyle, CornerRadius, IsAntiAliased, true),
             IsInstantDraw);
     }
 
     public void FillBezier(Vector2 start, Vector2 control1, Vector2 control2, Vector2 end)
     {
-        _drawBuffer.Enqueue(
+        DrawBuffer.Enqueue(
             new BezierShape(start, control1, control2, end),
-            new(DrawColor, LineWidth, CornerStyle, CornerRadius, IsAntiAliased, true),
+            new ShapeSettings(DrawColor, LineWidth, CornerStyle, CornerRadius, IsAntiAliased, true),
             IsInstantDraw);
     }
 
     public void FillArc(Vector2 center, float radius, float startAngle, float sweepAngle, AngleUnit angleUnit = AngleUnit.Degrees)
     {
-        _drawBuffer.Enqueue(
+        DrawBuffer.Enqueue(
             new ArcShape(center, radius, startAngle, sweepAngle, angleUnit),
-            new(DrawColor, LineWidth, CornerStyle, CornerRadius, IsAntiAliased, true),
+            new ShapeSettings(DrawColor, LineWidth, CornerStyle, CornerRadius, IsAntiAliased, true),
             IsInstantDraw);
     }
 
@@ -204,9 +211,9 @@ public partial class CodeDrawWindow
 
     public void DrawText(Vector2 position, string text)
     {
-        _drawBuffer.Enqueue(
+        DrawBuffer.Enqueue(
             new TextShape(position, text, new(TextFormat)),
-            new(DrawColor, LineWidth, CornerStyle, CornerRadius, IsAntiAliased),
+            new ShapeSettings(DrawColor, LineWidth, CornerStyle, CornerRadius, IsAntiAliased),
             IsInstantDraw);
     }
 
@@ -240,9 +247,9 @@ public partial class CodeDrawWindow
     public void DrawImage(ImageHandle img, Vector2 position, Vector2 size, bool antialias = true)
     {
         // Enqueue a command so it’s rendered in your Render loop after transforms
-        _drawBuffer.Enqueue(
+        DrawBuffer.Enqueue(
             new ImageShape(img.Image, position, size, antialias),
-            new(DrawColor, LineWidth, CornerStyle, CornerRadius, antialias),
+            new ShapeSettings(DrawColor, LineWidth, CornerStyle, CornerRadius, antialias),
             IsInstantDraw
         );
     }

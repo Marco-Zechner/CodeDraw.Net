@@ -2,20 +2,20 @@ using MarcoZechner.Math;
 using SkiaSharp;
 using Topten.RichTextKit;
 
-namespace MarcoZechner.CodeDraw.Net;
+namespace MarcoZechner.CodeDrawDotNet;
 
 public record TextShape(Vector2 Position, string Text, TextFormat Format) : IDrawShape
 {
     public void Draw(SKCanvas canvas, SKPaint paint)
     {
         var rs = new RichString() {
-            DefaultAlignment = Format.HorizontalAlignment switch
-            {
-                HorizontalAlignment.Left => TextAlignment.Left,
-                HorizontalAlignment.Center => TextAlignment.Center,
-                HorizontalAlignment.Right => TextAlignment.Right,
-                _ => TextAlignment.Left
-            },
+            // DefaultAlignment = Format.HorizontalAlignment switch
+            // {
+            //     HorizontalAlignment.Left => TextAlignment.Left,
+            //     HorizontalAlignment.Center => TextAlignment.Center,
+            //     HorizontalAlignment.Right => TextAlignment.Right,
+            //     _ => TextAlignment.Left
+            // },
             DefaultStyle = new Style() {
                 FontFamily = Format.FontFamily,
                 FontSize = Format.FontSize,
@@ -27,6 +27,26 @@ public record TextShape(Vector2 Position, string Text, TextFormat Format) : IDra
         }
         .Add(Text)
         .Bold((Format.FontStyle & FontStyle.Bold) == FontStyle.Bold);
-        rs.Paint(canvas, new SKPoint(Position.X, Position.Y));
+
+        float height = rs.MeasuredHeight;
+        float width = rs.MeasuredWidth;
+
+        float xOffset = Format.HorizontalAlignment switch
+        {
+            HorizontalAlignment.Left => 0,
+            HorizontalAlignment.Center => width/2,
+            HorizontalAlignment.Right => width,
+            _ => 0,
+        };
+
+        float yOffset = Format.VerticalAlignment switch
+        {
+            VerticalAlignment.Top => 0,
+            VerticalAlignment.Middle => height/2,
+            VerticalAlignment.Bottom => height,
+            _ => 0,
+        };
+
+        rs.Paint(canvas, new SKPoint(Position.X - xOffset, Position.Y - yOffset));
     }
 }

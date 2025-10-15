@@ -1,7 +1,7 @@
 using MarcoZechner.Math;
 using SkiaSharp;
 
-namespace MarcoZechner.CodeDraw.Net;
+namespace MarcoZechner.CodeDrawDotNet;
 
 public record BezierShape(Vector2 Start, Vector2 Control1, Vector2 Control2, Vector2 End) : IDrawShape
 {

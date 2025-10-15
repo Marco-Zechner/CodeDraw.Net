@@ -1,8 +1,8 @@
 using MarcoZechner.Math;
 
-namespace MarcoZechner.CodeDraw.Net;
+namespace MarcoZechner.CodeDrawDotNet;
 
-public partial class CodeDrawWindow
+public partial class Shapes
 {
     #region Outline Shapes
 

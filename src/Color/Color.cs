@@ -87,9 +87,30 @@ public partial record Color {
         B = Convert.ToByte(hex_RRGGBBAA[4..6], 16) / 255.0f;
     }
 
-    public override string ToString() {
+    public override string ToString()
+    {
         return $"Color(R: {R_Byte}, G: {G_Byte}, B: {B_Byte}, A: {A_Byte})";
     }
+
+    public float GetBrightness()
+    {
+        // Perceived brightness formula
+        return (0.299f * R + 0.587f * G + 0.114f * B);
+    }
+
+    #region Math
+
+    public static Color Lerp(Color a, Color b, float t)
+    {
+        return new Color(Lerp(a.R, b.R, t), Lerp(a.G, b.G, t), Lerp(a.B, b.B, t), Lerp(a.A, b.A, t));
+    }
+
+    private static float Lerp(float firstFloat, float secondFloat, float by)
+    {
+        return firstFloat * (1 - by) + secondFloat * by;
+    }
+
+    #endregion
 
     #region Constants
 
@@ -118,7 +139,14 @@ public partial record Color {
     public static Color DARK_BLUE => new(0x00008BFF);
     public static Color DARK_CYAN => new(0x008B8BFF);
     public static Color DARK_GOLDEN_ROD => new(0xB8860BFF);
-    public static Color DARK_GRAY => new(0x808080FF);
+    /// <summary>
+    /// A medium gray color (50% brightness).
+    /// </summary>
+    public static Color GRAY => new(0x808080FF);
+    /// <summary>
+    /// A dark gray color (25% brightness).
+    /// </summary>
+    public static Color DARK_GRAY => new(0x404040FF);
     public static Color DARK_GREEN => new(0x006400FF);
     public static Color DARK_KHAKI => new(0xBDB76BFF);
     public static Color DARK_MAGENTA => new(0x8B008BFF);
@@ -144,7 +172,6 @@ public partial record Color {
     public static Color GHOST_WHITE => new(0xF8F8FFFF);
     public static Color GOLD => new(0xFFD700FF);
     public static Color GOLDEN_ROD => new(0xDAA520FF);
-    public static Color GRAY => new(0xA9A9A9FF);
     public static Color GREEN => new(0x008000FF);
     public static Color GREEN_YELLOW => new(0xADFF2FFF);
     public static Color HONEY_DEW => new(0xF0FFF0FF);
@@ -161,6 +188,9 @@ public partial record Color {
     public static Color LIGHT_CORAL => new(0xF08080FF);
     public static Color LIGHT_CYAN => new(0xE0FFFFFF);
     public static Color LIGHT_GOLDEN_ROD_YELLOW => new(0xFAFAD2FF);
+    /// <summary>
+    /// A light gray color (75% brightness).
+    /// </summary>
     public static Color LIGHT_GRAY => new(0xD3D3D3FF);
     public static Color LIGHT_GREEN => new(0x90EE90FF);
     public static Color LIGHT_PINK => new(0xFFB6C1FF);

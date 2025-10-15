@@ -1,4 +1,4 @@
-namespace MarcoZechner.CodeDraw.Net;
+namespace MarcoZechner.CodeDrawDotNet;
 
 public enum WindowState {
     Normal,

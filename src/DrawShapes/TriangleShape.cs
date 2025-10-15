@@ -1,7 +1,7 @@
 using MarcoZechner.Math;
 using SkiaSharp;
 
-namespace MarcoZechner.CodeDraw.Net;
+namespace MarcoZechner.CodeDrawDotNet;
 
 public record TriangleShape(Vector2 Point1, Vector2 Point2, Vector2 Point3) : IDrawShape
 {

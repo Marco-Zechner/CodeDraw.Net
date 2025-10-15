@@ -52,16 +52,46 @@ public readonly partial record struct Vector2<T>
         return new(a.X / b.X, a.Y / b.Y);
     }
     public static Vector2<T> operator *(Vector2<T> a, T scalar) => new(a.X * scalar, a.Y * scalar);
+    public static Vector2<float> operator *(Vector2<T> a, float scalar) => new(float.CreateChecked(a.X) * scalar, float.CreateChecked(a.Y) * scalar);
+    public static Vector2<double> operator *(Vector2<T> a, double scalar) => new(double.CreateChecked(a.X) * scalar, double.CreateChecked(a.Y) * scalar);
     public static Vector2<T> operator *(T scalar, Vector2<T> a) => new(a.X * scalar, a.Y * scalar);
-    public static Vector2<T> operator /(Vector2<T> a, T scalar) {
+    public static Vector2<float> operator *(float scalar, Vector2<T> a) => new(float.CreateChecked(a.X) * scalar, float.CreateChecked(a.Y) * scalar);
+    public static Vector2<double> operator *(double scalar, Vector2<T> a) => new(double.CreateChecked(a.X) * scalar, double.CreateChecked(a.Y) * scalar);
+    public static Vector2<T> operator /(Vector2<T> a, T scalar)
+    {
         if (scalar.Equals(T.Zero))
             throw new DivideByZeroException("Cannot divide by zero in Vector2 division.");
         return new(a.X / scalar, a.Y / scalar);
     }
-    public static Vector2<T> operator %(Vector2<T> a, T scalar) {
+    public static Vector2<float> operator /(Vector2<T> a, float scalar)
+    {
+        if (scalar.Equals(0f))
+            throw new DivideByZeroException("Cannot divide by zero in Vector2 division.");
+        return new(float.CreateChecked(a.X) / scalar, float.CreateChecked(a.Y) / scalar);
+    }
+    public static Vector2<double> operator /(Vector2<T> a, double scalar)
+    {
+        if (scalar.Equals(0f))
+            throw new DivideByZeroException("Cannot divide by zero in Vector2 division.");
+        return new(double.CreateChecked(a.X) / scalar, double.CreateChecked(a.Y) / scalar);
+    }
+    public static Vector2<T> operator %(Vector2<T> a, T scalar)
+    {
         if (scalar.Equals(T.Zero))
             throw new DivideByZeroException("Cannot divide by zero in Vector2 division.");
         return new(a.X % scalar, a.Y % scalar);
+    }
+    public static Vector2<float> operator %(Vector2<T> a, float scalar)
+    {
+        if (scalar.Equals(0f))
+            throw new DivideByZeroException("Cannot divide by zero in Vector2 division.");
+        return new(float.CreateChecked(a.X) % scalar, float.CreateChecked(a.Y) % scalar);
+    }
+    public static Vector2<double> operator %(Vector2<T> a, double scalar)
+    {
+        if (scalar.Equals(0.0))
+            throw new DivideByZeroException("Cannot divide by zero in Vector2 division.");
+        return new(double.CreateChecked(a.X) % scalar, double.CreateChecked(a.Y) % scalar);
     }
     #endregion
 

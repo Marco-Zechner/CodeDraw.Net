@@ -3,7 +3,7 @@ using Silk.NET.Windowing;
 using WindowBorderSilk = Silk.NET.Windowing.WindowBorder;
 using WindowStateSilk = Silk.NET.Windowing.WindowState;
 
-namespace MarcoZechner.CodeDraw.Net;
+namespace MarcoZechner.CodeDrawDotNet;
 
 public class CodeDrawOptions {
     /// <summary>

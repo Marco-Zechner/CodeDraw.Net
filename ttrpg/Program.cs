@@ -12,8 +12,14 @@ public class Program
 {
     private static CodeDraw _dm_window = null!;
     private static CodeDraw _player_window = null!;
-    private static string _map_path = string.Empty;
-    private static ImageHandle? _map_image;
+    // private static string _map_path = string.Empty;
+    // private static ImageHandle? _map_image;
+    private static readonly List<ImageHandle> _maps = [];
+    private static readonly List<Vector2<double>> _map_positions = []; // per-map world offset (in image px units)
+    private static readonly List<int> _map_rotations = [];             // 0, 90, 180, 270
+    private static readonly List<float> _map_scales = []; 
+
+    private static int _activeMapIndex = -1;
 
     private static float _zoom = 0.01f;
     private static Vector2<double> _offset = Vector2<double>.Zero;
@@ -29,6 +35,8 @@ public class Program
     private static Token? _draggingToken = null;
     private static bool _measuringDistance = false;
     private static bool _tokenFontScaling = false;
+    private static bool _mapModification = false; // ALT held?
+    private static bool _draggingMap = false;
     #endregion
 
 
@@ -75,8 +83,8 @@ public class Program
         });
 
         CodeDraw.WaitForOpenWindows();
-        _map_image?.Dispose();
-        _map_image = null;
+        // _map_image?.Dispose();
+        // _map_image = null;
     }
 
     private static void Update()
@@ -94,59 +102,122 @@ public class Program
 
     private static void LoadMap(int count, string[] paths)
     {
-        _map_path = paths.FirstOrDefault() ?? string.Empty;
-        if (string.IsNullOrEmpty(_map_path) || !File.Exists(_map_path))
-            return;
-        _map_image = ImageHandler.LoadImage(_map_path);
+        foreach (var p in paths)
+        {
+            if (string.IsNullOrWhiteSpace(p) || !File.Exists(p)) continue;
+            var img = ImageHandler.LoadImage(p);
+            _maps.Add(img);
+            _map_positions.Add(Vector2<double>.Zero);
+            _map_rotations.Add(0);
+            _map_scales.Add(1f);
+            _activeMapIndex = _maps.Count - 1; // last loaded is active
+        }
 
-        _zoom = GenericMath.Clamp(1.0f / MathF.Max(_map_image.NaturalSize.X / _dm_window.Size.X, _map_image.NaturalSize.Y / _dm_window.Size.Y), 0.01f, 10f);
+        if (_maps.Count == 0) return;
+
+        // fit the *active* map to the DM window as initial camera zoom
+        var n = _maps[_activeMapIndex].NaturalSize;
+        _zoom = GenericMath.Clamp(1.0f / MathF.Max(n.X / _dm_window.Size.X, n.Y / _dm_window.Size.Y), 0.01f, 10f);
         _offset = Vector2<double>.Zero;
 
-        Token.globalScale = _map_image.NaturalSize.X / 20.0f;
+        // token baseline scale tie-in (keep your behavior; use active image width)
+        Token.globalScale = n.X / 20.0f;
     }
+
 
     private static void RenderDM(double dt, SKCanvas canvas, GL gl)
     {
         _dm_window.Clear(Color.DARK_GRAY);
 
-        TokenFactory.TriggerTokenEvents(ScreenToMap(_mousePos, TopLeft(_dm_window.Size, _map_image?.NaturalSize ?? Vector2<float>.Zero, _zoom, _offset), _zoom));
+        TokenFactory.TriggerTokenEvents(ScreenToMap(_mousePos, _dm_window.Size, _offset, _zoom));
 
-        if (_map_image != null)
+        if (_maps.Count > 0)
         {
-            Vector2<float> n = _map_image.NaturalSize;
-            float z = _zoom;
-            Vector2 imageSize = n * z;
+            Vector2<double> cdm = _dm_window.Size / 2.0;
 
-            _dm_window.Shapes.DrawImage(_map_image, _dm_window.Size / 2 - (Vector2<int>)imageSize / 2 + (Vector2<int>)_offset, imageSize);
+            for (int i = 0; i < _maps.Count; i++)
+            {
+                var img = _maps[i];
+                int rot = _map_rotations[i];
+                float s = _map_scales[i];
+                var posWorld = _map_positions[i]; // world offset in image px units
 
-            Vector2<double> tl = TopLeft(_dm_window.Size, n, z, _offset);
+                // oriented natural size depending on 0/90/180/270
+                Vector2<float> n = OrientedNaturalSize(img, rot);
+
+                // total scale that hits the screen: camera zoom * per-map scale
+                float z = _zoom * s;
+                Vector2 imageSize = n * z;
+
+                // screen position of this map's top-left:
+                // place map centered at camera, add camera pan, then add this map's world offset * camera zoom
+                var screenTL = cdm - (Vector2<double>)imageSize / 2.0 + _offset + posWorld * (double)_zoom;
+
+                // draw
+                if (rot % 360 == 0)
+                {
+                    _dm_window.Shapes.DrawImage(img,
+                        (Vector2<int>)screenTL,
+                        imageSize);
+                }
+                else
+                {
+                    // 90° steps – we can emulate by drawing with swapped size and a pivot shift.
+                    // If your CodeDraw supports rotation, replace with that call.
+                    // Fallback: draw via SKCanvas transform.
+                    var center = (Vector2<float>)(screenTL + (Vector2<double>)imageSize / 2.0);
+
+                    // Use Skia matrix to rotate around center:
+                    canvas.Save();
+                    canvas.Translate(center.X, center.Y);
+                    canvas.RotateDegrees(rot);
+                    // after rotation, draw the unrotated image centered:
+                    var rawN = img.NaturalSize; // unrotated size in image px
+                    var drawSize = rawN * z;    // scale with total z
+                    var tl = new SKPoint(-drawSize.X / 2f, -drawSize.Y / 2f);
+
+                    // NOTE: ImageHandle likely wraps a Skia image internally; if you have an API to draw onto SKCanvas, use it:
+                    // e.g., img.DrawOn(canvas, tl, drawSize);
+                    // If not, consider adding such a method. As a generic fallback, we draw through CodeDraw with no rotation (not ideal).
+                    // --- preferred (pseudo) ---
+                    // img.Draw(canvas, tl, drawSize);
+                    // --------------------------
+
+                    // Fallback (no rotation capability in Shapes): approximate by swapping size (only correct for 90/270 if your API lacks rotation)
+                    canvas.Restore();
+                    _dm_window.Shapes.DrawImage(img,
+                        (Vector2<int>)(center - new Vector2<float>(imageSize.Y, imageSize.X) / 2f),
+                        new Vector2(imageSize.Y, imageSize.X));
+                }
+            }
+
+            // camera-only token rendering (independent of maps)
+            float zCam = _zoom;
             foreach (var token in TokenFactory.Tokens)
             {
-                // 3.1 Position: stays constant on the map
-                Vector2<float> posScreen = (Vector2<float>)MapToScreen(token.Position, tl, z);
+                // world(map) -> screen
+                Vector2<float> posScreen = (Vector2<float>)(cdm + _offset + token.Position * (double)zCam);
 
-                float r = token.Size * z * Token.globalScale;
+                // token radius: constant on the map (scales with camera zoom)
+                float r = token.Size * zCam * Token.globalScale;
 
-                float alpha = 1.0f;
-                if (!token.VisibleToPlayers)
-                    alpha = 0.3f;
+                float alpha = token.VisibleToPlayers ? 1.0f : 0.3f;
 
-                float ang = token.Rotation * (MathF.PI / 180f); // deg -> rad
+                float ang = token.Rotation * (MathF.PI / 180f);
                 float c = MathF.Cos(ang), s = MathF.Sin(ang);
 
-                // outer triangle (points defined in local/map space pointing to the right)
+                // arrow triangles
                 float r1 = r;
                 Vector2<float> a1 = posScreen + Rotate(new Vector2<float>(0f, -r1), c, s);
                 Vector2<float> b1 = posScreen + Rotate(new Vector2<float>(r1 * 1.3f, 0f), c, s);
-                Vector2<float> c1 = posScreen + Rotate(new Vector2<float>(0f, r1), c, s);
+                Vector2<float> c1 = posScreen + Rotate(new Vector2<float>(0f,  r1), c, s);
                 _dm_window.Shapes.DrawColor = Color.BLACK with { A = alpha };
                 _dm_window.Shapes.FillTriangle(a1, b1, c1);
 
-                // inner triangle
                 float r2 = r * 0.98f;
                 Vector2<float> a2 = posScreen + Rotate(new Vector2<float>(0f, -r2), c, s);
                 Vector2<float> b2 = posScreen + Rotate(new Vector2<float>(r2 * 1.25f, 0f), c, s);
-                Vector2<float> c2 = posScreen + Rotate(new Vector2<float>(0f, r2), c, s);
+                Vector2<float> c2 = posScreen + Rotate(new Vector2<float>(0f,  r2), c, s);
                 _dm_window.Shapes.DrawColor = token.Color with { A = alpha };
                 _dm_window.Shapes.FillTriangle(a2, b2, c2);
 
@@ -158,7 +229,9 @@ public class Program
                 _dm_window.Shapes.DrawColor = Color.BLACK with { A = alpha };
                 _dm_window.Shapes.FillCircle(posScreen, r * 0.90f);
                 _dm_window.Shapes.DrawColor = token.Color with { A = alpha };
-                _dm_window.Shapes.FillCircle(posScreen, r * 0.8f);
+                _dm_window.Shapes.FillCircle(posScreen, r * 0.80f);
+
+                // label
                 Color textColor = token.Color.GetBrightness() < 0.5f ? Color.WHITE : Color.BLACK;
                 _dm_window.Shapes.DrawColor = textColor;
                 _dm_window.Shapes.TextFormat = new TextFormat()
@@ -208,126 +281,178 @@ public class Program
         _dm_window.Show();
     }
 
-    private static void RenderPlayer(double dt, SKCanvas canvas, GL gl)
+private static void RenderPlayer(double dt, SKCanvas canvas, GL gl)
+{
+    _player_window.Clear(Color.DARK_GRAY);
+
+    // --- Player camera follows DM (FIT policy) ---
+    float zDM = _zoom;                       // DM zoom (controller)
+    Vector2<double> offDM = _offset;         // DM offset (controller)
+    var sizeDM = _dm_window.Size;            // Vector2<int>
+    var sizePL = _player_window.Size;        // Vector2<int>
+
+    float ratioW = (float)sizePL.X / sizeDM.X;
+    float ratioH = (float)sizePL.Y / sizeDM.Y;
+    float zPL = zDM * MathF.Min(ratioW, ratioH);   // FIT
+    Vector2<double> offPL = offDM * (double)(zPL / zDM);
+
+    _player_zoom = zPL;
+    _player_offset = offPL;
+
+    if (_maps.Count > 0)
     {
-        _player_window.Clear(Color.DARK_GRAY);
+        Vector2<double> cpl = _player_window.Size / 2.0;
 
-        if (_map_image != null)
+        // --- Draw all maps (same as DM, but with player camera) ---
+        for (int i = 0; i < _maps.Count; i++)
         {
-            float zDM = _zoom;                        // DM zoom (controller)
-            Vector2<double> offDM = _offset;          // DM offset (controller)
-            var sizeDM = _dm_window.Size;             // Vector2<int>
+            var img = _maps[i];
+            int rot = _map_rotations[i];
+            float s = _map_scales[i];
+            var posWorld = _map_positions[i];
 
-            // Player (reacts)
-            var sizePL = _player_window.Size;         // Vector2<int>
-
-            // --- Policy: FIT (recommended) ---
-            // Ensures the entire DM world-rect is visible on the player.
-            float ratioW = (float)sizePL.X / sizeDM.X;
-            float ratioH = (float)sizePL.Y / sizeDM.Y;
-            float zPL = zDM * MathF.Min(ratioW, ratioH);
-
-            // Keep the same world center: offset scales with zoom
-            Vector2<double> offPL = offDM * (double)(zPL / zDM);
-
-            // Store/apply to your player renderer variables
-            _player_zoom = zPL;
-            _player_offset = offPL;
-
-            Vector2<float> n = _map_image.NaturalSize;
-            float z = _player_zoom;
+            Vector2<float> n = OrientedNaturalSize(img, rot);
+            float z = _player_zoom * s;
             Vector2 imageSize = n * z;
-            _player_window.Shapes.DrawImage(_map_image, _player_window.Size / 2 - (Vector2<int>)imageSize / 2 + (Vector2<int>)_player_offset, imageSize);
 
-            Vector2<double> tl = TopLeft(_player_window.Size, n, z, _player_offset);
-            foreach (var token in TokenFactory.Tokens)
+            var screenTL = cpl - (Vector2<double>)imageSize / 2.0
+                                + _player_offset
+                                + posWorld * (double)_player_zoom;
+
+            if (rot % 360 == 0)
             {
-                if (!token.VisibleToPlayers)
-                    continue;
-                // 3.1 Position: stays constant on the map
-                Vector2<float> posScreen = (Vector2<float>)MapToScreen(token.Position, tl, z);
-
-                float r = token.Size * z * Token.globalScale;
-
-                float ang = token.Rotation * (MathF.PI / 180f); // deg -> rad
-                float c = MathF.Cos(ang), s = MathF.Sin(ang);
-
-                // outer triangle (points defined in local/map space pointing to the right)
-                float r1 = r;
-                Vector2<float> a1 = posScreen + Rotate(new Vector2<float>(0f, -r1), c, s);
-                Vector2<float> b1 = posScreen + Rotate(new Vector2<float>(r1 * 1.3f, 0f), c, s);
-                Vector2<float> c1 = posScreen + Rotate(new Vector2<float>(0f, r1), c, s);
-                _player_window.Shapes.DrawColor = Color.BLACK;
-                _player_window.Shapes.FillTriangle(a1, b1, c1);
-
-                // inner triangle
-                float r2 = r * 0.98f;
-                Vector2<float> a2 = posScreen + Rotate(new Vector2<float>(0f, -r2), c, s);
-                Vector2<float> b2 = posScreen + Rotate(new Vector2<float>(r2 * 1.25f, 0f), c, s);
-                Vector2<float> c2 = posScreen + Rotate(new Vector2<float>(0f, r2), c, s);
-                _player_window.Shapes.DrawColor = token.Color;
-                _player_window.Shapes.FillTriangle(a2, b2, c2);
-
-                // circles
-                _player_window.Shapes.DrawColor = Color.BLACK;
-                _player_window.Shapes.FillCircle(posScreen, r);
-                _player_window.Shapes.DrawColor = token.StatusColor;
-                _player_window.Shapes.FillCircle(posScreen, r * 0.98f);
-                _player_window.Shapes.DrawColor = Color.BLACK;
-                _player_window.Shapes.FillCircle(posScreen, r * 0.90f);
-                _player_window.Shapes.DrawColor = token.Color;
-                _player_window.Shapes.FillCircle(posScreen, r * 0.80f);
-                Color textColor = token.Color.GetBrightness() < 0.5f ? Color.WHITE : Color.BLACK;
-                _player_window.Shapes.DrawColor = textColor;
-                _player_window.Shapes.TextFormat = new TextFormat()
-                {
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    VerticalAlignment = VerticalAlignment.Middle,
-                    FontSize = token.FontSize,
-                };
-                _player_window.Shapes.DrawText(posScreen, token.Name);
+                _player_window.Shapes.DrawImage(img, (Vector2<int>)screenTL, imageSize);
             }
-
-            if (_measuringDistance)
+            else
             {
-                var localMousePos = DmScreenToPlayerScreen(_mousePos);
-                var localLastMousePos = DmScreenToPlayerScreen(_lastMousePos);
+                var center = (Vector2<float>)(screenTL + (Vector2<double>)imageSize / 2.0);
 
-                _player_window.Shapes.DrawColor = Color.YELLOW;
-                _player_window.Shapes.LineWidth = 10;
-                _player_window.Shapes.DrawLine((Vector2<float>)localLastMousePos, (Vector2<float>)localMousePos);
-                _player_window.Shapes.DrawColor = Color.DARK_GRAY with { A = 0.5f };
-                double dist = (localMousePos - localLastMousePos).Length;
-                _player_window.Shapes.FillCircle((Vector2<float>)localLastMousePos, (float)dist);
-                _player_window.Shapes.DrawColor = Color.ORANGE;
-                _player_window.Shapes.DrawCircle((Vector2<float>)localLastMousePos, (float)dist);
+                canvas.Save();
+                canvas.Translate(center.X, center.Y);
+                canvas.RotateDegrees(rot);
+                var rawN = img.NaturalSize;
+                var drawSize = rawN * z; // scale with total z
+                var tl = new SKPoint(-drawSize.X / 2f, -drawSize.Y / 2f);
 
-                double defaultTokenSize = 2.0f * _zoom * Token.globalScale; // represents 5 feet
-                double distanceInFeet = dist / defaultTokenSize * 5.0;
-                double distanceInMeters = distanceInFeet * 0.3048;
-                _player_window.Shapes.TextFormat = new TextFormat()
-                {
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    VerticalAlignment = VerticalAlignment.Bottom,
-                    FontSize = 24,
-                };
-                _player_window.Shapes.DrawColor = Color.BLACK;
-                _player_window.Shapes.DrawText((Vector2)localMousePos, $"{distanceInFeet:0.##} ft\n{distanceInMeters:0.##} m");
+                // TODO: if ImageHandle exposes a Skia draw, call it here (preferred)
+                canvas.Restore();
+
+                // Fallback (approximate 90/270 by swapping size)
+                _player_window.Shapes.DrawImage(
+                    img,
+                    (Vector2<int>)(center - new Vector2<float>(imageSize.Y, imageSize.X) / 2f),
+                    new Vector2(imageSize.Y, imageSize.X)
+                );
             }
         }
-        else
+
+        // --- Tokens (camera-only) ---
+        float zCam = _player_zoom;
+        foreach (var token in TokenFactory.Tokens)
         {
+            if (!token.VisibleToPlayers) continue;
+
+            Vector2<float> posScreen = (Vector2<float>)(cpl + _player_offset + token.Position * (double)zCam);
+            float r = token.Size * zCam * Token.globalScale;
+
+            float ang = token.Rotation * (MathF.PI / 180f);
+            float c = MathF.Cos(ang), s = MathF.Sin(ang);
+
+            // arrow triangles
+            float r1 = r;
+            Vector2<float> a1 = posScreen + Rotate(new Vector2<float>(0f, -r1), c, s);
+            Vector2<float> b1 = posScreen + Rotate(new Vector2<float>(r1 * 1.3f, 0f), c, s);
+            Vector2<float> c1 = posScreen + Rotate(new Vector2<float>(0f,  r1), c, s);
+            _player_window.Shapes.DrawColor = Color.BLACK;
+            _player_window.Shapes.FillTriangle(a1, b1, c1);
+
+            float r2 = r * 0.98f;
+            Vector2<float> a2 = posScreen + Rotate(new Vector2<float>(0f, -r2), c, s);
+            Vector2<float> b2 = posScreen + Rotate(new Vector2<float>(r2 * 1.25f, 0f), c, s);
+            Vector2<float> c2 = posScreen + Rotate(new Vector2<float>(0f,  r2), c, s);
+            _player_window.Shapes.DrawColor = token.Color;
+            _player_window.Shapes.FillTriangle(a2, b2, c2);
+
+            // circles
+            _player_window.Shapes.DrawColor = Color.BLACK;
+            _player_window.Shapes.FillCircle(posScreen, r);
+            _player_window.Shapes.DrawColor = token.StatusColor;
+            _player_window.Shapes.FillCircle(posScreen, r * 0.98f);
+            _player_window.Shapes.DrawColor = Color.BLACK;
+            _player_window.Shapes.FillCircle(posScreen, r * 0.90f);
+            _player_window.Shapes.DrawColor = token.Color;
+            _player_window.Shapes.FillCircle(posScreen, r * 0.80f);
+
+            // label
+            Color textColor = token.Color.GetBrightness() < 0.5f ? Color.WHITE : Color.BLACK;
+            _player_window.Shapes.DrawColor = textColor;
             _player_window.Shapes.TextFormat = new TextFormat()
             {
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Middle,
-                FontSize = 48,
+                FontSize = token.FontSize,
             };
-            _player_window.Shapes.DrawColor = Color.WHITE;
-            _player_window.Shapes.DrawText(_player_window.Size / 2, "Waiting for DM to load a map");
+            _player_window.Shapes.DrawText(posScreen, token.Name);
         }
-        _player_window.Show();
+
+        var localMousePos = DmScreenToPlayerScreen(_mousePos);
+
+
+        // --- Distance measure (world-accurate even if z differs) ---
+        if (_measuringDistance)
+        {
+            var localLastMousePos = DmScreenToPlayerScreen(_lastMousePos);
+
+            _player_window.Shapes.DrawColor = Color.YELLOW;
+            _player_window.Shapes.LineWidth = 10;
+            _player_window.Shapes.DrawLine((Vector2<float>)localLastMousePos, (Vector2<float>)localMousePos);
+            _player_window.Shapes.DrawColor = Color.DARK_GRAY with { A = 0.5f };
+            double distPx = (localMousePos - localLastMousePos).Length;
+            _player_window.Shapes.FillCircle((Vector2<float>)localLastMousePos, (float)distPx);
+            _player_window.Shapes.DrawColor = Color.ORANGE;
+            _player_window.Shapes.DrawCircle((Vector2<float>)localLastMousePos, (float)distPx);
+
+            // Convert to WORLD distance (independent of screen zoom)
+            double worldDist = distPx / _player_zoom;                    // pixels -> world(map) units
+            double feetPerWorldUnit = 5.0 / (2.0 * Token.globalScale);   // since 2*globalScale world units == 5 ft
+            double distanceInFeet = worldDist * feetPerWorldUnit;
+            double distanceInMeters = distanceInFeet * 0.3048;
+
+            _player_window.Shapes.TextFormat = new TextFormat()
+            {
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Bottom,
+                FontSize = 24,
+            };
+            _player_window.Shapes.DrawColor = Color.BLACK;
+            _player_window.Shapes.DrawText((Vector2)localMousePos, $"{distanceInFeet:0.##} ft\n{distanceInMeters:0.##} m");
+        }
+        
+        //small cursor cross
+        _player_window.Shapes.DrawColor = Color.BLACK;
+        _player_window.Shapes.LineWidth = 5;
+        _player_window.Shapes.DrawLine(new Vector2<float>((float)localMousePos.X - 10, (float)localMousePos.Y), new Vector2<float>((float)localMousePos.X + 10, (float)localMousePos.Y));
+        _player_window.Shapes.DrawLine(new Vector2<float>((float)localMousePos.X, (float)localMousePos.Y - 10), new Vector2<float>((float)localMousePos.X, (float)localMousePos.Y + 10));
+        _player_window.Shapes.DrawColor = Color.WHITE;
+        _player_window.Shapes.LineWidth = 3;
+        _player_window.Shapes.DrawLine(new Vector2<float>((float)localMousePos.X - 10, (float)localMousePos.Y), new Vector2<float>((float)localMousePos.X + 10, (float)localMousePos.Y));
+        _player_window.Shapes.DrawLine(new Vector2<float>((float)localMousePos.X, (float)localMousePos.Y - 10), new Vector2<float>((float)localMousePos.X, (float)localMousePos.Y + 10));
     }
+    else
+    {
+        _player_window.Shapes.TextFormat = new TextFormat()
+        {
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Middle,
+            FontSize = 48,
+        };
+        _player_window.Shapes.DrawColor = Color.WHITE;
+        _player_window.Shapes.DrawText(_player_window.Size / 2, "Waiting for DM to load a map");
+    }
+
+    _player_window.Show();
+}
+
 
     private static void MouseButtonDown(MouseButton button)
     {
@@ -338,11 +463,26 @@ public class Program
                 _lastMousePos = _dm_window.GetCursorPos();
                 break;
             case MouseButton.Left:
+                if (_mapModification && _maps.Count > 0)
+                {
+                    _activeMapIndex = PickMapUnderMouse(_dm_window.GetCursorPos());
+                    if (_activeMapIndex >= 0)
+                    {
+                        _draggingMap = true;
+                        _lastMousePos = _dm_window.GetCursorPos();
+                    }
+                    return;
+                }
+
+                // your existing measuring/token drag logic
                 if (_dm_window.IsKeyDown(Keys.M))
                 {
                     _measuringDistance = true;
                     _lastMousePos = _dm_window.GetCursorPos();
-                } else if (TokenFactory.MouseOverToken != null)
+                    return;
+                }
+                
+                if (TokenFactory.MouseOverToken != null)
                 {
                     _draggingToken = TokenFactory.MouseOverToken;
                     _lastMousePos = _dm_window.GetCursorPos();
@@ -362,6 +502,7 @@ public class Program
             case MouseButton.Left:
                 _draggingToken = null;
                 _measuringDistance = false;
+                _draggingMap = false;
                 break;
         }
     }
@@ -369,6 +510,15 @@ public class Program
     private static void MouseMove(Vector2<double> position)
     {
         _mousePos = position;
+
+        if (_draggingMap && _activeMapIndex >= 0)
+        {
+            var deltaScreen = position - _lastMousePos;
+            // convert screen delta to world (image px) delta using camera zoom only
+            _map_positions[_activeMapIndex] += deltaScreen / (double)_zoom;
+            _lastMousePos = position;
+            return;
+        }
 
         if (_isPanning)
         {
@@ -409,6 +559,11 @@ public class Program
     {
         switch (key)
         {
+            case Keys.AltLeft:
+            case Keys.AltRight:
+                _mapModification = true;
+                break;
+
             case Keys.T:
                 _tokenScaling = true;
                 break;
@@ -427,7 +582,7 @@ public class Program
                 break;
             case Keys.F12:
                 _dm_window.AlwaysOnTop = !_dm_window.AlwaysOnTop;
-                break;  
+                break;
             case Keys.Space:
                 if (TokenFactory.MouseOverToken != null)
                 {
@@ -446,16 +601,21 @@ public class Program
                 {
                     TokenFactory.DeleteToken(TokenFactory.MouseOverToken);
                 }
+                else if (_dm_window.IsKeyDown(Keys.ControlLeft) && _maps.Count > 0)
+                {
+                    int idx = PickMapUnderMouse(_dm_window.GetCursorPos());
+                    if (idx >= 0) DeleteMapAt(idx);
+                }
                 break;
             case Keys.N:
-                Vector2<double> mapPos = ScreenToMap(_mousePos, TopLeft(_dm_window.Size, _map_image?.NaturalSize ?? Vector2<float>.Zero, _zoom, _offset), _zoom);
+                Vector2<double> mapPos = ScreenToMap(_mousePos, _dm_window.Size, _offset, _zoom);
                 TokenFactory.CreateToken(mapPos, Color.WHITE, 1.0f, false);
                 break;
             case Keys.V:
                 if (_dm_window.IsKeyDown(Keys.ControlLeft))
                     TryPasteFromClipboard();
                 break;
-            case Keys.ControlLeft:
+            case Keys.F:
                 _tokenFontScaling = true;
                 break;
            }
@@ -464,11 +624,13 @@ public class Program
 
     private static void KeyUpDM(Keys key)
     {
+        if (key == Keys.AltLeft || key == Keys.AltRight)
+            _mapModification = false;
         if (key == Keys.T)
         {
             _tokenScaling = false;
         }
-        if (key == Keys.ControlLeft)
+        if (key == Keys.F)
         {
             _tokenFontScaling = false;
         }
@@ -526,10 +688,15 @@ public class Program
             return;
         }
 
-        if (_map_image == null)
+        if (_draggingMap && _activeMapIndex >= 0)
+        {
+            // multiplicative (relative) scaling – size-aware
+            const float sensitivity = 0.12f;
+            float factor = MathF.Pow(1f + sensitivity, (float)scroll.Y);
+            _map_scales[_activeMapIndex] = GenericMath.Clamp(_map_scales[_activeMapIndex] * factor, 0.01f, 100f);
             return;
+        }
 
-        // 1) Compute new zoom (with clamp)
         float oldZ = _zoom;
         float newZ = oldZ * MathF.Pow(1.1f, (float)scroll.Y);
         newZ = GenericMath.Clamp(newZ, 0.01f, 10f);
@@ -537,20 +704,15 @@ public class Program
         if (MathF.Abs(newZ - oldZ) < 1e-9f)
             return; // no effective change
 
-        // 2) Keep the point under the cursor fixed
-        Vector2<double> m = _mousePos; // mouse in window coords
-        Vector2<float> n = _map_image.NaturalSize; // image natural size (pixels)
-        Vector2<double> c = _dm_window.Size / 2.0;
+        // 2) Keep the world point under the cursor fixed
+        Vector2<double> m = _mousePos;                 // mouse in window coords
+        Vector2<double> c = _dm_window.Size / 2.0;     // window center
 
-        // current top-left on screen
-        Vector2<double> tl = c - (Vector2<double>)(n * oldZ) / 2.0 + _offset;
+        // world point currently under the mouse (before zoom)
+        Vector2<double> world = (m - (c + _offset)) / (double)oldZ;
 
-        // image-space point under cursor (in natural pixels)
-        Vector2<double> p = (m - tl) / (double)oldZ;
-
-        // new offset so that p stays under m after zoom
-        Vector2<double> newOffset =
-            m - p * (double)newZ - c + (Vector2<double>)(n * newZ) / 2.0;
+        // new offset so that the same world point stays under the mouse
+        Vector2<double> newOffset = m - c - world * (double)newZ;
 
         _zoom = newZ;
         _offset = newOffset;
@@ -616,9 +778,10 @@ public class Program
         return tl + mapPx * (double)z;
     }
 
-    static Vector2<double> ScreenToMap(Vector2<double> screenPx, Vector2<double> tl, float z)
+    static Vector2<double> ScreenToMap(Vector2<double> screenPx, Vector2<int> winSize, Vector2<double> offset, float z)
     {
-        return (screenPx - tl) / (double)z;
+        Vector2<double> c = winSize / 2.0;
+        return (screenPx - (c + offset)) / (double)z;
     }
 
     static Vector2<float> Rotate(Vector2<float> v, float cosA, float sinA)
@@ -629,18 +792,81 @@ public class Program
 
     static Vector2<double> DmScreenToPlayerScreen(Vector2<double> dmScreen)
     {
-        if (_map_image == null)
-            throw new InvalidOperationException("No map loaded");
-        Vector2<float> n = _map_image.NaturalSize;
+        // DM: screen -> world
+        Vector2<double> cdm = _dm_window.Size / 2.0;
+        Vector2<double> world = (dmScreen - (cdm + _offset)) / (double)_zoom;
 
-        // DM: screen → map
-        Vector2<double> tl_dm = TopLeft(_dm_window.Size, n, _zoom, _offset);
-        Vector2<double> mapPx = (Vector2<double>)((dmScreen - tl_dm) / _zoom);
-
-        // Player: map → screen
-        Vector2<double> tl_pl = TopLeft(_player_window.Size, n, _player_zoom, _player_offset);
-        Vector2<double> plScreen = tl_pl + mapPx * (double)_player_zoom;
+        // Player: world -> screen
+        Vector2<double> cpl = _player_window.Size / 2.0;
+        Vector2<double> plScreen = cpl + _player_offset + world * (double)_player_zoom;
 
         return plScreen;
+    }
+
+    static Vector2<float> OrientedNaturalSize(ImageHandle img, int rotDeg)
+    {
+        rotDeg = ((rotDeg % 360) + 360) % 360;
+        var n = img.NaturalSize;
+        if (rotDeg == 90 || rotDeg == 270)
+            return new Vector2<float>(n.Y, n.X);
+        return n;
+    }
+
+    static (Vector2<double> TL, Vector2<double> Size) GetMapScreenRect(int i, Vector2<int> winSize)
+    {
+        var img = _maps[i];
+        int rot = _map_rotations[i];
+        float s = _map_scales[i];
+        var posWorld = _map_positions[i];
+
+        Vector2<double> c = winSize / 2.0;
+        Vector2<float> nOriented = OrientedNaturalSize(img, rot);
+        float z = _zoom * s;                       // total scale for this map
+        Vector2 sizePx = nOriented * z;
+
+        // same formula you use in RenderDM
+        Vector2<double> tl = c - (Vector2<double>)sizePx / 2.0
+                            + _offset
+                            + posWorld * (double)_zoom;
+
+        return (tl, (Vector2<double>)sizePx);
+    }
+
+    static int PickMapUnderMouse(Vector2<double> mouseScreen)
+    {
+        for (int i = _maps.Count - 1; i >= 0; i--)
+        {
+            var (tl, size) = GetMapScreenRect(i, _dm_window.Size);
+            if (mouseScreen.X >= tl.X && mouseScreen.X <= tl.X + size.X &&
+                mouseScreen.Y >= tl.Y && mouseScreen.Y <= tl.Y + size.Y)
+            {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    static void DeleteMapAt(int index)
+    {
+        if (index < 0 || index >= _maps.Count) return;
+
+        // dispose image if needed
+        // try { _maps[index].Dispose(); } catch { /* ignore */ }
+
+        _maps.RemoveAt(index);
+        _map_positions.RemoveAt(index);
+        _map_rotations.RemoveAt(index);
+        _map_scales.RemoveAt(index);
+
+        // fix active/dragging indices/flags
+        if (_activeMapIndex == index)
+        {
+            _activeMapIndex = -1;
+            _draggingMap = false;
+        }
+        else if (_activeMapIndex > index)
+        {
+            _activeMapIndex--;
+        }
     }
 }

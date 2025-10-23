@@ -19,21 +19,6 @@ public unsafe partial class GLFWWindow
     private readonly Task? _renderTask;
     private WindowHandle* _windowHandle;
     public WindowHandle* WindowHandle => _windowHandle;
-    public static int WindowCount { get; private set; } = 0;
-    private static Glfw? _glfw;
-    public static Glfw Glfw
-    {
-        get
-        {
-            return _glfw == null
-                ? throw new InvalidOperationException("GLFW is not initialized. Make sure to create at least one window before accessing GLFW.")
-                : _glfw;
-        }
-        private set
-        {
-            _glfw = value;
-        }
-    }
 
     private GL? _gl;
     public GL GL => _gl ?? throw new InvalidOperationException("OpenGL is not initialized. Make sure to create at least one window before accessing OpenGL.");
@@ -159,26 +144,14 @@ public unsafe partial class GLFWWindow
         }
     }
 
-    private static void InitializeGLFW()
-    {
-        Glfw = Glfw.GetApi();
-        Glfw.Init();
-        Glfw.WindowHint(WindowHintBool.TransparentFramebuffer, true);
-        Glfw.WindowHint(WindowHintBool.Resizable, true);
-        Glfw.WindowHint(WindowHintBool.Decorated, true);
-        Glfw.WindowHint(WindowHintClientApi.ClientApi, ClientApi.OpenGL);
-        Glfw.WindowHint(WindowHintInt.ContextVersionMajor, 3);
-        Glfw.WindowHint(WindowHintInt.ContextVersionMinor, 3);
-        Glfw.WindowHint(WindowHintOpenGlProfile.OpenGlProfile, OpenGlProfile.Core);
-        // _glfw.WindowHint(WindowHintBool.OpenGLDebugContext, true);
-    }
+
 
     private WindowHandle* CreateWindow()
     {
         if (Glfw == null)
             throw new InvalidOperationException("GLFW is not initialized.");
 
-        var windowHandle = Glfw.CreateWindow(800, 600, _title, null, null); //TODO: maybe this sharing could work for passing textures between windows
+        var windowHandle = Glfw.CreateWindow(800, 600, _title, null, _sharedWindow);
         return windowHandle switch
         {
             null => throw new InvalidOperationException("Failed to create GLFW window."),
@@ -315,6 +288,9 @@ public unsafe partial class GLFWWindow
         }
     }
 
+    private double _debtMs = 0;             // accumulated overtime (can be clamped)
+    private const double MAX_DEBT_FRAMES = 10000; // safety cap: at most 5 frames of debt
+
     private void RenderCall(bool processesEvents)
     {
         if (processesEvents && _resizeEndPending)
@@ -328,13 +304,39 @@ public unsafe partial class GLFWWindow
         _stopwatch.Restart();
         _dt = _dtInternalRender + _dtLoop;
         _dtWait = 0;
-        if (TargetFrameTime > 0 && _dt < TargetFrameTime && processesEvents)
+        if (TargetFrameTime > 0)
         {
-            _dtWait = TargetFrameTime - _dt;
-            if (_dtWait > 0)
-                Thread.Sleep((int)_dtWait);
-            _dt = TargetFrameTime;
+            if (_dt < TargetFrameTime)
+            {
+                double dtSpare = TargetFrameTime - _dt;
+                double dtRepay = MathG.Min(dtSpare, _debtMs);
+                _debtMs -= dtRepay;
+
+                _dtWait = dtSpare - dtRepay;
+
+                if (_dtWait > 0)
+                {
+                    Thread.Sleep((int)_dtWait);
+                }
+                _dt += _dtWait + dtRepay;
+            }
+            else
+            {
+                _debtMs += _dt - TargetFrameTime;
+
+                double maxDebt = TargetFrameTime * MAX_DEBT_FRAMES;
+                if (_debtMs > maxDebt)
+                    _debtMs = maxDebt;
+            }
         }
+        
+        int fps = (int)(1000.0 / _dt);
+        _fpsTimes.Add(_dt);
+        if (_fpsTimes.Count > 1000)
+            _fpsTimes.RemoveAt(0);
+        int fpsAvg = (int)(1000.0 / _fpsTimes.Average());
+
+        Title = $"{_dt:00.00}/{_debtMs:00.00}ms ({fps} FPS, Avg: {fpsAvg} FPS) - {FrameCount}";
 
         _stopwatch.Restart();
         if (_surface == null || _grContext == null)
@@ -397,7 +399,7 @@ public unsafe partial class GLFWWindow
         {
             Task.Delay(5).Wait();
         }
-        Logger.LogLine($"{FrameCount, -8} Show() return");
+        // Logger.LogLine($"{FrameCount, -8} Show() return");
     }
 
     public virtual void Clear(Color? clearColor = null)
@@ -427,14 +429,6 @@ public unsafe partial class GLFWWindow
         if (WindowCount == 0)
         {
             Glfw.Terminate();
-        }
-    }
-
-    public static void WaitForOpenWindows()
-    {
-        while (WindowCount > 0)
-        {
-            Thread.Sleep(100);
         }
     }
 }

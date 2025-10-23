@@ -1,5 +1,6 @@
 ﻿using MarcoZechner.CodeDrawDotNet.Test1;
 using MarcoZechner.CodeDrawDotNet.Test2;
+using MarcoZechner.Math;
 
 namespace MarcoZechner.CodeDrawDotNet.Tests;
 
@@ -16,17 +17,39 @@ public class Program
     {
         if (args.Length > 0)
         {
-            var (key, name, action) = _tests.FirstOrDefault(t => t.key == args[0]);
-            if (action != null)
+            foreach (var arg in args)
             {
-                Console.WriteLine($"Running Test {key}: {name}");
-                Console.WriteLine(new string('-', Console.WindowWidth - 1));
-                action();
-                Console.WriteLine(new string('-', Console.WindowWidth - 1));
-                Console.WriteLine("Waiting for open windows to close...");
-                CodeDraw.WaitForOpenWindows();
-                return;
+                var (key, name, action) = _tests.FirstOrDefault(t => t.key == arg);
+                if (action != null)
+                {
+                    Console.WriteLine($"Running Test {key}: {name}");
+                    Console.WriteLine(new string('-', Console.WindowWidth - 1));
+                    action();
+                    Console.WriteLine(new string('-', Console.WindowWidth - 1));
+                }
             }
+
+            Test1_CodeDraw.OffsetNow();
+            Test2_CodeDraw.OffsetNow();
+
+            int maxDiff = 200;
+            int barLength = (Console.WindowWidth - 5) / 2;
+            while (true)
+            {
+                long fc1 = Test1_CodeDraw.FrameCount;
+                long fc2 = Test2_CodeDraw.FrameCount;
+                long toLeftSide = fc1 - fc2;
+                long toRightSide = fc2 - fc1;
+                long leftEmpty = MathG.Min(barLength - toLeftSide, barLength);
+                long rightEmpty = MathG.Min(barLength - toRightSide, barLength);
+                Console.Write($"\n1:{new string(' ', (int)leftEmpty)}{new string('=', (int)(barLength - leftEmpty))}|" +
+                              $"{new string('=', (int)(barLength - rightEmpty))}{new string(' ', (int)rightEmpty)}:2");
+                Thread.Sleep(20);
+            }
+
+            Console.WriteLine("Waiting for open windows to close...");
+            CodeDraw.WaitForOpenWindows();
+            return;
         }
 
         foreach (var (key, name, _) in _tests)

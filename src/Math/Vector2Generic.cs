@@ -124,8 +124,8 @@ public readonly partial record struct Vector2<T>
         return value;
     }
     public static Vector2<T> Lerp(Vector2<T> a, Vector2<T> b, T t) => new(
-        GenericMath.Lerp(a.X, b.X, t),
-        GenericMath.Lerp(a.Y, b.Y, t)
+        MathG.Lerp(a.X, b.X, t),
+        MathG.Lerp(a.Y, b.Y, t)
     );
 
     #endregion

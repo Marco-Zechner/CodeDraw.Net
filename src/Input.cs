@@ -58,7 +58,7 @@ public unsafe class Input
 
     public void ResetFrameInputState()
     {
-        Logger.LogLine("\t\tResetFrameInputState()");
+        // Logger.LogLine("\t\tResetFrameInputState()");
         _framePressedKeys.Clear();
         _frameReleasedKeys.Clear();
     }
@@ -90,7 +90,7 @@ public unsafe class Input
 
             case InputAction.Press:
                 // Console.WriteLine($"OnKeyDown\n\tkeyModBit:\t{Convert.ToString((int)keyModifiers, 2).PadLeft(8, '0')}\n\tkeyMod\t\t{keyModifiers}\n\tKey:\t\t{key}");
-                Logger.LogLine($"\tPressed: {key}");
+                // Logger.LogLine($"\tPressed: {key}");
                 OnKeyDown?.Invoke(key);
                 _heldKeys.Add(key);
                 _framePressedKeys.Add(key);

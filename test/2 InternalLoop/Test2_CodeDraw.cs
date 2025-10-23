@@ -16,6 +16,13 @@ public class Test2_CodeDraw
     private static readonly Color _coin1 = Color.GOLD;
     private static readonly Color _coin2 = Color.SILVER;
 
+    public static long FrameCount => _cd.FrameCount;
+    private static long _frameOffset = 0;
+    public static void OffsetNow()
+    {
+        _frameOffset = _cd.FrameCount;
+    }
+
     public static void Run()
     {
         _cd = new("Beispiel 1.2", true);
@@ -38,7 +45,7 @@ public class Test2_CodeDraw
     {
         //TODO: yes, can only be called on the render thread. fix this.
         _cd.Title = "Beispiel 1.2 - Interner Loop";
-        _cd.Size = new Vector2<int>(300, 300);
+        _cd.Size = new Vector2<int>(800, 300);
         _cd.Resizable = true;
 
 
@@ -49,17 +56,19 @@ public class Test2_CodeDraw
         _cd.Shapes.TextFormat = tf;
     }
 
+    private static float _rnd = 0f;
+
     private static void Render(double dt, SKCanvas canvas, GL gl)
     {
-        if (!_next)
-            return;
-
-        _next = false;
-
         _cd.Clear(_bg);
-        Random random = new();
-        float rnd = random.NextSingle();
-        if (rnd > 0.5f)
+        if (_next)
+        {
+            _next = false;
+            Random random = new();
+            _rnd = random.NextSingle();
+        }
+
+        if (_rnd > 0.5f)
         {
             _cd.Shapes.DrawColor = _coin1;
             _cd.Shapes.FillCircle(150, 150, 100);
@@ -77,6 +86,10 @@ public class Test2_CodeDraw
             _cd.Shapes.DrawColor = Color.Lerp(_coin1, Color.BLACK, 0.2f);
             _cd.Shapes.DrawText(150, 150, $"{2}");
         }
+
+        float movingX = (_cd.FrameCount - _frameOffset) % 300;
+        _cd.Shapes.DrawColor = Color.RED;
+        _cd.Shapes.FillRectangle(movingX, 280, 20, 20);
 
         _cd.Show();
     }

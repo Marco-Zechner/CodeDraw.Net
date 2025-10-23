@@ -118,7 +118,7 @@ public class Program
 
         // fit the *active* map to the DM window as initial camera zoom
         var n = _maps[_activeMapIndex].NaturalSize;
-        _zoom = GenericMath.Clamp(1.0f / MathF.Max(n.X / _dm_window.Size.X, n.Y / _dm_window.Size.Y), 0.01f, 10f);
+        _zoom = MathG.Clamp(1.0f / MathF.Max(n.X / _dm_window.Size.X, n.Y / _dm_window.Size.Y), 0.01f, 10f);
         _offset = Vector2<double>.Zero;
 
         // token baseline scale tie-in (keep your behavior; use active image width)
@@ -694,13 +694,13 @@ private static void RenderPlayer(double dt, SKCanvas canvas, GL gl)
             // multiplicative (relative) scaling – size-aware
             const float sensitivity = 0.12f;
             float factor = MathF.Pow(1f + sensitivity, (float)scroll.Y);
-            _map_scales[_activeMapIndex] = GenericMath.Clamp(_map_scales[_activeMapIndex] * factor, 0.01f, 100f);
+            _map_scales[_activeMapIndex] = MathG.Clamp(_map_scales[_activeMapIndex] * factor, 0.01f, 100f);
             return;
         }
 
         float oldZ = _zoom;
         float newZ = oldZ * MathF.Pow(1.1f, (float)scroll.Y);
-        newZ = GenericMath.Clamp(newZ, 0.01f, 10f);
+        newZ = MathG.Clamp(newZ, 0.01f, 10f);
 
         if (MathF.Abs(newZ - oldZ) < 1e-9f)
             return; // no effective change

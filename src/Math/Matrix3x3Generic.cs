@@ -83,17 +83,17 @@ public readonly partial record struct Matrix3x3<T>
 
     public static Matrix3x3<T> Lerp(Matrix3x3<T> start, Matrix3x3<T> end, T t) {
         return new(
-            GenericMath.Lerp(start.M11, end.M11, t),
-            GenericMath.Lerp(start.M12, end.M12, t),
-            GenericMath.Lerp(start.M13, end.M13, t),
+            MathG.Lerp(start.M11, end.M11, t),
+            MathG.Lerp(start.M12, end.M12, t),
+            MathG.Lerp(start.M13, end.M13, t),
 
-            GenericMath.Lerp(start.M21, end.M21, t),
-            GenericMath.Lerp(start.M22, end.M22, t),
-            GenericMath.Lerp(start.M23, end.M23, t),
+            MathG.Lerp(start.M21, end.M21, t),
+            MathG.Lerp(start.M22, end.M22, t),
+            MathG.Lerp(start.M23, end.M23, t),
 
-            GenericMath.Lerp(start.M31, end.M31, t),
-            GenericMath.Lerp(start.M32, end.M32, t),
-            GenericMath.Lerp(start.M33, end.M33, t));
+            MathG.Lerp(start.M31, end.M31, t),
+            MathG.Lerp(start.M32, end.M32, t),
+            MathG.Lerp(start.M33, end.M33, t));
     }
     #endregion
 } 

@@ -6,42 +6,63 @@ namespace MarcoZechner.CodeDrawDotNet.Test1;
 
 public class Test1_CodeDraw
 {
+    public static long FrameCount => _bsp1.FrameCount;
+    private static long _frameOffset = 0;
+    private static CodeDraw _bsp1 = null!;
+    public static void OffsetNow()
+    {
+        _frameOffset = _bsp1.FrameCount;
+    }
+
     public static void Run()
     {
 
-        var bsp1 = new CodeDraw("Beispiel 1.1")
+        _bsp1 = new CodeDraw("Beispiel 1.1")
         {
-            Size = new Vector2<int>(300, 300),
-            Resizable = false
+            Size = new Vector2<int>(800, 300),
+            Resizable = true
         };
+
+        var tf = _bsp1.Shapes.TextFormat;
+        tf.HorizontalAlignment = HorizontalAlignment.Center;
+        tf.VerticalAlignment = VerticalAlignment.Middle;
+        tf.FontSize = 80;
+        _bsp1.Shapes.TextFormat = tf;
 
         Color color1 = Color.GOLD;
         Color color2 = Color.SILVER;
 
-        while (bsp1.IsRunning)
-        {   
-            if (bsp1.Input.GetKeyDown(Keys.Escape))
-                bsp1.Close();
-
-            Logger.Log("\t\tChecking for space key...");
-            if (bsp1.Input.GetKeyDown(Keys.Space))
+        Task.Run(() =>
+        {
+            while (_bsp1.IsRunning)
             {
-                Console.WriteLine(" pressed!");
-                (color1, color2) = (color2, color1);
-            } else
-                Console.WriteLine(" --- ");
+                if (_bsp1.Input.GetKeyDown(Keys.Escape))
+                    _bsp1.Close();
 
-            bsp1.Clear(Color.WHITE);
+                // Logger.Log("\t\tChecking for space key...");
+                if (_bsp1.Input.GetKeyDown(Keys.Space))
+                {
+                    // Console.WriteLine(" pressed!");
+                    (color1, color2) = (color2, color1);
+                }
+                else
+                    // Console.WriteLine(" --- ");
 
-            bsp1.Shapes.DrawColor = color1;
-            bsp1.Shapes.FillCircle(150, 150, 100);
-            bsp1.Shapes.DrawColor = color2;
-            bsp1.Shapes.FillCircle(150, 150, 75);
-            bsp1.Shapes.DrawColor = Color.Lerp(color2, Color.BLACK, 0.2f);
-            bsp1.Shapes.DrawText(150, 150, $"{(color2 == Color.SILVER ? 2 : 1)}");
+                    _bsp1.Clear(Color.WHITE);
 
-            bsp1.Show();
-        }
-        
+                _bsp1.Shapes.DrawColor = color1;
+                _bsp1.Shapes.FillCircle(150, 150, 100);
+                _bsp1.Shapes.DrawColor = color2;
+                _bsp1.Shapes.FillCircle(150, 150, 75);
+                _bsp1.Shapes.DrawColor = Color.Lerp(color2, Color.BLACK, 0.2f);
+                _bsp1.Shapes.DrawText(150, 150, $"{(color2 == Color.SILVER ? 2 : 1)}");
+
+                float movingX = (_bsp1.FrameCount - _frameOffset) % 300;
+                _bsp1.Shapes.DrawColor = Color.RED;
+                _bsp1.Shapes.FillRectangle(movingX, 280, 20, 20);
+
+                _bsp1.Show();
+            }
+        });
     }
 }

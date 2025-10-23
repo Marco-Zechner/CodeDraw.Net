@@ -9,13 +9,6 @@ public record TextShape(Vector2 Position, string Text, TextFormat Format) : IDra
     public void Draw(SKCanvas canvas, SKPaint paint)
     {
         var rs = new RichString() {
-            // DefaultAlignment = Format.HorizontalAlignment switch
-            // {
-            //     HorizontalAlignment.Left => TextAlignment.Left,
-            //     HorizontalAlignment.Center => TextAlignment.Center,
-            //     HorizontalAlignment.Right => TextAlignment.Right,
-            //     _ => TextAlignment.Left
-            // },
             DefaultStyle = new Style() {
                 FontFamily = Format.FontFamily,
                 FontSize = Format.FontSize,

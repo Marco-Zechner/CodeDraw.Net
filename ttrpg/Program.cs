@@ -49,13 +49,14 @@ public class Program
         _dm_window.OnLoad += LoadDM;
         _dm_window.OnFileDrop += LoadMap;
         _dm_window.OnRender += RenderDM;
-        _dm_window.OnScroll += MouseScroll;
-        _dm_window.OnMouseButtonDown += MouseButtonDown;
-        _dm_window.OnMouseButtonUp += MouseButtonUp;
-        _dm_window.OnCursorPos += MouseMove;
+        var input_dm = _dm_window.Input;
+        input_dm.OnScroll += MouseScroll;
+        input_dm.OnMouseButtonDown += MouseButtonDown;
+        input_dm.OnMouseButtonUp += MouseButtonUp;
+        input_dm.OnCursorPos += MouseMove;
         _dm_window.OnResizeEnd += AdjustToFitRatio;
-        _dm_window.OnKeyDown += KeyDownDM;
-        _dm_window.OnKeyUp += KeyUpDM;
+        input_dm.OnKeyDown += KeyDownDM;
+        input_dm.OnKeyUp += KeyUpDM;
 
 
         _player_window = new("TTRPG_Player", true)
@@ -64,7 +65,7 @@ public class Program
         };
         _player_window.OnLoad += LoadPlayer;
         _player_window.OnRender += RenderPlayer;
-        _player_window.OnKeyDown += KeyDownPlayer;
+        _player_window.Input.OnKeyDown += KeyDownPlayer;
 
         TokenFactory.CreateToken(new Vector2<double>(0, 0), Color.RED, 1.0f, true);
         TokenFactory.CreateToken(new Vector2<double>(100, 0), Color.GREEN, 1.0f, true, TokenStatus.Dead);
@@ -460,32 +461,32 @@ private static void RenderPlayer(double dt, SKCanvas canvas, GL gl)
         {
             case MouseButton.Right:
                 _isPanning = true;
-                _lastMousePos = _dm_window.GetCursorPos();
+                _lastMousePos = _dm_window.Input.GetCursorPos();
                 break;
             case MouseButton.Left:
                 if (_mapModification && _maps.Count > 0)
                 {
-                    _activeMapIndex = PickMapUnderMouse(_dm_window.GetCursorPos());
+                    _activeMapIndex = PickMapUnderMouse(_dm_window.Input.GetCursorPos());
                     if (_activeMapIndex >= 0)
                     {
                         _draggingMap = true;
-                        _lastMousePos = _dm_window.GetCursorPos();
+                        _lastMousePos = _dm_window.Input.GetCursorPos();
                     }
                     return;
                 }
 
                 // your existing measuring/token drag logic
-                if (_dm_window.IsKeyDown(Keys.M))
+                if (_dm_window.Input.GetKey(Keys.M))
                 {
                     _measuringDistance = true;
-                    _lastMousePos = _dm_window.GetCursorPos();
+                    _lastMousePos = _dm_window.Input.GetCursorPos();
                     return;
                 }
                 
                 if (TokenFactory.MouseOverToken != null)
                 {
                     _draggingToken = TokenFactory.MouseOverToken;
-                    _lastMousePos = _dm_window.GetCursorPos();
+                    _lastMousePos = _dm_window.Input.GetCursorPos();
                 }
                 break;
         }
@@ -601,9 +602,9 @@ private static void RenderPlayer(double dt, SKCanvas canvas, GL gl)
                 {
                     TokenFactory.DeleteToken(TokenFactory.MouseOverToken);
                 }
-                else if (_dm_window.IsKeyDown(Keys.ControlLeft) && _maps.Count > 0)
+                else if (_dm_window.Input.GetKey(Keys.ControlLeft) && _maps.Count > 0)
                 {
-                    int idx = PickMapUnderMouse(_dm_window.GetCursorPos());
+                    int idx = PickMapUnderMouse(_dm_window.Input.GetCursorPos());
                     if (idx >= 0) DeleteMapAt(idx);
                 }
                 break;
@@ -612,7 +613,7 @@ private static void RenderPlayer(double dt, SKCanvas canvas, GL gl)
                 TokenFactory.CreateToken(mapPos, Color.WHITE, 1.0f, false);
                 break;
             case Keys.V:
-                if (_dm_window.IsKeyDown(Keys.ControlLeft))
+                if (_dm_window.Input.GetKey(Keys.ControlLeft))
                     TryPasteFromClipboard();
                 break;
             case Keys.F:

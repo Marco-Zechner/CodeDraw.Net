@@ -4,8 +4,27 @@ using Silk.NET.GLFW;
 
 namespace MarcoZechner.CodeDrawDotNet;
 
-public unsafe partial class GLFWWindow
+public unsafe class Input
 {
+    private readonly GLFWWindow _window;
+    internal Input(GLFWWindow window)
+    {
+        _window = window;
+
+        var glfw = GLFWWindow.Glfw;
+
+        glfw.SetInputMode(_window.WindowHandle, (StickyAttributes)0x00033004, true);
+        glfw.SetKeyCallback(_window.WindowHandle, HandleKeyCallback);
+        glfw.SetCharCallback(_window.WindowHandle, HandleCharCallback);
+        glfw.SetCharModsCallback(_window.WindowHandle, HandleCharModCallback);
+        glfw.SetScrollCallback(_window.WindowHandle, HandleScrollCallback);
+        glfw.SetCursorPosCallback(_window.WindowHandle, HandleCursorPosCallback);
+        glfw.SetCursorEnterCallback(_window.WindowHandle, HandleCursorEnterCallback);
+        glfw.SetMouseButtonCallback(_window.WindowHandle, HandleMouseButtonCallback);
+        glfw.SetJoystickCallback(HandleJoystickCallback);
+        glfw.SetDropCallback(_window.WindowHandle, HandleFileDropCallback);
+    }
+
     private readonly HashSet<Keys> _heldKeys = [];
     private readonly HashSet<MouseButton> _heldMouseButtons = [];
 
@@ -21,15 +40,31 @@ public unsafe partial class GLFWWindow
     public event Action<MouseButton>? OnMouseButtonDown;
     public event Action<MouseButton>? OnMouseButtonUp;
     public event Action<MouseButton>? OnMouseButton;
+    public event Action<int, string[]>? OnFileDrop;
 
-    public bool IsKeyDown(Keys key) => _heldKeys.Contains(key);
+    public bool GetKey(Keys key) => _heldKeys.Contains(key);
+    public bool GetKeyDown(Keys key)
+    {
+        bool down = _framePressedKeys.Contains(key);
+        return down;
+    }
+
     public bool IsMouseButtonDown(MouseButton button) => _heldMouseButtons.Contains(button);
     public Vector2<double> GetCursorPos()
     {
-        Glfw.GetCursorPos(_windowHandle, out double x, out double y);
+        GLFWWindow.Glfw.GetCursorPos(_window.WindowHandle, out double x, out double y);
         return new Vector2<double>(x, y);
     }
 
+    public void ResetFrameInputState()
+    {
+        Logger.LogLine("\t\tResetFrameInputState()");
+        _framePressedKeys.Clear();
+        _frameReleasedKeys.Clear();
+    }
+
+    private readonly HashSet<Keys> _framePressedKeys = [];
+    private readonly HashSet<Keys> _frameReleasedKeys = [];
 
     #region Keyboard
 
@@ -50,17 +85,20 @@ public unsafe partial class GLFWWindow
                 // Console.WriteLine($"OnKeyUp\n\tkeyModBit:\t{Convert.ToString((int)keyModifiers, 2).PadLeft(8, '0')}\n\tkeyMod\t\t{keyModifiers}\n\tKey:\t\t{key}");
                 OnKeyUp?.Invoke(key);
                 _heldKeys.Remove(key);
+                _frameReleasedKeys.Add(key);
                 break;
 
             case InputAction.Press:
                 // Console.WriteLine($"OnKeyDown\n\tkeyModBit:\t{Convert.ToString((int)keyModifiers, 2).PadLeft(8, '0')}\n\tkeyMod\t\t{keyModifiers}\n\tKey:\t\t{key}");
+                Logger.LogLine($"\tPressed: {key}");
                 OnKeyDown?.Invoke(key);
                 _heldKeys.Add(key);
+                _framePressedKeys.Add(key);
                 break;
         }
     }
 
-    private void ClearHoldKeys()
+    internal void ClearHoldKeys()
     {
         _heldKeys.Clear();
         _heldMouseButtons.Clear();

@@ -7,147 +7,8 @@ using SkiaSharp;
 
 namespace MarcoZechner.CodeDrawDotNet;
 
-public unsafe partial class GLFWWindow //: IDisposable
+public unsafe partial class GLFWWindow
 {
-    #region Window Settings
-    /// <summary>
-    /// If true, the window will automatically swap buffers after each render call.
-    /// </summary>
-    public bool AutoRender { get; set; } = true;
-    /// <summary>
-    /// If true, the window will clear the last frame before drawing the next with the set clearcolor
-    /// Shapes drawn via cd.Shapes.xyz will persist until cd.Clear is called.
-    /// </summary>
-    public bool AutoClear { get; set; } = true;
-    public int TargetFramerate { get; set; } = 60;
-    public double TargetFrameTime => TargetFramerate > 0 ? 1000.0 / TargetFramerate : 0;
-    private string _title;
-    public string Title
-    {
-        get
-        {
-            return _title;
-        }
-        set
-        {
-            Glfw.SetWindowTitle(_windowHandle, value); // not on render thread
-            _title = value;
-        }
-    }
-
-    public bool Decorated
-    {
-        get
-        {
-            return Glfw.GetWindowAttrib(_windowHandle, WindowAttributeGetter.Decorated);
-        }
-        set
-        {
-            Glfw.SetWindowAttrib(_windowHandle, WindowAttributeSetter.Decorated, value);  // not on render thread
-        }
-    }
-
-    public bool AlwaysOnTop
-    {
-        get
-        {
-            return Glfw.GetWindowAttrib(_windowHandle, WindowAttributeGetter.Floating);
-        }
-        set
-        {
-            Glfw.SetWindowAttrib(_windowHandle, WindowAttributeSetter.Floating, value);  // not on render thread
-        }
-    }
-
-    public Vector2<int> Position
-    {
-        get
-        {
-            Glfw.GetWindowPos(_windowHandle, out int x, out int y);
-            return new Vector2<int>(x, y);
-        }
-        set
-        {
-            Glfw.SetWindowPos(_windowHandle, value.X, value.Y);
-        }
-    }
-    public Vector2<int> Size
-    {
-        get
-        {
-            Glfw.GetWindowSize(_windowHandle, out int w, out int h);
-            return new Vector2<int>(w, h);
-        }
-        set
-        {
-
-            Glfw.SetWindowSize(_windowHandle, value.X, value.Y);  // not on render thread
-        }
-    }
-
-    public float AspectRatio
-    {
-        get
-        {
-            var size = Size;
-            return (float)size.X / size.Y;
-        }
-    }
-
-    public bool Resizable
-    {
-        get
-        {
-            return Glfw.GetWindowAttrib(_windowHandle, WindowAttributeGetter.Resizable);
-        }
-        set
-        {
-            Glfw.SetWindowAttrib(_windowHandle, WindowAttributeSetter.Resizable, value);  // not on render thread
-        }
-    }
-
-    // bugged?
-    // public bool IsFullscreen
-    // {
-    //     get
-    //     {
-    //         return Glfw.GetWindowMonitor(_windowHandle) != null;
-    //     }
-    //     set
-    //     {
-    //         if (value == IsFullscreen) return;
-
-    //         if (value)
-    //         {
-    //             var monitor = Glfw.GetPrimaryMonitor();
-    //             var mode = Glfw.GetVideoMode(monitor);
-    //             Glfw.SetWindowMonitor(_windowHandle, monitor, 0, 0, mode->Width, mode->Height, mode->RefreshRate);
-    //         }
-    //         else
-    //         {
-    //             Glfw.SetWindowMonitor(_windowHandle, null, 100, 100, 800, 600, 0);
-    //         }
-    //     }
-    // }
-
-    public string? Clipboard
-    {
-        get
-        {
-            var str = Glfw.GetClipboardString(_windowHandle);
-            return str;
-        }
-        set
-        {
-            if (value == null)
-                throw new ArgumentNullException(nameof(value), "Clipboard value cannot be set to null.");
-            Glfw.SetClipboardString(_windowHandle, value.ToString());
-        }
-    }
-
-    #endregion
-
-
     private bool _renderNextFrame = false;
     private bool _nextFrameRendered = false;
     private Color _clearColor = Color.WHITE;
@@ -157,6 +18,7 @@ public unsafe partial class GLFWWindow //: IDisposable
     private readonly CancellationTokenSource _renderTaskCTS = new();
     private readonly Task? _renderTask;
     private WindowHandle* _windowHandle;
+    public WindowHandle* WindowHandle => _windowHandle;
     public static int WindowCount { get; private set; } = 0;
     private static Glfw? _glfw;
     public static Glfw Glfw
@@ -193,6 +55,7 @@ public unsafe partial class GLFWWindow //: IDisposable
 
     public event Action? OnClosing;
 
+    public Input Input { get; private set; } = null!;
     public event Action<int, string[]>? OnFileDrop;
 
 
@@ -258,9 +121,8 @@ public unsafe partial class GLFWWindow //: IDisposable
     }
 
     #endregion
-
-
-    public GLFWWindow(string title = "title", bool useManagementEvents = false)
+    
+    internal GLFWWindow(string title = "title", bool useManagementEvents = false)
     {
         _title = title;
         UseManagementEvents = useManagementEvents;
@@ -328,10 +190,11 @@ public unsafe partial class GLFWWindow //: IDisposable
     {
         try
         {
-            // needs to be called in the same thread as the render loop...
-            _windowHandle = CreateWindow();
+            _windowHandle = CreateWindow(); // needs to be called in the same thread as the render loop...
 
             Glfw.MakeContextCurrent(_windowHandle);
+
+            Input = new Input(this);
 
             #region Callbacks
 
@@ -352,34 +215,15 @@ public unsafe partial class GLFWWindow //: IDisposable
                 RenderCall(false);
             });
 
-            Glfw.SetInputMode(_windowHandle, (StickyAttributes)0x00033004, true);
 
             Glfw.SetWindowFocusCallback(_windowHandle, (w, focus) =>
             {
                 OnFocusChanged?.Invoke(focus);
                 if (!focus)
                 {
-                    ClearHoldKeys();
+                    Input.ClearHoldKeys();
                 }
             });
-
-            Glfw.SetKeyCallback(_windowHandle, HandleKeyCallback);
-
-            Glfw.SetCharCallback(_windowHandle, HandleCharCallback);
-
-            Glfw.SetCharModsCallback(_windowHandle, HandleCharModCallback);
-
-            Glfw.SetScrollCallback(_windowHandle, HandleScrollCallback);
-
-            Glfw.SetCursorPosCallback(_windowHandle, HandleCursorPosCallback);
-
-            Glfw.SetCursorEnterCallback(_windowHandle, HandleCursorEnterCallback);
-
-            Glfw.SetMouseButtonCallback(_windowHandle, HandleMouseButtonCallback);
-
-            Glfw.SetJoystickCallback(HandleJoystickCallback);
-
-            Glfw.SetDropCallback(_windowHandle, HandleFileDropCallback);
 
             #endregion
 
@@ -497,7 +341,10 @@ public unsafe partial class GLFWWindow //: IDisposable
             throw new InvalidOperationException("Surface or GRContext is not initialized.");
 
         if (processesEvents)
+        {
+            Input.ResetFrameInputState();
             Glfw.PollEvents();
+        }
 
         var canvas = _surface.Canvas;
 
@@ -520,6 +367,7 @@ public unsafe partial class GLFWWindow //: IDisposable
             canvas.Flush();
             _grContext.Flush();
             Glfw.SwapBuffers(_windowHandle);
+            FrameCount++;
             _nextFrameRendered = true;
         }
         else
@@ -549,6 +397,7 @@ public unsafe partial class GLFWWindow //: IDisposable
         {
             Task.Delay(5).Wait();
         }
+        Logger.LogLine($"{FrameCount, -8} Show() return");
     }
 
     public virtual void Clear(Color? clearColor = null)

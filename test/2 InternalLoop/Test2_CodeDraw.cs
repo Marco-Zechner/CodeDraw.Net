@@ -9,7 +9,7 @@ namespace MarcoZechner.CodeDrawDotNet.Test2;
 public class Test2_CodeDraw
 {
     private static bool _next = true;
-    
+
     private static CodeDraw _cd = null!;
 
     private static readonly Color _bg = Color.WHITE;
@@ -18,17 +18,17 @@ public class Test2_CodeDraw
 
     public static void Run()
     {
-        _cd = new("Beispiel 1", true);
-        // _cd.Title = "Beispiel 2 - Interner Loop"; // crash. i think because its not called on the render thread.
-        _cd.Size = new Vector2<int>(300, 300); //crash
+        _cd = new("Beispiel 1.2", true);
+        // _cd.Title = "Beispiel 1.2 - Interner Loop"; // crash. i think because its not called on the render thread.
+        // _cd.Size = new Vector2<int>(300, 300); //crash
         // _cd.Resizable = true; // crash
 
         _cd.AutoRender = true;
         _cd.MonitorRendering = false;
 
         _cd.OnLoad += Load;
-        _cd.OnKeyDown += ProcessKey;
-        _cd.OnKey += ProcessKey;
+        _cd.Input.OnKeyDown += ProcessKey;
+        _cd.Input.OnKey += ProcessKey;
         _cd.OnRender += Render;
         _cd.Run();
     }
@@ -37,7 +37,7 @@ public class Test2_CodeDraw
     private static void Load()
     {
         //TODO: yes, can only be called on the render thread. fix this.
-        _cd.Title = "Beispiel 2 - Interner Loop";
+        _cd.Title = "Beispiel 1.2 - Interner Loop";
         _cd.Size = new Vector2<int>(300, 300);
         _cd.Resizable = true;
 

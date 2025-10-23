@@ -46,9 +46,11 @@ public class Test1_CodeDraw
                     (color1, color2) = (color2, color1);
                 }
                 else
+                {
                     // Console.WriteLine(" --- ");
+                }
 
-                    _bsp1.Clear(Color.WHITE);
+                _bsp1.Clear(Color.WHITE);
 
                 _bsp1.Shapes.DrawColor = color1;
                 _bsp1.Shapes.FillCircle(150, 150, 100);

@@ -19,6 +19,8 @@ public unsafe partial class GLFWWindow
     private readonly Task? _renderTask;
     private WindowHandle* _windowHandle;
     public WindowHandle* WindowHandle => _windowHandle;
+    private readonly SharedGlManager _mgr = SharedGlManager.Instance;
+    private readonly unsafe WindowHandle* _shareHandle;
 
     private GL? _gl;
     public GL GL => _gl ?? throw new InvalidOperationException("OpenGL is not initialized. Make sure to create at least one window before accessing OpenGL.");
@@ -26,7 +28,7 @@ public unsafe partial class GLFWWindow
     private GRGlFramebufferInfo _fbInfo;
     private GRBackendRenderTarget? _backendRenderTarget;
     private SKSurface? _surface;
-    public bool IsRunning => !Glfw.WindowShouldClose(_windowHandle) && !_renderTaskCTS.IsCancellationRequested;
+    public bool IsRunning => !_mgr.Glfw.WindowShouldClose(_windowHandle) && !_renderTaskCTS.IsCancellationRequested;
 
     public event Action<Vector2<int>>? OnResize;
     private bool _resizeEndPending = false;
@@ -112,10 +114,7 @@ public unsafe partial class GLFWWindow
         _title = title;
         UseManagementEvents = useManagementEvents;
 
-        if (WindowCount == 0)
-            InitializeGLFW();
-
-        WindowCount++;
+        _shareHandle = _mgr.Acquire();
 
         _renderTask = Task.Factory.StartNew(
             SetupRenderLoop,
@@ -125,10 +124,8 @@ public unsafe partial class GLFWWindow
         );
 
         _initTCS.Task.Wait();
-        if (Glfw == null || _gl == null || _windowHandle == null)
-        {
+        if (_mgr.Glfw == null || _gl == null || _windowHandle == null)
             throw new Exception("Failed to initialize GLFW or OpenGL.");
-        }
     }
 
     public void Run()
@@ -138,7 +135,7 @@ public unsafe partial class GLFWWindow
 
         _runTCS.TrySetResult(true); // signal that Run has been called, allow render loop to continue
         _onLoadTCS.Task.Wait(); // wait until setup is done
-        if (Glfw == null || _gl == null || _windowHandle == null)
+        if (_mgr.Glfw == null || _gl == null || _windowHandle == null)
         {
             throw new Exception("Failed to initialize GLFW or OpenGL.");
         }
@@ -148,10 +145,15 @@ public unsafe partial class GLFWWindow
 
     private WindowHandle* CreateWindow()
     {
-        if (Glfw == null)
+        if (_mgr.Glfw == null)
             throw new InvalidOperationException("GLFW is not initialized.");
 
-        var windowHandle = Glfw.CreateWindow(800, 600, _title, null, _sharedWindow);
+        if (_shareHandle == null) throw new InvalidOperationException("Share root not ready.");
+
+        _mgr.ApplyWindowHints();
+
+        var windowHandle = _mgr.Glfw.CreateWindow(800, 600, _title, null, _shareHandle);
+
         return windowHandle switch
         {
             null => throw new InvalidOperationException("Failed to create GLFW window."),
@@ -165,31 +167,25 @@ public unsafe partial class GLFWWindow
         {
             _windowHandle = CreateWindow(); // needs to be called in the same thread as the render loop...
 
-            Glfw.MakeContextCurrent(_windowHandle);
+            _mgr.Glfw.MakeContextCurrent(_windowHandle);
 
             Input = new Input(this);
 
             #region Callbacks
 
-            Glfw.SetErrorCallback((error, description) =>
-            {
-                Console.WriteLine($"GLFW Error: {error} - {description}");
-            });
-
-            Glfw.SetWindowCloseCallback(_windowHandle, (w) =>
+            _mgr.Glfw.SetWindowCloseCallback(_windowHandle, (w) =>
             {
                 OnClosing?.Invoke();
-                WindowCount--;
             });
 
-            Glfw.SetFramebufferSizeCallback(_windowHandle, (w, x, y) =>
+            _mgr.Glfw.SetFramebufferSizeCallback(_windowHandle, (w, x, y) =>
             {
                 ResizeSkiaSurface();
                 RenderCall(false);
             });
 
 
-            Glfw.SetWindowFocusCallback(_windowHandle, (w, focus) =>
+            _mgr.Glfw.SetWindowFocusCallback(_windowHandle, (w, focus) =>
             {
                 OnFocusChanged?.Invoke(focus);
                 if (!focus)
@@ -202,20 +198,20 @@ public unsafe partial class GLFWWindow
 
 
             #region Attempt to rendering window while its being moved or resized
-            Glfw.SetWindowPosCallback(_windowHandle, (w, x, y) =>
+            _mgr.Glfw.SetWindowPosCallback(_windowHandle, (w, x, y) =>
             {
                 OnMove?.Invoke(new Vector2<int>(x, y));
                 RenderCall(false);
             });
 
-            Glfw.SetWindowSizeCallback(_windowHandle, (w, width, height) =>
+            _mgr.Glfw.SetWindowSizeCallback(_windowHandle, (w, width, height) =>
             {
                 _resizeEndPending = true;
                 OnResize?.Invoke(new Vector2<int>(width, height));
                 RenderCall(false);
             });
 
-            Glfw.SetWindowRefreshCallback(_windowHandle, (w) =>
+            _mgr.Glfw.SetWindowRefreshCallback(_windowHandle, (w) =>
             {
                 RenderCall(false);
             });
@@ -235,7 +231,7 @@ public unsafe partial class GLFWWindow
             RenderLoop();
 
             // 5) Cleanup
-            Glfw.DestroyWindow(_windowHandle);
+            _mgr.Glfw.DestroyWindow(_windowHandle);
         }
         catch (Exception ex)
         {
@@ -245,7 +241,7 @@ public unsafe partial class GLFWWindow
 
     private void InitGL()
     {
-        _gl = GL.GetApi(Glfw.GetProcAddress);
+        _gl = GL.GetApi(_mgr.Glfw.GetProcAddress);
 
         var glInterface = GRGlInterface.Create();
         _grContext = GRContext.CreateGl(glInterface);
@@ -262,7 +258,7 @@ public unsafe partial class GLFWWindow
     private void ResizeSkiaSurface()
     {
         _surface?.Dispose();
-        Glfw.GetFramebufferSize(_windowHandle, out var w, out var h);
+        _mgr.Glfw.GetFramebufferSize(_windowHandle, out var w, out var h);
         _backendRenderTarget = new GRBackendRenderTarget(w, h, 0, 8, _fbInfo);
         _surface = SKSurface.Create(_grContext, _backendRenderTarget,
             GRSurfaceOrigin.BottomLeft, SKColorType.Rgba8888);
@@ -273,7 +269,7 @@ public unsafe partial class GLFWWindow
     {
         Task.Run(() =>
         {
-            while (!_renderTaskCTS.IsCancellationRequested && !Glfw.WindowShouldClose(_windowHandle))
+            while (!_renderTaskCTS.IsCancellationRequested && !_mgr.Glfw.WindowShouldClose(_windowHandle))
             {
                 if (MonitorRendering)
                     RenderMonitor();
@@ -282,7 +278,7 @@ public unsafe partial class GLFWWindow
             }
         });
 
-        while (!_renderTaskCTS.IsCancellationRequested && !Glfw.WindowShouldClose(_windowHandle))
+        while (!_renderTaskCTS.IsCancellationRequested && !_mgr.Glfw.WindowShouldClose(_windowHandle))
         {
             RenderCall(true);
         }
@@ -345,7 +341,7 @@ public unsafe partial class GLFWWindow
         if (processesEvents)
         {
             Input.ResetFrameInputState();
-            Glfw.PollEvents();
+            _mgr.Glfw.PollEvents();
         }
 
         var canvas = _surface.Canvas;
@@ -368,13 +364,13 @@ public unsafe partial class GLFWWindow
             _renderNextFrame = false;
             canvas.Flush();
             _grContext.Flush();
-            Glfw.SwapBuffers(_windowHandle);
+            _mgr.Glfw.SwapBuffers(_windowHandle);
             FrameCount++;
             _nextFrameRendered = true;
         }
         else
         {
-            Glfw.WaitEvents();
+            _mgr.Glfw.WaitEvents();
         }
 
         _stopwatch.Stop();
@@ -393,7 +389,7 @@ public unsafe partial class GLFWWindow
     public virtual void Show()
     {
         _renderNextFrame = true;
-        Glfw.PostEmptyEvent();
+        _mgr.Glfw.PostEmptyEvent();
         _nextFrameRendered = false;
         while (!_nextFrameRendered)
         {
@@ -410,25 +406,24 @@ public unsafe partial class GLFWWindow
 
     public void Close()
     {
-        if (_windowHandle != null && !Glfw.WindowShouldClose(_windowHandle))
-            Glfw.SetWindowShouldClose(_windowHandle, true);
+        if (_windowHandle != null && !_mgr.Glfw.WindowShouldClose(_windowHandle))
+            _mgr.Glfw.SetWindowShouldClose(_windowHandle, true);
+
         _renderTaskCTS.Cancel();
-        try
-        {
-            _renderTask?.Wait();
-        }
+        try { _renderTask?.Wait(); }
         catch (AggregateException ex) when (ex.InnerExceptions.All(e => e is TaskCanceledException))
         {
             Console.WriteLine("Render task cancelled with exception: " + ex.InnerException);
         }
         _renderTaskCTS.Dispose();
+
         _surface?.Dispose();
         _backendRenderTarget?.Dispose();
         _grContext?.Dispose();
-        Glfw.MakeContextCurrent(null);
-        if (WindowCount == 0)
-        {
-            Glfw.Terminate();
-        }
+
+        _mgr.Glfw.MakeContextCurrent(null);
+
+        // IMPORTANT: tell the manager this window is gone (may trigger global shutdown)
+        _mgr.Release();
     }
 }

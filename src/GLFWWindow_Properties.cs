@@ -26,7 +26,7 @@ public unsafe partial class GLFWWindow
         }
         set
         {
-            Glfw.SetWindowTitle(_windowHandle, value); // not on render thread
+            _mgr.Glfw.SetWindowTitle(_windowHandle, value); // not on render thread
             _title = value;
         }
     }
@@ -35,11 +35,11 @@ public unsafe partial class GLFWWindow
     {
         get
         {
-            return Glfw.GetWindowAttrib(_windowHandle, WindowAttributeGetter.Decorated);
+            return _mgr.Glfw.GetWindowAttrib(_windowHandle, WindowAttributeGetter.Decorated);
         }
         set
         {
-            Glfw.SetWindowAttrib(_windowHandle, WindowAttributeSetter.Decorated, value);  // not on render thread
+            _mgr.Glfw.SetWindowAttrib(_windowHandle, WindowAttributeSetter.Decorated, value);  // not on render thread
         }
     }
 
@@ -47,11 +47,11 @@ public unsafe partial class GLFWWindow
     {
         get
         {
-            return Glfw.GetWindowAttrib(_windowHandle, WindowAttributeGetter.Floating);
+            return _mgr.Glfw.GetWindowAttrib(_windowHandle, WindowAttributeGetter.Floating);
         }
         set
         {
-            Glfw.SetWindowAttrib(_windowHandle, WindowAttributeSetter.Floating, value);  // not on render thread
+            _mgr.Glfw.SetWindowAttrib(_windowHandle, WindowAttributeSetter.Floating, value);  // not on render thread
         }
     }
 
@@ -59,25 +59,25 @@ public unsafe partial class GLFWWindow
     {
         get
         {
-            Glfw.GetWindowPos(_windowHandle, out int x, out int y);
+            _mgr.Glfw.GetWindowPos(_windowHandle, out int x, out int y);
             return new Vector2<int>(x, y);
         }
         set
         {
-            Glfw.SetWindowPos(_windowHandle, value.X, value.Y);
+            _mgr.Glfw.SetWindowPos(_windowHandle, value.X, value.Y);
         }
     }
     public Vector2<int> Size
     {
         get
         {
-            Glfw.GetWindowSize(_windowHandle, out int w, out int h);
+            _mgr.Glfw.GetWindowSize(_windowHandle, out int w, out int h);
             return new Vector2<int>(w, h);
         }
         set
         {
 
-            Glfw.SetWindowSize(_windowHandle, value.X, value.Y);  // not on render thread
+            _mgr.Glfw.SetWindowSize(_windowHandle, value.X, value.Y);  // not on render thread
         }
     }
 
@@ -94,11 +94,11 @@ public unsafe partial class GLFWWindow
     {
         get
         {
-            return Glfw.GetWindowAttrib(_windowHandle, WindowAttributeGetter.Resizable);
+            return _mgr.Glfw.GetWindowAttrib(_windowHandle, WindowAttributeGetter.Resizable);
         }
         set
         {
-            Glfw.SetWindowAttrib(_windowHandle, WindowAttributeSetter.Resizable, value);  // not on render thread
+            _mgr.Glfw.SetWindowAttrib(_windowHandle, WindowAttributeSetter.Resizable, value);  // not on render thread
         }
     }
 
@@ -106,14 +106,14 @@ public unsafe partial class GLFWWindow
     {
         get
         {
-            var str = Glfw.GetClipboardString(_windowHandle);
+            var str = _mgr.Glfw.GetClipboardString(_windowHandle);
             return str;
         }
         set
         {
             if (value == null)
                 throw new ArgumentNullException(nameof(value), "Clipboard value cannot be set to null.");
-            Glfw.SetClipboardString(_windowHandle, value.ToString());
+            _mgr.Glfw.SetClipboardString(_windowHandle, value.ToString());
         }
     }
 

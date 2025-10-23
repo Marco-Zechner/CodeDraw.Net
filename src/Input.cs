@@ -11,7 +11,7 @@ public unsafe class Input
     {
         _window = window;
 
-        var glfw = GLFWWindow.Glfw;
+        var glfw = SharedGlManager.Instance.Glfw;
 
         glfw.SetInputMode(_window.WindowHandle, (StickyAttributes)0x00033004, true);
         glfw.SetKeyCallback(_window.WindowHandle, HandleKeyCallback);
@@ -52,7 +52,7 @@ public unsafe class Input
     public bool IsMouseButtonDown(MouseButton button) => _heldMouseButtons.Contains(button);
     public Vector2<double> GetCursorPos()
     {
-        GLFWWindow.Glfw.GetCursorPos(_window.WindowHandle, out double x, out double y);
+        SharedGlManager.Instance.Glfw.GetCursorPos(_window.WindowHandle, out double x, out double y);
         return new Vector2<double>(x, y);
     }
 

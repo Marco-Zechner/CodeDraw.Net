@@ -1,6 +1,6 @@
 ﻿using MarcoZechner.CodeDrawDotNet.Test1;
 using MarcoZechner.CodeDrawDotNet.Test2;
-using MarcoZechner.Math;
+using MarcoZechner.CodeDrawDotNet.Test3;
 
 namespace MarcoZechner.CodeDrawDotNet.Tests;
 
@@ -10,6 +10,10 @@ public class Program
     [
         ("1", "Simple CodeDraw", Test1_CodeDraw.Run),
         ("2", "Internal Loop", Test2_CodeDraw.Run),
+        ("3", "Shared Context", () => {
+            var test3 = new Test3_SharedContext();
+            test3.Run();
+        })
     ];
 
 
@@ -29,26 +33,26 @@ public class Program
                 }
             }
 
-            Test1_CodeDraw.OffsetNow();
-            Test2_CodeDraw.OffsetNow();
+            // Test1_CodeDraw.OffsetNow();
+            // Test2_CodeDraw.OffsetNow();
 
-            int maxDiff = 200;
-            int barLength = (Console.WindowWidth - 5) / 2;
-            while (true)
-            {
-                long fc1 = Test1_CodeDraw.FrameCount;
-                long fc2 = Test2_CodeDraw.FrameCount;
-                long toLeftSide = fc1 - fc2;
-                long toRightSide = fc2 - fc1;
-                long leftEmpty = MathG.Min(barLength - toLeftSide, barLength);
-                long rightEmpty = MathG.Min(barLength - toRightSide, barLength);
-                Console.Write($"\n1:{new string(' ', (int)leftEmpty)}{new string('=', (int)(barLength - leftEmpty))}|" +
-                              $"{new string('=', (int)(barLength - rightEmpty))}{new string(' ', (int)rightEmpty)}:2");
-                Thread.Sleep(20);
-            }
+            // int maxDiff = 200;
+            // int barLength = (Console.WindowWidth - 5) / 2;
+            // while (true)
+            // {
+            //     long fc1 = Test1_CodeDraw.FrameCount;
+            //     long fc2 = Test2_CodeDraw.FrameCount;
+            //     long toLeftSide = fc1 - fc2;
+            //     long toRightSide = fc2 - fc1;
+            //     long leftEmpty = MathG.Min(barLength - toLeftSide, barLength);
+            //     long rightEmpty = MathG.Min(barLength - toRightSide, barLength);
+            //     Console.Write($"\n1:{new string(' ', (int)leftEmpty)}{new string('=', (int)(barLength - leftEmpty))}|" +
+            //                   $"{new string('=', (int)(barLength - rightEmpty))}{new string(' ', (int)rightEmpty)}:2");
+            //     Thread.Sleep(20);
+            // }
 
             Console.WriteLine("Waiting for open windows to close...");
-            CodeDraw.WaitForOpenWindows();
+            SharedGlManager.Instance.WaitForOpenWindows();
             return;
         }
 

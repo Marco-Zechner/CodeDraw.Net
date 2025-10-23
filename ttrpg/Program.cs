@@ -83,7 +83,7 @@ public class Program
             }
         });
 
-        CodeDraw.WaitForOpenWindows();
+        SharedGlManager.Instance.WaitForOpenWindows();
         // _map_image?.Dispose();
         // _map_image = null;
     }

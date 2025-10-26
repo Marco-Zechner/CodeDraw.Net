@@ -1,47 +1,27 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using MarcoZechner.CodeDrawDotNet.Shader;
+using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
+using static MarcoZechner.CodeDrawDotNet.Shader.GLShader;
 
 namespace MarcoZechner.CodeDrawDotNet.Test3;
 
 public class Test3_SharedContext
 {
     private readonly CancellationTokenSource _cts = new CancellationTokenSource();
-    private SharedLayer _sharedLayer = null!;
 
     private async Task SetupSharedLayer()
     {
         var mgr = SharedGlManager.Instance;
-
-        _sharedLayer = await mgr.CreateLayerAsync(512, 512);
-
-        _ = Task.Run(async () =>
-        {
-            double t = 0;
-            while (!_cts.IsCancellationRequested)
-            {
-                t += 0.2;
-                float r = 0.5f + 0.5f * MathF.Sin((float)t);
-                float g = 0.5f + 0.5f * MathF.Sin((float)t + 2.0f);
-                float b = 0.5f + 0.5f * MathF.Sin((float)t + 4.0f);
-
-                await mgr.DrawIntoAsync(_sharedLayer, gl =>
-                {
-                    gl.ClearColor(r, g, b, 1f);
-                    gl.Clear((uint)ClearBufferMask.ColorBufferBit);
-                });
-
-                await Task.Delay(200);
-            }
-        });
     }
 
     public void Run()
     {
         SetupSharedLayer().GetAwaiter().GetResult();
-        
-        var tA = new Thread(() => RunWindow("A (shared texture)", 800, 600, _sharedLayer)) { IsBackground = true };
-        var tB = new Thread(() => RunWindow("B (shared texture)", 800, 600, _sharedLayer)) { IsBackground = true };
+
+        var tA = new Thread(() => RunWindow("A (shared texture)", 800, 600, 0)) { IsBackground = true };
+        var tB = new Thread(() => RunWindow("B (shared texture)", 800, 600, 1)) { IsBackground = true };
 
         tA.Start();
         tB.Start();
@@ -53,15 +33,26 @@ public class Test3_SharedContext
         // stop updater and exit
         _cts.Cancel();
     }
-    
-    static unsafe void RunWindow(string title, int w, int h, SharedLayer layer)
+
+    static volatile uint _gSharedTex = 0;
+    static volatile uint _gSharedTex2 = 0;
+    static readonly ManualResetEventSlim _gSharedTexReady = new(false);
+    static readonly ManualResetEventSlim _gSharedTexReady2 = new(false);
+
+    static unsafe void RunWindow(string title, int w, int h, int windowIndex)
     {
         var mgr = SharedGlManager.Instance;
         var share = mgr.Acquire();
         var glfw = mgr.Glfw;
 
-        mgr.ApplyWindowHints();
-        var win = glfw.CreateWindow(w, h, title, null, share);
+        WindowHandle* win = null;
+
+        lock (mgr.ShareGroupLock)
+        {
+            mgr.ApplyWindowHints();
+            win = glfw.CreateWindow(w, h, title, null, share);
+        }
+
         if (win == null) throw new Exception("CreateWindow failed");
 
         glfw.MakeContextCurrent(win);
@@ -79,50 +70,195 @@ public class Test3_SharedContext
         gl.Enable(GLEnum.DebugOutput);
         gl.Enable(GLEnum.DebugOutputSynchronous);
         unsafe {
-        gl.DebugMessageCallback((source, type, id, severity, length, message, userparam) => {
-            string msg = Marshal.PtrToStringAnsi(message, length);
-            Console.Error.WriteLine($"[DebugMessageCallback] source: {source}, type: {type}, id: {id}, severity {severity}, length {length}, userParam {userparam}\n{msg}\n\n");
-        }, (void*) 0);
+            gl.DebugMessageCallback((source, type, id, severity, length, message, userparam) => {
+                string msg = Marshal.PtrToStringAnsi(message, length);
+                Logger.LogLine($"[DebugMessageCallback] source: {source}, type: {type}, id: {id}, severity {severity}, length {length}, userParam {userparam}\n{msg}");
+            }, (void*) 0);
         }
 
-        uint prog = GLHelpers.CreateProgram(gl, GLHelpers.VS, GLHelpers.FS);
-        var (vao, vbo, ebo) = GLHelpers.CreateFullScreenQuad(gl);
+        uint prog = CreateProgram(gl, CircleShader.VS, CircleShader.FS);
+        var (vao, vbo, ebo) = CreateFullScreenQuad(gl);
+
+        uint progLayer = CreateProgram(gl, LayerShader.VS, LayerShader.FS);
+        int locUTex = gl.GetUniformLocation(progLayer, "uTex");
+
+        int locTime   = gl.GetUniformLocation(prog, "uTime");
+        int locPeriod = gl.GetUniformLocation(prog, "uPeriod");
+        int locRadius = gl.GetUniformLocation(prog, "uRadius");
+        int locColor  = gl.GetUniformLocation(prog, "uColor");
+        int locRes    = gl.GetUniformLocation(prog, "uResolution");
+        int locPathRadius = gl.GetUniformLocation(prog, "uPathRadius");
+
+        uint offFbo = (uint)0;
+        uint offTex = (uint)0;
+        uint offFbo2 = (uint)0;
+        uint offTex2 = (uint)0;
+        //layer tests
+        if (windowIndex == 0)
+        {
+            glfw.GetFramebufferSize(win, out int fbW, out int fbH);
+
+            gl.CreateTextures(TextureTarget.Texture2D, 1, out offTex);
+            gl.TextureStorage2D(offTex, 1, SizedInternalFormat.Rgba8, (uint)fbW, (uint)fbH);
+            gl.TextureParameter(offTex, TextureParameterName.TextureMinFilter, (int)GLEnum.Linear);
+            gl.TextureParameter(offTex, TextureParameterName.TextureMagFilter, (int)GLEnum.Linear);
+            gl.TextureParameter(offTex, TextureParameterName.TextureWrapS, (int)GLEnum.ClampToEdge);
+            gl.TextureParameter(offTex, TextureParameterName.TextureWrapT, (int)GLEnum.ClampToEdge);
+
+            _gSharedTex = offTex;
+            _gSharedTexReady.Set();
+
+            gl.CreateFramebuffers(1, out offFbo);
+            gl.NamedFramebufferTexture(offFbo, FramebufferAttachment.ColorAttachment0, offTex, 0);
+        } else
+        {
+            glfw.GetFramebufferSize(win, out int fbW, out int fbH);
+
+            gl.CreateTextures(TextureTarget.Texture2D, 1, out offTex2);
+            gl.TextureStorage2D(offTex2, 1, SizedInternalFormat.Rgba8, (uint)fbW, (uint)fbH);
+            gl.TextureParameter(offTex2, TextureParameterName.TextureMinFilter, (int)GLEnum.Linear);
+            gl.TextureParameter(offTex2, TextureParameterName.TextureMagFilter, (int)GLEnum.Linear);
+            gl.TextureParameter(offTex2, TextureParameterName.TextureWrapS, (int)GLEnum.ClampToEdge);
+            gl.TextureParameter(offTex2, TextureParameterName.TextureWrapT, (int)GLEnum.ClampToEdge);
+
+            _gSharedTex2 = offTex2;
+            _gSharedTexReady2.Set();
+
+            gl.CreateFramebuffers(1, out offFbo2);
+            gl.NamedFramebufferTexture(offFbo2, FramebufferAttachment.ColorAttachment0, offTex2, 0);   
+        }
 
         gl.Enable(GLEnum.Blend);
         gl.BlendFunc(GLEnum.SrcAlpha, GLEnum.OneMinusSrcAlpha);
 
-        Stopwatch stopwatch = new Stopwatch();
+        Stopwatch stopwatch = new();
 
         while (!glfw.WindowShouldClose(win))
         {
             var time = stopwatch.ElapsedMilliseconds;
 
-            if (time < 1)
+            if (time < 20)
             {
-                Thread.Sleep((int)(1 - time));
+                Thread.Sleep((int)(20 - time));
             }
 
             stopwatch.Restart();
             glfw.PollEvents();
+            Logger.LogLine($"window: {windowIndex}: poll events");
 
+            if (windowIndex == 1)
+            {
+                _gSharedTexReady.Wait();
+                offTex = _gSharedTex;
+            } else
+            {
+                _gSharedTexReady2.Wait();
+                offTex2 = _gSharedTex2;
+            }
+
+            gl.BindFramebuffer(FramebufferTarget.Framebuffer, 0);        
             glfw.GetFramebufferSize(win, out var fbW, out var fbH);
+            if (fbW == 0 || fbH == 0)
+            {
+                // keep event loop alive, but skip GL
+                glfw.SwapBuffers(win);
+                stopwatch.Stop();
+                Console.WriteLine("size 0! at 1");
+                continue;
+            }
             gl.Viewport(0, 0, (uint)fbW, (uint)fbH);
-            gl.ClearColor(0.08f, 0.08f, 0.09f, 1f);
+            gl.ClearColor(0f, 0f, 0.2f, 1f);
             gl.Clear((uint)ClearBufferMask.ColorBufferBit);
 
-            // sample the shared texture
-            layer.BeginUse();
             gl.UseProgram(prog);
             gl.BindVertexArray(vao);
 
-            gl.ActiveTexture(TextureUnit.Texture0);
-            gl.BindTexture(TextureTarget.Texture2D, layer.Texture);
-            gl.Uniform1(gl.GetUniformLocation(prog, "uTex"), 0);
+            float timeSec = (float)DateTime.Now.TimeOfDay.TotalSeconds;
+            float periodSec;
+            float radiusPx;
+            if (windowIndex == 0)
+            {
+                periodSec = 10.0f;            // circle crosses in 2 seconds
+                radiusPx = 40.0f;           // circle radius in pixels
+                gl.Uniform4(locColor, 1.0f, 0.6f, 0.2f, 1.0f);
+            }
+            else
+            {
+                periodSec = 12.0f;            // circle crosses in 2 seconds
+                radiusPx = 25.0f;           // circle radius in pixels
+                gl.Uniform4(locColor, 0.6f, 0.2f, 1.0f, 0.8f);
+            }
+            gl.Uniform1(locTime, timeSec);
+            gl.Uniform1(locPeriod, periodSec);
+            gl.Uniform1(locRadius, radiusPx);
+            gl.Uniform2(locRes, (float)fbW, (float)fbH);
+            gl.Uniform1(locPathRadius, (float)(fbH / 2 - radiusPx - 10)); // path radius
 
             gl.DrawElements(PrimitiveType.Triangles, 6, DrawElementsType.UnsignedInt, null);
-            layer.EndUse();
+            Logger.LogLine($"window: {windowIndex}: draw basic circle");
+
+
+            if (windowIndex == 0)
+            {
+                // shared buffer
+                gl.BindFramebuffer(FramebufferTarget.Framebuffer, offFbo);
+                glfw.GetFramebufferSize(win, out fbW, out fbH);
+                if (fbW == 0 || fbH == 0)
+                {
+                    // keep event loop alive, but skip GL
+                    glfw.SwapBuffers(win);
+                    stopwatch.Stop();
+                    Console.WriteLine("size 0! at 2");
+                    continue;
+                }
+                gl.Viewport(0, 0, (uint)fbW, (uint)fbH);
+                gl.ClearColor(0f, 0f, 0f, 0f);
+                gl.Clear((uint)ClearBufferMask.ColorBufferBit);
+
+                gl.UseProgram(prog);
+                gl.BindVertexArray(vao);
+
+
+                // uniforms
+                periodSec = 18.0f;            // circle crosses in 2 seconds
+                radiusPx = 25.0f;           // circle radius in pixels
+                gl.Uniform1(locTime, timeSec);
+                gl.Uniform1(locPeriod, periodSec);
+                gl.Uniform1(locRadius, radiusPx);
+                gl.Uniform4(locColor, 0.2f, 1.0f, 0.6f, 0.5f);
+                gl.Uniform2(locRes, (float)fbW, (float)fbH);
+                gl.Uniform1(locPathRadius, (float)(fbH / 2 - radiusPx - 10)); // path radius
+
+                gl.DrawElements(PrimitiveType.Triangles, 6, DrawElementsType.UnsignedInt, null);
+                Logger.LogLine($"window: {windowIndex}: draw buffer circle");
+            }
+
+            gl.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
+            if (windowIndex == 0)
+                gl.Flush();
+            glfw.GetFramebufferSize(win, out fbW, out fbH);
+            if (fbW == 0 || fbH == 0)
+            {
+                // keep event loop alive, but skip GL
+                glfw.SwapBuffers(win);
+                stopwatch.Stop();
+                Console.WriteLine("size 0! at 3");
+                continue;
+            }
+            gl.Viewport(0, 0, (uint)fbW, (uint)fbH);
+
+            gl.UseProgram(progLayer);
+            gl.BindVertexArray(vao);
+
+            gl.ActiveTexture(TextureUnit.Texture0);
+            gl.BindTexture(TextureTarget.Texture2D, offTex);
+            if (locUTex >= 0) gl.Uniform1(locUTex, 0);
+
+            gl.DrawElements(PrimitiveType.Triangles, 6, DrawElementsType.UnsignedInt, null);
+            Logger.LogLine($"window: {windowIndex}: draw texture");
 
             glfw.SwapBuffers(win);
+            Logger.LogLine($"window: {windowIndex}: swap buffers");
             stopwatch.Stop();
         }
 
@@ -131,89 +267,9 @@ public class Test3_SharedContext
         gl.DeleteBuffer(vbo);
         gl.DeleteBuffer(ebo);
         gl.DeleteProgram(prog);
+        gl.DeleteProgram(progLayer);
 
         glfw.DestroyWindow(win);
         mgr.Release();
     }
-}
-
-internal class GLHelpers
-{
-    public static uint CreateShader(GL gl, GLEnum type, string src)
-    {
-        uint s = gl.CreateShader(type);
-        gl.ShaderSource(s, src);
-        gl.CompileShader(s);
-        gl.GetShader(s, GLEnum.CompileStatus, out int ok);
-        if (ok == 0) { var log = gl.GetShaderInfoLog(s); throw new Exception($"Shader compile failed: {log}"); }
-        return s;
-    }
-
-    public static uint CreateProgram(GL gl, string vs, string fs)
-    {
-        uint v = CreateShader(gl, GLEnum.VertexShader, vs);
-        uint f = CreateShader(gl, GLEnum.FragmentShader, fs);
-        uint p = gl.CreateProgram();
-        gl.AttachShader(p, v); gl.AttachShader(p, f);
-        gl.LinkProgram(p);
-        gl.GetProgram(p, GLEnum.LinkStatus, out int ok);
-        gl.DeleteShader(v); gl.DeleteShader(f);
-        if (ok == 0) { var log = gl.GetProgramInfoLog(p); throw new Exception($"Program link failed: {log}"); }
-        return p;
-    }
-
-    public unsafe static (uint vao, uint vbo, uint ebo) CreateFullScreenQuad(GL gl)
-    {
-        // pos (x,y) in NDC, uv (u,v)
-        float[] verts = [
-            -1, -1, 0, 0,
-            1, -1, 1, 0,
-            1,  1, 1, 1,
-            -1,  1, 0, 1,
-        ];
-        uint[] idx = [0, 1, 2, 0, 2, 3];
-
-        gl.CreateVertexArrays(1, out uint vao);
-        gl.CreateBuffers(1, out uint vbo);
-        gl.CreateBuffers(1, out uint ebo);
-
-        fixed (float* p = verts)
-        {
-            gl.NamedBufferData(vbo, (nuint)(verts.Length * sizeof(float)), p, GLEnum.StaticDraw);
-        }
-        fixed (uint* p = idx)
-        {
-            gl.NamedBufferData(ebo, (nuint)(idx.Length * sizeof(uint)), p, GLEnum.StaticDraw);
-        }
-
-        gl.VertexArrayVertexBuffer(vao, 0, vbo, 0, 4 * sizeof(float));
-        gl.EnableVertexArrayAttrib(vao, 0);
-        gl.EnableVertexArrayAttrib(vao, 1);
-        gl.VertexArrayAttribFormat(vao, 0, 2, GLEnum.Float, false, 0);
-        gl.VertexArrayAttribFormat(vao, 1, 2, GLEnum.Float, false, 2 * sizeof(float));
-        gl.VertexArrayAttribBinding(vao, 0, 0);
-        gl.VertexArrayAttribBinding(vao, 1, 0);
-
-        gl.VertexArrayElementBuffer(vao, ebo);
-        return (vao, vbo, ebo);
-    }
-    
-    public const string VS = @"
-    #version 330 core
-    layout(location=0) in vec2 aPos;
-    layout(location=1) in vec2 aUV;
-    out vec2 vUV;
-    void main() {
-        vUV = aUV;
-        gl_Position = vec4(aPos, 0.0, 1.0);
-    }";
-
-    public const string FS = @"
-    #version 330 core
-    in vec2 vUV;
-    out vec4 FragColor;
-    uniform sampler2D uTex;
-    void main() {
-        FragColor = texture(uTex, vUV);
-    }";
 }

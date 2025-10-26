@@ -13,7 +13,10 @@ public class Program
         ("3", "Shared Context", () => {
             var test3 = new Test3_SharedContext();
             test3.Run();
-        })
+        }),
+        ("3E1", "Shared Context Experiment 1", () => {
+            Experiment_1.Run();
+        }),
     ];
 
 

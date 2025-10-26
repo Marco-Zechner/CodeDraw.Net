@@ -21,11 +21,11 @@ public sealed class SharedGlManager : IDisposable
         public int DepthBits = 24, StencilBits = 8;
         public int Samples = 0;
 
-        public bool TransparentFramebuffer = false;  // <-- start false
+        public bool TransparentFramebuffer = true;  // <-- start with false for debugging
         public bool Resizable = true;
         public bool Decorated = true;
         public bool Doublebuffer = true;
-        public bool DebugContext = false;            // <-- start false
+        public bool DebugContext = true;            // <-- start false
     }
     public GlConfig Config { get; } = new();
 
@@ -77,6 +77,9 @@ public sealed class SharedGlManager : IDisposable
 
     public unsafe WindowHandle* ShareWindow { get; private set; } = null;
     public Glfw Glfw { get; private set; } = null!;
+
+    private readonly object _shareGroupLock = new();
+    public object ShareGroupLock => _shareGroupLock;
 
     private SharedGlManager()
     {
@@ -190,35 +193,38 @@ public sealed class SharedGlManager : IDisposable
             Console.WriteLine($"GLFW Manager Error: {error} - {description}");
         });
 
-        ApplyWindowHints();
-
-        ShareWindow = Glfw.CreateWindow(1, 1, "share-root", null, null);
-        Glfw.HideWindow(ShareWindow);
-        Glfw.MakeContextCurrent(ShareWindow);
-
-        GLOnManager = GL.GetApi(Glfw.GetProcAddress);
-
-        GLOnManager.Enable(GLEnum.DebugOutput);
-        GLOnManager.Enable(GLEnum.DebugOutputSynchronous);
-        unsafe {
-        GLOnManager.DebugMessageCallback((source, type, id, severity, length, message, userparam) => {
-            string msg = Marshal.PtrToStringAnsi(message, length);
-            Console.Error.WriteLine($"[DebugMessageCallback] source: {source}, type: {type}, id: {id}, severity {severity}, length {length}, userParam {userparam}\n{msg}\n\n");
-        }, (void*) 0);
-        }
-        // (optional) global GL setup on shared context:
-        // GLOnManager.Enable(GLEnum.DebugOutput); ...
-
-        try
+        lock (_shareGroupLock)
         {
-            var ver = GLOnManager.GetStringS(GLEnum.Version);
-            var ven = GLOnManager.GetStringS(GLEnum.Vendor);
-            var ren = GLOnManager.GetStringS(GLEnum.Renderer);
-            Logger.LogLine($"[SharedGL] Root context: {ver} | {ven} | {ren}");
-        }
-        catch { /* ignore */ }
+            ApplyWindowHints();
 
-        Glfw.MakeContextCurrent(null);
+            ShareWindow = Glfw.CreateWindow(1, 1, "share-root", null, null);
+            Glfw.HideWindow(ShareWindow);
+            Glfw.MakeContextCurrent(ShareWindow);
+
+            GLOnManager = GL.GetApi(Glfw.GetProcAddress);
+
+            GLOnManager.Enable(GLEnum.DebugOutput);
+            GLOnManager.Enable(GLEnum.DebugOutputSynchronous);
+            unsafe {
+            GLOnManager.DebugMessageCallback((source, type, id, severity, length, message, userparam) => {
+                string msg = Marshal.PtrToStringAnsi(message, length);
+                Logger.LogLine($"[DebugMessageCallback] source: {source}, type: {type}, id: {id}, severity {severity}, length {length}, userParam {userparam}\n{msg}");
+            }, (void*) 0);
+            }
+            // (optional) global GL setup on shared context:
+            // GLOnManager.Enable(GLEnum.DebugOutput); ...
+
+            try
+            {
+                var ver = GLOnManager.GetStringS(GLEnum.Version);
+                var ven = GLOnManager.GetStringS(GLEnum.Vendor);
+                var ren = GLOnManager.GetStringS(GLEnum.Renderer);
+                Logger.LogLine($"[SharedGL] Root context: {ver} | {ven} | {ren}");
+            }
+            catch { /* ignore */ }
+
+            Glfw.MakeContextCurrent(null);
+        }
 
         _ready.Set(); // other threads may now CreateWindow(..., share=ShareWindow)
 
@@ -227,18 +233,21 @@ public sealed class SharedGlManager : IDisposable
         {
             if (_jobs.TryDequeue(out var job))
             {
-                Glfw.MakeContextCurrent(ShareWindow);
-                try
+                lock (_shareGroupLock)
                 {
-                    job(GLOnManager!).GetAwaiter().GetResult();
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"SharedGlManager: job threw exception: {ex}");
-                }
-                finally
-                {
-                    Glfw.MakeContextCurrent(null);
+                    Glfw.MakeContextCurrent(ShareWindow);
+                    try
+                    {
+                        job(GLOnManager!).GetAwaiter().GetResult();
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"SharedGlManager: job threw exception: {ex}");
+                    }
+                    finally
+                    {
+                        Glfw.MakeContextCurrent(null);
+                    }
                 }
             }
             else
@@ -272,35 +281,4 @@ public sealed class SharedGlManager : IDisposable
         GLOnManager = null;
         _ready.Reset();
     }
-
-    #region SharedLayer Helpers
-
-    public Task<SharedLayer> CreateLayerAsync(int w, int h, bool depthStencil = false)
-        => Enqueue(gl => Task.FromResult(SharedLayer.Create(gl, w, h, depthStencil)));
-
-    public Task DeleteLayerAsync(SharedLayer layer)
-        => Enqueue(async gl =>
-        {
-            await layer.WaitUntilFreeAsync().ConfigureAwait(false);
-            SharedLayer.Delete(gl, layer);
-        });
-
-    /// <summary>
-    /// Draw into a layer on the manager thread (run any GL you want inside 'draw')
-    /// </summary>
-    /// <param name="layer"></param>
-    /// <param name="draw"></param>
-    /// <returns></returns>
-    public Task DrawIntoAsync(SharedLayer layer, Action<GL> draw)
-        => Enqueue(async gl =>
-        {
-            await layer.WaitUntilFreeAsync().ConfigureAwait(false);
-            gl.BindFramebuffer(FramebufferTarget.Framebuffer, layer.Fbo);
-            gl.Viewport(0, 0, (uint)layer.Width, (uint)layer.Height);
-            draw(gl);
-            gl.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
-        });
-
-
-    #endregion
 }

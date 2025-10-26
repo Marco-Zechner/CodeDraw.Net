@@ -14,9 +14,8 @@ public class Program
             var test3 = new Test3_SharedContext();
             test3.Run();
         }),
-        ("3E1", "Shared Context Experiment 1", () => {
-            Experiment_1.Run();
-        }),
+        ("3E1", "Shared Context Experiment 1", Experiment_1.Run),
+        ("3E2", "Shared Context Experiment 2", Experiment_2.Run),
     ];
 
 

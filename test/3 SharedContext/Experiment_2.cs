@@ -1,70 +1,69 @@
+// Experiment_2.cs
+using System;
+using System.Threading;
 using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
 using MarcoZechner.CodeDrawDotNet.Helpers;
+
 namespace MarcoZechner.CodeDrawDotNet.Test3;
 
-unsafe class Experiment_1
+public unsafe static class Experiment_2
 {
-    static Glfw _glfw = null!;
-    static WindowHandle* _winA;
-    static WindowHandle* _winB;
-    static volatile bool _running = true;
-
-    // Cross-context publication (producer -> consumer)
+    // Cross-context state (producer -> consumer)
     static volatile int  _publishedIndex = -1; // 0 or 1
     static volatile nint _publishedFence = 0;  // GLsync as nint
 
+    // Shared texture names (published once by producer)
+    static class SharedNames
+    {
+        public static volatile uint Tex0;
+        public static volatile uint Tex1;
+        public static void Publish(uint t0, uint t1) { Tex0 = t0; Tex1 = t1; }
+    }
+
     public static void Run()
     {
-        _glfw = Glfw.GetApi();
-        if (!_glfw.Init()) throw new Exception("GLFW init failed");
+        // 1) Start host (UI) thread + hidden share root
+        var host = SharedGlfwHost.Instance;
+        host.Start();
 
-        // GL 3.3 core
-        _glfw.WindowHint(WindowHintInt.ContextVersionMajor, 3);
-        _glfw.WindowHint(WindowHintInt.ContextVersionMinor, 3);
-        _glfw.WindowHint(WindowHintOpenGlProfile.OpenGlProfile, OpenGlProfile.Core);
+        // 2) Create windows on the UI thread (sharing with root)
+        WindowHandle* winA = host.CreateWindow(800, 600, "A (producer)");
+        WindowHandle* winB = host.CreateWindow(800, 600, "B (consumer)");
 
-        // Create windows (A = share root, B shares with A)
-        _winA = _glfw.CreateWindow(640, 480, "A (producer)", null, null);
-        if (_winA == null) throw new Exception("Failed to create window A");
-
-        _winB = _glfw.CreateWindow(640, 480, "B (consumer)", null, _winA);
-        if (_winB == null) throw new Exception("Failed to create window B");
-
-        // Bind each context once on creator thread (stability on Windows)
-        _glfw.MakeContextCurrent(_winA); _glfw.MakeContextCurrent(null);
-        _glfw.MakeContextCurrent(_winB); _glfw.MakeContextCurrent(null);
-
-        // Start render threads
-        var tA = new Thread(() => RenderA_Producer(_winA)) { IsBackground = true, Name = "Render-A" };
-        var tB = new Thread(() => RenderB_Consumer(_winB)) { IsBackground = true, Name = "Render-B" };
+        // 3) Start render threads (one per window)
+        var tA = new Thread(() => RenderA_Producer(winA)) { IsBackground = true, Name = "Render-A" };
+        var tB = new Thread(() => RenderB_Consumer(winB)) { IsBackground = true, Name = "Render-B" };
         tA.Start(); tB.Start();
 
-        // Event loop: keep running until BOTH are closed
-        while (!(_glfw.WindowShouldClose(_winA) && _glfw.WindowShouldClose(_winB)))
-        {
-            _glfw.PollEvents();
-            Thread.Sleep(1);
-        }
+        Console.WriteLine("Experiment_2 running. Close windows or press ENTER to stop.");
+        Console.ReadLine();
 
-        _running = false;
+        // 4) On ENTER: ask both windows to close (if still alive) and stop host
+        host.EnqueueUI(() =>
+        {
+            if (winA != null && !host.Glfw.WindowShouldClose(winA)) host.Glfw.SetWindowShouldClose(winA, true);
+            if (winB != null && !host.Glfw.WindowShouldClose(winB)) host.Glfw.SetWindowShouldClose(winB, true);
+        });
+
         tA.Join();
         tB.Join();
 
-        _glfw.DestroyWindow(_winB);
-        _glfw.DestroyWindow(_winA);
-        _glfw.Terminate();
+        host.Stop();
     }
 
     // -------------------- Producer (Window A) --------------------
-    static void RenderA_Producer(WindowHandle* win)
+    private static void RenderA_Producer(WindowHandle* win)
     {
-        var gl = GL.GetApi(_glfw.GetProcAddress);
+        var host = SharedGlfwHost.Instance;
+        var glfw = host.Glfw;
 
-        _glfw.MakeContextCurrent(win);
-        _glfw.SwapInterval(0); // independent swaps for testing
+        // Bind context on this thread
+        glfw.MakeContextCurrent(win);
+        glfw.SwapInterval(0);
 
-        // Geo & shaders
+        var gl = GL.GetApi(glfw.GetProcAddress);
+
         var (vao, vbo, ebo) = GLShader.CreateFullScreenQuad(gl);
         uint progCircle = GLShader.CreateProgram(gl, GLShader.CircleShader.VS, GLShader.CircleShader.FS);
         uint progBlit   = GLShader.CreateProgram(gl, GLShader.LayerShader.VS, GLShader.LayerShader.FS);
@@ -78,9 +77,9 @@ unsafe class Experiment_1
         int locRes    = gl.GetUniformLocation(progCircle, "uResolution");
         int locPathR  = gl.GetUniformLocation(progCircle, "uPathRadius");
 
-        _glfw.GetFramebufferSize(win, out int fbW, out int fbH);
+        glfw.GetFramebufferSize(win, out int fbW, out int fbH);
 
-        // Create shared ping-pong textures & FBOs
+        // Create ping-pong textures & FBOs (shared with all)
         uint[] tex = new uint[2];
         uint[] fbo = new uint[2];
         for (int i = 0; i < 2; i++)
@@ -96,30 +95,28 @@ unsafe class Experiment_1
             gl.NamedFramebufferTexture(fbo[i], FramebufferAttachment.ColorAttachment0, tex[i], 0);
         }
 
-        // Publish the texture names once for the consumer
+        // Publish texture names once
         SharedNames.Publish(tex[0], tex[1]);
 
         gl.Enable(GLEnum.Blend);
         gl.BlendFunc(GLEnum.SrcAlpha, GLEnum.OneMinusSrcAlpha);
 
         int writeIdx = 0;
-        var start = DateTime.UtcNow;
+        var t0 = DateTime.UtcNow;
 
-        while (_running && !_glfw.WindowShouldClose(win))
+        while (!glfw.WindowShouldClose(win))
         {
-            _glfw.GetFramebufferSize(win, out fbW, out fbH);
-            if (fbW == 0 || fbH == 0) { _glfw.SwapBuffers(win); Thread.Sleep(16); continue; }
+            glfw.GetFramebufferSize(win, out fbW, out fbH);
+            if (fbW == 0 || fbH == 0) { glfw.SwapBuffers(win); Thread.Sleep(16); continue; }
 
-            // 1) Clear A's onscreen
+            // background (prove A runs)
             gl.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
             gl.Viewport(0, 0, (uint)fbW, (uint)fbH);
-            float t = (float)(DateTime.UtcNow - start).TotalSeconds;
-            float sin = (float)MathF.Sin(t);
-            float cos = (float)MathF.Cos(t);
-            gl.ClearColor(sin, cos, 0.5f, 1f);
+            float t = (float)(DateTime.UtcNow - t0).TotalSeconds;
+            gl.ClearColor(0.08f, 0.10f, 0.13f, 1f);
             gl.Clear((uint)ClearBufferMask.ColorBufferBit);
 
-            // 2) Render circle into offscreen FBO (shared tex[writeIdx])
+            // draw moving circle into offscreen (transparent)
             gl.BindFramebuffer(FramebufferTarget.Framebuffer, fbo[writeIdx]);
             gl.Viewport(0, 0, (uint)fbW, (uint)fbH);
             gl.ClearColor(0f, 0f, 0f, 0f);
@@ -127,97 +124,90 @@ unsafe class Experiment_1
 
             gl.UseProgram(progCircle);
             gl.BindVertexArray(vao);
-
-            // float t = (float)(DateTime.UtcNow - start).TotalSeconds;
             gl.Uniform1(locTime, t);
             gl.Uniform1(locPeriod, 9.5f);
             gl.Uniform1(locRadius, 36.0f);
             gl.Uniform4(locColor, 0.2f, 1.0f, 0.6f, 0.75f);
             gl.Uniform2(locRes, (float)fbW, (float)fbH);
             gl.Uniform1(locPathR, (float)(fbH / 2 - 40f));
-
             gl.DrawElements(PrimitiveType.Triangles, 6, DrawElementsType.UnsignedInt, null);
 
-            // 3) Publish fence + index (correct Silk.NET overloads)
+            // fence + publish index
             gl.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
-
             nint fence = gl.FenceSync(SyncCondition.SyncGpuCommandsComplete, SyncBehaviorFlags.None);
-            gl.Flush(); // ensure visibility to other contexts
+            gl.Flush(); // make fence visible across contexts
 
             var oldFence = Interlocked.Exchange(ref _publishedFence, fence);
             if (oldFence != 0) gl.DeleteSync(oldFence);
-
             Volatile.Write(ref _publishedIndex, writeIdx);
 
-            // 4) Also show the just-written texture in A (blit pass)
-            int readIdx = writeIdx;
+            // blit to A (so A also shows it)
             gl.UseProgram(progBlit);
             gl.BindVertexArray(vao);
             gl.ActiveTexture(TextureUnit.Texture0);
-            gl.BindTexture(TextureTarget.Texture2D, tex[readIdx]);
+            gl.BindTexture(TextureTarget.Texture2D, tex[writeIdx]);
             if (uTex >= 0) gl.Uniform1(uTex, 0);
             gl.DrawElements(PrimitiveType.Triangles, 6, DrawElementsType.UnsignedInt, null);
 
-            // 5) Flip ping-pong index
+            // ping-pong
             writeIdx ^= 1;
 
-            _glfw.SwapBuffers(win);
-            Thread.Sleep(16);
+            glfw.SwapBuffers(win);
+            Thread.Sleep(16); // ~60fps
         }
 
         // Cleanup
-        for (int i = 0; i < 2; i++)
-        {
-            gl.DeleteFramebuffer(fbo[i]);
-            gl.DeleteTexture(tex[i]);
-        }
-        var leftoverFence = Interlocked.Exchange(ref _publishedFence, 0);
-        if (leftoverFence != 0) gl.DeleteSync(leftoverFence);
-
+        for (int i = 0; i < 2; i++) { gl.DeleteFramebuffer(fbo[i]); gl.DeleteTexture(tex[i]); }
+        var leftover = Interlocked.Exchange(ref _publishedFence, 0);
+        if (leftover != 0) gl.DeleteSync(leftover);
         gl.DeleteProgram(progCircle);
         gl.DeleteProgram(progBlit);
         gl.DeleteVertexArray(vao);
         gl.DeleteBuffer(vbo);
         gl.DeleteBuffer(ebo);
 
-        _glfw.MakeContextCurrent(null);
+        // Destroy this window on UI thread; keep host alive for others
+        host.DestroyWindow(win);
+        glfw.MakeContextCurrent(null);
     }
 
     // -------------------- Consumer (Window B) --------------------
-    static void RenderB_Consumer(WindowHandle* win)
+    private static void RenderB_Consumer(WindowHandle* win)
     {
-        var gl = GL.GetApi(_glfw.GetProcAddress);
+        var host = SharedGlfwHost.Instance;
+        var glfw = host.Glfw;
 
-        _glfw.MakeContextCurrent(win);
-        _glfw.SwapInterval(0);
+        glfw.MakeContextCurrent(win);
+        glfw.SwapInterval(0);
 
-        gl.Enable(GLEnum.Blend);
-        gl.BlendFunc(GLEnum.SrcAlpha, GLEnum.OneMinusSrcAlpha);
+        var gl = GL.GetApi(glfw.GetProcAddress);
 
         var (vao, vbo, ebo) = GLShader.CreateFullScreenQuad(gl);
         uint progBlit = GLShader.CreateProgram(gl, GLShader.LayerShader.VS, GLShader.LayerShader.FS);
         int  uTex     = gl.GetUniformLocation(progBlit, "uTex");
 
-        var start = DateTime.UtcNow;
+        // Blend for transparency
+        gl.Enable(GLEnum.Blend);
+        gl.BlendFunc(GLEnum.SrcAlpha, GLEnum.OneMinusSrcAlpha);
 
         // Wait until producer published texture names
-        while (_running && (SharedNames.Tex0 == 0 || SharedNames.Tex1 == 0))
+        while (!glfw.WindowShouldClose(win) && (SharedNames.Tex0 == 0 || SharedNames.Tex1 == 0))
             Thread.Sleep(1);
 
-        while (_running && !_glfw.WindowShouldClose(win))
+        var t0 = DateTime.UtcNow;
+
+        while (!glfw.WindowShouldClose(win))
         {
-            _glfw.GetFramebufferSize(win, out int fbW, out int fbH);
-            if (fbW == 0 || fbH == 0) { _glfw.SwapBuffers(win); Thread.Sleep(16); continue; }
+            glfw.GetFramebufferSize(win, out int fbW, out int fbH);
+            if (fbW == 0 || fbH == 0) { glfw.SwapBuffers(win); Thread.Sleep(16); continue; }
 
             gl.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
             gl.Viewport(0, 0, (uint)fbW, (uint)fbH);
-            float t = (float)(DateTime.UtcNow - start).TotalSeconds;
-            float sin = (float)MathF.Sin(t);
-            float cos = (float)MathF.Cos(t);
-            gl.ClearColor(0.5f, sin, cos, 1f);
+            float t = (float)(DateTime.UtcNow - t0).TotalSeconds;
+            gl.ClearColor(0.12f + 0.05f * MathF.Sin(t * 0.5f), 0.09f, 0.07f, 1f);
             gl.Clear((uint)ClearBufferMask.ColorBufferBit);
 
-            // Take the latest fence (if any), GPU-side wait, then delete it
+            // Wait latest fence (if any)
             var fence = Interlocked.Exchange(ref _publishedFence, 0);
             if (fence != 0)
             {
@@ -229,7 +219,6 @@ unsafe class Experiment_1
             if (idx >= 0)
             {
                 uint tex = (idx == 0) ? SharedNames.Tex0 : SharedNames.Tex1;
-
                 gl.UseProgram(progBlit);
                 gl.BindVertexArray(vao);
                 gl.ActiveTexture(TextureUnit.Texture0);
@@ -238,8 +227,8 @@ unsafe class Experiment_1
                 gl.DrawElements(PrimitiveType.Triangles, 6, DrawElementsType.UnsignedInt, null);
             }
 
-            _glfw.SwapBuffers(win);
-            Thread.Sleep(10);
+            glfw.SwapBuffers(win);
+            Thread.Sleep(16);
         }
 
         gl.DeleteProgram(progBlit);
@@ -247,18 +236,7 @@ unsafe class Experiment_1
         gl.DeleteBuffer(vbo);
         gl.DeleteBuffer(ebo);
 
-        _glfw.MakeContextCurrent(null);
-    }
-
-    // One-time handoff of the two shared texture names
-    static class SharedNames
-    {
-        public static volatile uint Tex0;
-        public static volatile uint Tex1;
-
-        public static void Publish(uint t0, uint t1)
-        {
-            Tex0 = t0; Tex1 = t1;
-        }
+        host.DestroyWindow(win);
+        glfw.MakeContextCurrent(null);
     }
 }

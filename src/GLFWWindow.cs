@@ -43,7 +43,6 @@ public unsafe partial class GLFWWindow
     public event Action? OnClosing;
 
     public Input Input { get; private set; } = null!;
-    public event Action<int, string[]>? OnFileDrop;
 
 
     #region ManagementEvents

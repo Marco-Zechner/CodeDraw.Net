@@ -150,13 +150,13 @@ public unsafe static class Experiment_3
             _slots[wi].Fence = fence;
 
             var seq = Interlocked.Increment(ref _seqCounter);
-            System.Threading.Volatile.Write(ref _slots[wi].Seq, seq);
+            Volatile.Write(ref _slots[wi].Seq, seq);
 
             // Publish in order: Index, Fence, Generation, Seq (Seq last = freshness)
-            System.Threading.Volatile.Write(ref _pub.Index, wi);
-            System.Threading.Volatile.Write(ref _pub.Fence, fence);
-            System.Threading.Volatile.Write(ref _pub.Generation, myGen);
-            System.Threading.Volatile.Write(ref _pub.Seq, seq);
+            Volatile.Write(ref _pub.Index, wi);
+            Volatile.Write(ref _pub.Fence, fence);
+            Volatile.Write(ref _pub.Generation, myGen);
+            Volatile.Write(ref _pub.Seq, seq);
             _lastPublished = wi;
 
             // On-screen for A (no trails): OVERWRITE without blending
@@ -228,10 +228,10 @@ public unsafe static class Experiment_3
         }
 
         // Reset publication
-        System.Threading.Volatile.Write(ref _pub.Index, -1);
-        System.Threading.Volatile.Write(ref _pub.Fence, 0);
-        System.Threading.Volatile.Write(ref _pub.Generation, newGen);
-        System.Threading.Volatile.Write(ref _pub.Seq, 0);
+        Volatile.Write(ref _pub.Index, -1);
+        Volatile.Write(ref _pub.Fence, 0);
+        Volatile.Write(ref _pub.Generation, newGen);
+        Volatile.Write(ref _pub.Seq, 0);
 
         _lastPublished = -1;
     }
@@ -255,7 +255,7 @@ public unsafe static class Experiment_3
         gl.BlendFunc(GLEnum.SrcAlpha, GLEnum.OneMinusSrcAlpha);
 
         var t0 = DateTime.UtcNow;
-        int currentGen = System.Threading.Volatile.Read(ref _pub.Generation);
+        int currentGen = Volatile.Read(ref _pub.Generation);
         int lastIdx = -1;
 
         while (!glfw.WindowShouldClose(win))
@@ -274,10 +274,10 @@ public unsafe static class Experiment_3
             // Snapshot publication
             var p = new Publication
             {
-                Index = System.Threading.Volatile.Read(ref _pub.Index),
-                Fence = System.Threading.Volatile.Read(ref _pub.Fence),
-                Generation = System.Threading.Volatile.Read(ref _pub.Generation),
-                Seq = System.Threading.Volatile.Read(ref _pub.Seq)
+                Index = Volatile.Read(ref _pub.Index),
+                Fence = Volatile.Read(ref _pub.Fence),
+                Generation = Volatile.Read(ref _pub.Generation),
+                Seq = Volatile.Read(ref _pub.Seq)
             };
 
             // If generation changed, accept it and continue; producer will start publishing new frames
@@ -296,7 +296,7 @@ public unsafe static class Experiment_3
                     if (s == GLEnum.AlreadySignaled || s == GLEnum.ConditionSatisfied)
                     {
                         gl.DeleteSync(f);
-                        System.Threading.Volatile.Write(ref _pub.Fence, 0);
+                        Volatile.Write(ref _pub.Fence, 0);
                         drawIdx = p.Index;
                         lastIdx = drawIdx;
                     }

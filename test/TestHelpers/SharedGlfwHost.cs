@@ -161,5 +161,6 @@ public unsafe sealed class SharedGlfwHost : IDisposable
         glfw.WindowHint(WindowHintBool.Resizable, true);
         glfw.WindowHint(WindowHintBool.Decorated, true);
         glfw.WindowHint(WindowHintBool.DoubleBuffer, true);
+        glfw.WindowHint(WindowHintBool.TransparentFramebuffer, true);
     }
 }

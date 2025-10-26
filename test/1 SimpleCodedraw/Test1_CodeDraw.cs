@@ -20,8 +20,8 @@ public class Test1_CodeDraw
         _bsp1 = new CodeDraw("Beispiel 1.1")
         {
             Size = new Vector2<int>(800, 300),
-            Resizable = true
         };
+        _bsp1.Resizable = true;
 
         var tf = _bsp1.Shapes.TextFormat;
         tf.HorizontalAlignment = HorizontalAlignment.Center;

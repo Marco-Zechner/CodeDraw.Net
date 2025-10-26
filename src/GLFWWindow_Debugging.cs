@@ -37,7 +37,7 @@ public unsafe partial class GLFWWindow
         Console.ForegroundColor = ConsoleColor.Blue;
         Console.Write(new string('#', (int)_dtWait));
         Console.ResetColor();
-        Console.Write(new string(' ', (int)MathF.Max(0, max - (int)_dtInternalRender  - (int)_dtLoop - (int)_dtWait)));
+        Console.Write(new string(' ', (int)MathF.Max(0, max - (int)_dtInternalRender - (int)_dtLoop - (int)_dtWait)));
         Console.ResetColor();
         Console.Write($"] {_dt:00.00}ms (int: ");
         Console.ForegroundColor = ConsoleColor.Green;

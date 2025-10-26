@@ -47,9 +47,9 @@ public class Program
             AutoRender = true
         };
         _dm_window.OnLoad += LoadDM;
-        _dm_window.OnFileDrop += LoadMap;
         _dm_window.OnRender += RenderDM;
         var input_dm = _dm_window.Input;
+        input_dm.OnFileDrop += LoadMap;
         input_dm.OnScroll += MouseScroll;
         input_dm.OnMouseButtonDown += MouseButtonDown;
         input_dm.OnMouseButtonUp += MouseButtonUp;

@@ -54,8 +54,8 @@ public class Program
             //     Thread.Sleep(20);
             // }
 
-            Console.WriteLine("Waiting for open windows to close...");
-            SharedGlManager.Instance.WaitForOpenWindows();
+            // Console.WriteLine("Waiting for open windows to close...");
+            // SharedGlManager.Instance.WaitForOpenWindows();
             return;
         }
 

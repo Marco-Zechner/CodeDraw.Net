@@ -11,7 +11,7 @@ public class Test2_CodeDraw
 {
     private static bool _next = true;
 
-    private static CodeDraw _cd = null!;
+    private static Old1.CodeDraw _cd = null!;
 
     private static readonly Color _bg = Color.WHITE;
     private static readonly Color _coin1 = Color.GOLD;

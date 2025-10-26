@@ -9,7 +9,7 @@ public class Test1_CodeDraw
 {
     public static long FrameCount => _bsp1.FrameCount;
     private static long _frameOffset = 0;
-    private static CodeDraw _bsp1 = null!;
+    private static Old1.CodeDraw _bsp1 = null!;
     public static void OffsetNow()
     {
         _frameOffset = _bsp1.FrameCount;
@@ -18,7 +18,7 @@ public class Test1_CodeDraw
     public static void Run()
     {
 
-        _bsp1 = new CodeDraw("Beispiel 1.1")
+        _bsp1 = new Old1.CodeDraw("Beispiel 1.1")
         {
             Size = new Vector2<int>(800, 300),
         };

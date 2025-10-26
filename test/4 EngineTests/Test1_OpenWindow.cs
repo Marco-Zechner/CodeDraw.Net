@@ -19,6 +19,7 @@ class Test1_OpenWindow : ITestable
 
         win.Open(); // starts render thread
 
+        Console.WriteLine("Expected: window opens, black background, events work (move/resize).");
         Console.WriteLine("Press ENTER to exit…");
         Console.ReadLine();
         // (Close the window via OS chrome to exit the render loop.)

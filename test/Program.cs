@@ -54,6 +54,7 @@ namespace MarcoZechner.CodeDrawDotNet.EngineTests
 
             foreach (var (index, type) in runList)
             {
+                int consoleTopBefore = Console.CursorTop;
                 var name = PrettyName(type);
                 Console.WriteLine($"\n[{index}] {name}");
                 Console.WriteLine(new string('-', (int)MathF.Min(80, name.Length + 6)));
@@ -69,9 +70,8 @@ namespace MarcoZechner.CodeDrawDotNet.EngineTests
                 var sw = System.Diagnostics.Stopwatch.StartNew();
                 try
                 {
-                    var instance = (ITestable?)Activator.CreateInstance(type);
-                    if (instance is null)
-                        throw new InvalidOperationException("Failed to construct test (null instance).");
+                    var instance = (ITestable?)Activator.CreateInstance(type)
+                    ?? throw new InvalidOperationException("Failed to construct test (null instance).");
 
                     instance.RunTest();
                     sw.Stop();
@@ -111,6 +111,13 @@ namespace MarcoZechner.CodeDrawDotNet.EngineTests
                     result.Error = FlattenException(ex);
                     Console.WriteLine("Result: FAILED due to exception.");
                 }
+                int consoleTopAfter = Console.CursorTop;
+                Console.SetCursorPosition(0, consoleTopBefore);
+                for (int i = consoleTopBefore; i < consoleTopAfter; i++)
+                {
+                    Console.WriteLine(new string(' ', Console.WindowWidth-1));
+                }
+                Console.SetCursorPosition(0, consoleTopBefore);
 
                 results.Add(result);
             }

@@ -3,7 +3,7 @@ using MarcoZechner.ColorLib;
 using Silk.NET.OpenGL;
 using SkiaSharp;
 
-namespace MarcoZechner.CodeDrawDotNet;
+namespace MarcoZechner.CodeDrawDotNet.Old1;
 
 public class CodeDraw(string title = "title", bool useManagementEvents = false) : GLFWWindow(title, useManagementEvents)
 {

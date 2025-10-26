@@ -4,7 +4,7 @@ using Silk.NET.Core.Native;
 using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
 
-namespace MarcoZechner.CodeDrawDotNet;
+namespace MarcoZechner.CodeDrawDotNet.Old1;
 
 public sealed class SharedGlManager : IDisposable
 {

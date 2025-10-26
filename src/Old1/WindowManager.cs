@@ -4,7 +4,7 @@ using MarcoZechner.Math;
 using Silk.NET.Windowing;
 using Silk.NET.GLFW;
 
-namespace MarcoZechner.CodeDrawDotNet;
+namespace MarcoZechner.CodeDrawDotNet.Old1;
 
 internal static class WindowManager
 {

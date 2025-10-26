@@ -1,7 +1,7 @@
 using MarcoZechner.Math;
 using SkiaSharp;
 
-namespace MarcoZechner.CodeDrawDotNet;
+namespace MarcoZechner.CodeDrawDotNet.Old1;
 
 // Simple image handle you can keep around & reuse
 public sealed class ImageHandle : IDisposable

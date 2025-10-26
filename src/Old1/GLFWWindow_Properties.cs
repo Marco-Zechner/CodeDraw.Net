@@ -1,7 +1,7 @@
 using MarcoZechner.Math;
 using Silk.NET.GLFW;
 
-namespace MarcoZechner.CodeDrawDotNet;
+namespace MarcoZechner.CodeDrawDotNet.Old1;
 
 public unsafe partial class GLFWWindow
 {

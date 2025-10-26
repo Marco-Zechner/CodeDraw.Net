@@ -6,7 +6,7 @@ using Silk.NET.OpenGL;
 using Silk.NET.Windowing;
 using SkiaSharp;
 
-namespace MarcoZechner.CodeDrawDotNet;
+namespace MarcoZechner.CodeDrawDotNet.Old1;
 
 public partial class CodeDrawWindow
 {

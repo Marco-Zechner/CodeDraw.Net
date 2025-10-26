@@ -80,6 +80,10 @@ public unsafe static class Experiment_3
     {
         var host = SharedGlfwHost.Instance;
         var glfw = host.Glfw;
+        glfw.SetErrorCallback((error, description) =>
+        {
+            Console.WriteLine($"GLFW Error {error}: {description}");
+        });
 
         glfw.MakeContextCurrent(win);
         glfw.SwapInterval(0);
@@ -102,7 +106,6 @@ public unsafe static class Experiment_3
         CreateRing(gl, fbW, fbH, myGen);
 
         gl.Enable(GLEnum.Blend);
-        gl.BlendFunc(GLEnum.SrcAlpha, GLEnum.OneMinusSrcAlpha);
 
         var t0 = DateTime.UtcNow;
 
@@ -122,6 +125,8 @@ public unsafe static class Experiment_3
             int wi = AcquireWriteSlot();
 
             // Draw circle into offscreen slot (transparent)
+            gl.BlendFunc(GLEnum.SrcAlpha, GLEnum.OneMinusSrcAlpha);
+
             gl.BindFramebuffer(FramebufferTarget.Framebuffer, _slots[wi].Fbo);
             gl.Viewport(0, 0, (uint)fbW, (uint)fbH);
             gl.ClearColor(0f, 0f, 0f, 0f);
@@ -134,12 +139,14 @@ public unsafe static class Experiment_3
             gl.Uniform1(locTime, t);
             gl.Uniform1(locPeriod, 9.5f);
             gl.Uniform1(locRadius, 36.0f);
-            gl.Uniform4(locColor, 0.2f, 1.0f, 0.6f, 0.75f);
+            gl.Uniform4(locColor, 0.2f, 1.0f, 0.6f, 1f);
             gl.Uniform2(locRes, (float)fbW, (float)fbH);
             gl.Uniform1(locPathR, (float)(fbH / 2 - 40f));
             gl.DrawElements(PrimitiveType.Triangles, 6, DrawElementsType.UnsignedInt, null);
 
             // Insert fence and publish (mailbox)
+            gl.BlendFunc(GLEnum.Zero, GLEnum.OneMinusSrcAlpha);
+
             gl.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
 
             // If this slot still had a very old fence, retire it (we’re overwriting the slot)
@@ -159,7 +166,7 @@ public unsafe static class Experiment_3
             Volatile.Write(ref _pub.Seq, seq);
             _lastPublished = wi;
 
-            // On-screen for A (no trails): OVERWRITE without blending
+            // On-screen for A
             gl.Viewport(0, 0, (uint)fbW, (uint)fbH);
             gl.ClearColor(0.08f, 0.10f, 0.13f, 1f);   // visible background
             gl.Clear((uint)ClearBufferMask.ColorBufferBit);

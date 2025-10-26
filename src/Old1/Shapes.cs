@@ -1,6 +1,6 @@
 using MarcoZechner.Math;
 
-namespace MarcoZechner.CodeDrawDotNet;
+namespace MarcoZechner.CodeDrawDotNet.Old1;
 
 public partial class Shapes
 {

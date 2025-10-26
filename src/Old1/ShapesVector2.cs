@@ -2,7 +2,7 @@ using MarcoZechner.ColorLib;
 using MarcoZechner.Math;
 using Topten.RichTextKit;
 
-namespace MarcoZechner.CodeDrawDotNet;
+namespace MarcoZechner.CodeDrawDotNet.Old1;
 
 public partial class Shapes
 {

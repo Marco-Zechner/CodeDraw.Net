@@ -16,6 +16,7 @@ public class Program
         }),
         ("3E1", "Shared Context Experiment 1", Experiment_1.Run),
         ("3E2", "Shared Context Experiment 2", Experiment_2.Run),
+        ("3E3", "Shared Context Experiment 3", Experiment_3.Run),
     ];
 
 

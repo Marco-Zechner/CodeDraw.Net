@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using System.Text;
 
@@ -11,6 +14,18 @@ public interface ITestable
     void RunTest();
 }
 
+[AttributeUsage(AttributeTargets.Class, Inherited = false, AllowMultiple = false)]
+public sealed class OrderAttribute : Attribute
+{
+    public int Id { get; }
+    public OrderAttribute(int id)
+    {
+        if (id <= 0)
+            throw new ArgumentOutOfRangeException(nameof(id), "Order id must be a positive integer.");
+        Id = id;
+    }
+}
+
 namespace MarcoZechner.CodeDrawDotNet.EngineTests
 {
     public enum TestOutcome
@@ -22,7 +37,7 @@ namespace MarcoZechner.CodeDrawDotNet.EngineTests
 
     public sealed class TestResult
     {
-        public required int Index { get; init; }
+        public required int Id { get; init; }
         public required string Name { get; init; }
         public required string TypeName { get; init; }
         public TestOutcome Outcome { get; set; }
@@ -52,16 +67,17 @@ namespace MarcoZechner.CodeDrawDotNet.EngineTests
 
             var results = new List<TestResult>(capacity: runList.Count);
 
-            foreach (var (index, type) in runList)
+            foreach (var (id, type) in runList)
             {
                 int consoleTopBefore = Console.CursorTop;
+
                 var name = PrettyName(type);
-                Console.WriteLine($"\n[{index}] {name}");
+                Console.WriteLine($"\n[{id}] {name}");
                 Console.WriteLine(new string('-', (int)MathF.Min(80, name.Length + 6)));
 
                 var result = new TestResult
                 {
-                    Index = index,
+                    Id = id,
                     Name = name,
                     TypeName = type.FullName ?? type.Name,
                     Outcome = TestOutcome.Unknown
@@ -70,8 +86,9 @@ namespace MarcoZechner.CodeDrawDotNet.EngineTests
                 var sw = System.Diagnostics.Stopwatch.StartNew();
                 try
                 {
-                    var instance = (ITestable?)Activator.CreateInstance(type)
-                    ?? throw new InvalidOperationException("Failed to construct test (null instance).");
+                    var instance = (ITestable?)Activator.CreateInstance(type);
+                    if (instance is null)
+                        throw new InvalidOperationException("Failed to construct test (null instance).");
 
                     instance.RunTest();
                     sw.Stop();
@@ -80,14 +97,12 @@ namespace MarcoZechner.CodeDrawDotNet.EngineTests
 
                     if (options.SkipPrompt)
                     {
-                        // No user input; mark unknown if no error happened.
                         result.Outcome = TestOutcome.Unknown;
                         result.Note = "Skipped user review (-s).";
-                        Console.WriteLine("Result: no exception -> outcome set to 'Unknown' (use -s).");
+                        Console.WriteLine("Result: no exception -> outcome set to 'Unknown' (due to -s).");
                     }
                     else
                     {
-                        // Ask user to mark pass/fail
                         var passed = PromptYesNo("Mark test as PASSED? [y/n]: ");
                         if (passed)
                         {
@@ -111,9 +126,10 @@ namespace MarcoZechner.CodeDrawDotNet.EngineTests
                     result.Error = FlattenException(ex);
                     Console.WriteLine("Result: FAILED due to exception.");
                 }
+
                 int consoleTopAfter = Console.CursorTop;
                 Console.SetCursorPosition(0, consoleTopBefore);
-                for (int i = consoleTopBefore; i < consoleTopAfter; i++)
+                for (int i = 0; i < consoleTopAfter - consoleTopBefore; i++)
                 {
                     Console.WriteLine(new string(' ', Console.WindowWidth-1));
                 }
@@ -128,56 +144,81 @@ namespace MarcoZechner.CodeDrawDotNet.EngineTests
 
         // --- Discovery & selection ----------------------------------------------------------
 
-        private static List<(int index, Type type)> DiscoverTests()
+        private static List<(int id, Type type)> DiscoverTests()
         {
             var asm = Assembly.GetExecutingAssembly();
 
-            var testTypes = asm
+            var candidates = asm
                 .GetTypes()
                 .Where(t =>
                     t is { IsAbstract: false, IsInterface: false } &&
                     typeof(ITestable).IsAssignableFrom(t) &&
                     t.GetConstructor(Type.EmptyTypes) is not null)
-                .OrderBy(t => ExtractLeadingNumber(t.Name))
-                .ThenBy(t => t.Name)
                 .ToList();
 
-            var list = new List<(int, Type)>(testTypes.Count);
-            for (int i = 0; i < testTypes.Count; i++)
+            // Partition: with [Order] and without
+            var withAttr = new List<(int id, Type type)>();
+            var withoutAttr = new List<Type>();
+
+            foreach (var t in candidates)
             {
-                list.Add((i + 1, testTypes[i]));
+                var attr = t.GetCustomAttribute<OrderAttribute>();
+                if (attr is not null)
+                {
+                    withAttr.Add((attr.Id, t));
+                }
+                else
+                {
+                    withoutAttr.Add(t);
+                }
             }
-            return list;
+
+            // Resolve ID collisions for attributed tests: bump to next free id
+            var used = new HashSet<int>();
+            var fixedWithAttr = new List<(int id, Type type)>(withAttr.Count);
+
+            foreach (var (id, type) in withAttr.OrderBy(x => x.id).ThenBy(x => x.type.Name))
+            {
+                int assigned = id;
+                if (assigned <= 0) assigned = 1;
+
+                while (!used.Add(assigned))
+                {
+                    assigned++;
+                }
+
+                if (assigned != id)
+                {
+                    Console.WriteLine($"[warning] Duplicate [Order({id})] detected. '{type.Name}' reassigned to id {assigned}.");
+                }
+
+                fixedWithAttr.Add((assigned, type));
+            }
+
+            // Assign IDs to tests without attribute, after the highest used id
+            int next = used.Count == 0 ? 1 : (used.Max() + 1);
+            foreach (var t in withoutAttr.OrderBy(t => t.Name))
+            {
+                while (!used.Add(next)) next++;
+                fixedWithAttr.Add((next, t));
+                next++;
+            }
+
+            // Return sorted by id
+            return fixedWithAttr.OrderBy(x => x.id).ToList();
         }
 
-        private static List<(int index, Type type)> FilterSelection(
-            List<(int index, Type type)> all, IReadOnlyList<int> selected)
+        private static List<(int id, Type type)> FilterSelection(
+            List<(int id, Type type)> all, IReadOnlyList<int> selected)
         {
             if (selected.Count == 0)
                 return all;
 
             var wanted = new HashSet<int>(selected);
-            return all.Where(x => wanted.Contains(x.index)).ToList();
+            return all.Where(x => wanted.Contains(x.id)).ToList();
         }
 
-        private static int ExtractLeadingNumber(string name)
-        {
-            int value = 0;
-            int i = 0;
-            while (i < name.Length && char.IsDigit(name[i]))
-            {
-                checked { value = value * 10 + (name[i] - '0'); }
-                i++;
-            }
-            return value;
-        }
-
-        private static string PrettyName(Type t)
-        {
-            // Show something like "Test1_OpenWindow" -> "Test1_OpenWindow"
-            // (kept simple; you can prettify further if you like)
-            return t.Name;
-        }
+        private static string PrettyName(Type t) => t.Name;
 
         // --- Args & prompts ----------------------------------------------------------------
 
@@ -200,14 +241,12 @@ namespace MarcoZechner.CodeDrawDotNet.EngineTests
                     continue;
                 }
 
-                // Unknown arg -> print usage and exit fast
                 if (!string.IsNullOrWhiteSpace(a))
                 {
                     PrintUsageAndExit($"Unrecognized argument: {a}");
                 }
             }
 
-            // normalize/unique
             nums = nums.Distinct().OrderBy(n => n).ToList();
             return new Options(skip, nums);
         }
@@ -219,16 +258,16 @@ namespace MarcoZechner.CodeDrawDotNet.EngineTests
 
             Console.WriteLine(
                 "\nUsage:\n" +
-                "  EngineTests [-s] [numbers]\n\n" +
+                "  EngineTests [-s] [ids]\n\n" +
                 "Arguments:\n" +
                 "  -s          Skip user prompts; mark tests with no exception as 'Unknown'.\n" +
-                "  numbers     Space-separated test indices to run (as shown in the menu).\n" +
+                "  ids         Space-separated test IDs to run (from [Order(id)] or auto-assigned).\n" +
                 "              If omitted, all tests run.\n" +
                 "\nExamples:\n" +
                 "  EngineTests              # run all tests, ask y/n per test\n" +
                 "  EngineTests -s           # run all tests, skip user prompts\n" +
-                "  EngineTests 1 3 5        # run tests 1,3,5 and ask y/n per test\n" +
-                "  EngineTests -s 2 4       # run tests 2 and 4, skip prompts\n"
+                "  EngineTests 1 3 5        # run test IDs 1,3,5 and ask y/n per test\n" +
+                "  EngineTests -s 2 4       # run IDs 2 and 4, skip prompts\n"
             );
             Environment.Exit(1);
         }
@@ -239,7 +278,7 @@ namespace MarcoZechner.CodeDrawDotNet.EngineTests
             {
                 Console.Write(prompt);
                 var line = Console.ReadLine();
-                if (line is null) return false; // default to 'no' if piped/no input
+                if (line is null) return false; // piped/no input -> default 'no'
                 line = line.Trim().ToLowerInvariant();
                 if (line is "y" or "yes") return true;
                 if (line is "n" or "no") return false;
@@ -265,7 +304,7 @@ namespace MarcoZechner.CodeDrawDotNet.EngineTests
                 title + new string(' ', (int)MathF.Max(1, width - title.Length));
 
             Console.WriteLine(
-                Header("Idx", 5) +
+                Header("ID", 5) +
                 Header("Name", nameWidth + 2) +
                 Header("Outcome", outcomeWidth + 2) +
                 Header("Duration", 12) +
@@ -274,14 +313,14 @@ namespace MarcoZechner.CodeDrawDotNet.EngineTests
 
             Console.WriteLine(new string('-', 5 + nameWidth + 2 + outcomeWidth + 2 + 12 + 10));
 
-            foreach (var r in results.OrderBy(r => r.Index))
+            foreach (var r in results.OrderBy(r => r.Id))
             {
                 var outcome = r.Outcome.ToString();
                 var duration = $"{r.Duration.TotalMilliseconds:F0} ms";
                 var note = r.Error ?? r.Note ?? "";
 
                 Console.WriteLine(
-                    Header(r.Index.ToString(), 5) +
+                    Header(r.Id.ToString(), 5) +
                     Header(r.Name, nameWidth + 2) +
                     Header(outcome, outcomeWidth + 2) +
                     Header(duration, 12) +

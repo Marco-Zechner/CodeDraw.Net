@@ -37,6 +37,7 @@ namespace MarcoZechner.CodeDrawDotNet.EngineTests
 
         public static void Main(string[] args)
         {
+            Console.Clear();
             var allTests = DiscoverTests();
             if (allTests.Count == 0)
             {

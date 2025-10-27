@@ -147,7 +147,9 @@ unsafe class Experiment_1
             var oldFence = Interlocked.Exchange(ref _publishedFence, fence);
             if (oldFence != 0) gl.DeleteSync(oldFence);
 
+#pragma warning disable CS0420 // A reference to a volatile field will not be treated as volatile
             Volatile.Write(ref _publishedIndex, writeIdx);
+#pragma warning restore CS0420 // A reference to a volatile field will not be treated as volatile
 
             // 4) Also show the just-written texture in A (blit pass)
             int readIdx = writeIdx;
@@ -225,7 +227,9 @@ unsafe class Experiment_1
                 gl.DeleteSync(fence);
             }
 
+#pragma warning disable CS0420 // A reference to a volatile field will not be treated as volatile
             int idx = Volatile.Read(ref _publishedIndex);
+#pragma warning restore CS0420 // A reference to a volatile field will not be treated as volatile
             if (idx >= 0)
             {
                 uint tex = (idx == 0) ? SharedNames.Tex0 : SharedNames.Tex1;

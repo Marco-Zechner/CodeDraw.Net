@@ -1,0 +1,143 @@
+using Silk.NET.OpenGL;
+using Silk.NET.GLFW;
+
+namespace MarcoZechner.CodeDrawDotNet.Engine;
+
+internal unsafe sealed class WindowRendererBasic
+{
+    private readonly WindowHandle* _window;
+    private readonly string _title;
+
+    private Thread? _thread;
+    private volatile bool _running;
+
+    private CodeDrawWindow? _publicWindow;
+
+    private readonly object _lock = new();
+    private readonly List<IRenderAction> _actions = new();       // producer-side
+    private readonly AutoResetEvent _frameRequested = new(false); // Show() signals this
+    private readonly AutoResetEvent _frameDone = new(false);      // render thread signals after swap
+
+    private long _submittedFrame; // last frame id requested
+    private long _presentedFrame; // last frame id finished
+
+    public long Frames { get; private set; }
+    public DateTime StartUtc { get; private set; }
+    public TimeSpan Uptime => (StartUtc == default) ? TimeSpan.Zero : DateTime.UtcNow - StartUtc;
+
+
+    public WindowRendererBasic(WindowHandle* window, string title)
+    {
+        _window = window;
+        _title = title;
+    }
+
+    public void BindPublic(CodeDrawWindow w) => _publicWindow = w;
+
+    // -------- API from CodeDrawWindow --------
+
+    public void Enqueue(IRenderAction action)
+    {
+        lock (_lock) _actions.Add(action);
+    }
+
+    public void RequestPresent()
+    {
+        Interlocked.Increment(ref _submittedFrame);
+        _frameRequested.Set();
+    }
+
+    public void WaitForPresented()
+    {
+        // quick-path
+        if (Volatile.Read(ref _presentedFrame) >= Volatile.Read(ref _submittedFrame))
+            return;
+
+        // wait until render thread signals _frameDone and counters match
+        while (Volatile.Read(ref _presentedFrame) < Volatile.Read(ref _submittedFrame))
+        {
+            _frameDone.WaitOne(10);
+        }
+    }
+
+    // -------- lifecycle --------
+
+    public void Start()
+    {
+        _running = true;
+        _thread = new Thread(Main) { IsBackground = true, Name = $"Render-{_title}" };
+        _thread.Start();
+    }
+
+    private void Main()
+    {
+        var host = CodeDrawHost.Instance;
+        host.EnsureStarted();
+
+        var glfw = host.Glfw;
+        glfw.MakeContextCurrent(_window);
+
+        var gl = GL.GetApi(glfw.GetProcAddress);
+        var gfx = new GraphicsImpl(gl);
+
+        StartUtc = DateTime.UtcNow;
+
+        // Fire events
+        CodeDrawEvents.RaiseOnWindowLoaded(_publicWindow!, gfx);
+        _publicWindow!.RaiseLoaded(gfx);
+
+        double last = 0;
+
+        while (_running && !glfw.WindowShouldClose(_window))
+        {
+            // Wait until a frame is requested
+            _frameRequested.WaitOne();
+
+            // Compute dt relative to last presented frame
+            double now = (DateTime.UtcNow - StartUtc).TotalSeconds;
+            double dt = now - last; last = now;
+
+            CodeDrawEvents.RaiseBeforeAnyWindowRender(_publicWindow!, gfx, dt);
+            _publicWindow!.RaiseBeforeRender(gfx, dt);
+
+            // Snapshot & clear producer queue
+            List<IRenderAction> batch;
+            lock (_lock)
+            {
+                batch = [.. _actions];
+                _actions.Clear();
+            }
+
+            // Execute the batch
+            glfw.GetFramebufferSize(_window, out var fbW, out var fbH);
+            if (fbW == 0 || fbH == 0)
+            {
+                // keep swap alive to avoid OS thinking we're hung
+                glfw.SwapBuffers(_window);
+                continue;
+            }
+
+            foreach (var act in batch)
+                act.Execute(gl, fbW, fbH, gfx);
+
+            // Present
+            glfw.SwapBuffers(_window);
+            Frames++;
+
+            
+            // mark this frame done
+            Interlocked.Exchange(ref _presentedFrame, _submittedFrame);
+            _frameDone.Set();
+
+            // basic pacing
+            var target = _publicWindow!.TargetFPS;
+            if (target > 0)
+            {
+                int ms = (int)MathF.Max(0, (int)MathF.Round((float)(1000.0 / target)));
+                if (ms > 0) Thread.Sleep(ms);
+            }
+        }
+
+        glfw.MakeContextCurrent(null);
+    }
+}

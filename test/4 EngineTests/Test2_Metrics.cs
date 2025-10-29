@@ -12,23 +12,47 @@ class Test2_Metrics : ITestable
             Size = new(640, 360),
             TargetFPS = 60,
             Resizable = true,
-            ClearColor = new Color(0.08f, 0.1f, 0.13f, 0.5f)
+            ClearColor = new Color(0.08f, 0.1f, 0.13f, 0.5f),
+            UpdateIntervalMs = 2000
         };
 
         double acc = 0;
 
-        win.BeforeRender += (w, gfx, dt) =>
+        long lastFrame = 0;
+        HashSet<long> missed = [];
+
+        win.Update += (w, dt) =>
         {
             acc += dt;
 
-            // clear so we see a stable background
-            gfx.ClearColor(w.ClearColor.R, w.ClearColor.G, w.ClearColor.B, w.ClearColor.A);
-            gfx.Clear();
+            if (w.Frames % 120 == 0)
+            {
+                w.EnqueueGL(gfx =>
+                {
+                    // Thread.Sleep(20);
+                });
+            }
+
+            w.Show();
+
+            if (lastFrame + 1 < w.Frames)
+            {
+                for (long i = lastFrame + 1; i < w.Frames; i++)
+                {
+                    missed.Add(i);
+                }
+            }
+            lastFrame = w.Frames;
 
             // log a heartbeat every ~1s using dt accumulation
             if (acc >= 1.0)
             {
                 Console.WriteLine($"dt≈{dt:0.000}s  Frames={w.Frames}  Uptime={w.Uptime.TotalSeconds:0.0}s  EngineUp={CodeDraw.EngineUptime.TotalSeconds:0.0}s");
+                if (missed.Count > 0)
+                {
+                    Console.WriteLine("Missed Frames since last time: " + string.Join(", ", missed)); //skips a lot of frames...
+                    missed.Clear();
+                }
                 acc = 0;
             }
         };

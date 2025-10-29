@@ -14,23 +14,26 @@ class Test1_OpenWindow : ITestable
             TargetFPS = 60
         };
 
-        win.BeforeRender += (w, gfx, dt) =>
+        CodeDrawEvents.OnWindowLoaded += (w, gl, glfw, window) =>
         {
-            // Clear to black each frame
-            gfx.ClearColor(0, 0, 0, 1);
-            gfx.Clear();
-        };
-
-        // Optional: observe load
-        CodeDrawEvents.OnWindowLoaded += (w, gfx) =>
-        {
-            Console.WriteLine($"Loaded: {w.Title}");
+            Console.WriteLine($"Onload Called: {w.Title}");
         };
 
         win.Open(); // starts render thread
+        win.EnqueueGL(gl => 
+        {
+            Console.WriteLine("EnqueueGL: setting clear color to red");
+        });
+        win.Clear(new Color(0f, 0f, 0f, 1f)); // clear to black
+        win.Show();
 
-        Console.WriteLine("Expected: window opens, clears to black background, events work (move/resize).");
+        win.WaitForRender();
+
+        Console.WriteLine("Expected: window opens, clears to black background, events work (onloadcalled) (move/resize).");
         Console.WriteLine("Press ENTER to exit…");
+
+        win.Dispose();
+
         Console.ReadLine();
     }
 

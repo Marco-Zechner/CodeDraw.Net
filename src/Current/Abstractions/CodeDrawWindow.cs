@@ -2,6 +2,7 @@ using MarcoZechner.CodeDrawDotNet.Engine;
 using MarcoZechner.ColorLib;
 using MarcoZechner.Math;
 using Silk.NET.GLFW;
+using Silk.NET.OpenGL;
 
 namespace MarcoZechner.CodeDrawDotNet;
 
@@ -9,9 +10,9 @@ namespace MarcoZechner.CodeDrawDotNet;
 /// A visible window (with its own render thread) that can draw directly
 /// and/or composite shared layers in a chosen order.
 /// </summary>
-public unsafe sealed class CodeDrawWindow
+public unsafe sealed class CodeDrawWindow : IDisposable
 {
-    private WindowRendererBasic? _renderer;
+    private AbstractWindowRenderer? _renderer;
 
     /// <summary>Title shown in the OS window chrome.</summary>
     public string Title { get; }
@@ -43,16 +44,17 @@ public unsafe sealed class CodeDrawWindow
     /// Fired once on the window's render thread after GL context creation
     /// and right before the first frame. Use to create per-window resources.
     /// </summary>
-    public event Action<CodeDrawWindow, IGraphics>? Loaded;
+    public event Action<CodeDrawWindow, GL, Glfw, nint>? Loaded;
 
-    /// <summary>
-    /// Fired every frame on the window's render thread, just before the window renders.
-    /// <paramref name="double"/> is deltaTime (seconds since this window's previous frame).
-    /// </summary>
-    public event Action<CodeDrawWindow, IGraphics, double>? BeforeRender;
+    public event Action<CodeDrawWindow, double>? Update;
 
-    internal void RaiseLoaded(IGraphics gfx) => Loaded?.Invoke(this, gfx);
-    internal void RaiseBeforeRender(IGraphics gfx, double dt) => BeforeRender?.Invoke(this, gfx, dt);
+    // Default 10ms. Set to 0 to disable the built-in update loop.
+    public int UpdateIntervalMs { get; set; } = 10;
+
+    // Optional: warn if a single render action takes longer than this (ms). 0 = off.
+    public int LongActionWarnMs { get; set; } = 16;
+
+    internal void RaiseLoaded(GL gl, Glfw glfw, WindowHandle* window) => Loaded?.Invoke(this, gl, glfw, (nint)window);
 
     /// <summary>
     /// Creates a new window object. The render thread and GL resources are not created
@@ -75,22 +77,81 @@ public unsafe sealed class CodeDrawWindow
 
         WindowHandle* handle = host.CreateWindow(Size.X, Size.Y, Title);
 
-        _renderer = new WindowRendererBasic(handle!, Title);
+
+        _renderer = new DefaultWindowRenderer(handle!, Title);
         _renderer.BindPublic(this);
         _renderer.Start();
+
+        StartUpdateLoopIfNeeded();
     }
+
+    // Internals
+    private Thread? _updateThread;
+    private volatile bool _updateRunning;
+
+    // call from Open() after renderer starts:
+    private void StartUpdateLoopIfNeeded()
+    {
+        if (UpdateIntervalMs <= 0 || Update is null) return;
+
+        _updateRunning = true;
+        _updateThread = new Thread(UpdateLoop) { IsBackground = true, Name = $"Update-{Title}" };
+        _updateThread.Start();
+    }
+
+    private void UpdateLoop()
+    {
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        double last = 0;
+
+        while (_updateRunning)
+        {
+            double now = sw.Elapsed.TotalSeconds;
+            double dt = now - last; last = now;
+
+            try { Update?.Invoke(this, dt); }
+            catch (Exception ex) { Console.WriteLine($"[Update ERROR] {ex}"); }
+
+            if (UpdateIntervalMs > 0)
+                Thread.Sleep(UpdateIntervalMs);
+            else
+                Thread.Yield();
+        }
+    }
+
+    public void Dispose() => Stop();
+
+    public void Stop()
+    {
+        _updateRunning = false;
+        _updateThread?.Join();
+        _updateThread = null;
+    }
+
+    public void EnqueueGL(Action<GL> body)
+        => _renderer?.Enqueue(new GlAction(body));
+
+    public unsafe void EnqueueNative(Action<GL, Glfw, nint> body)
+        => _renderer?.Enqueue(new NativeAction(body));
+
 
     /// <summary>
     /// Clears the window’s private offscreen buffer for this frame.
     /// </summary>
-    /// <param name="color">Clear color (alpha is respected only for offscreen targets).</param>
-    public void Clear(in Color color) => throw new NotImplementedException();
+    /// <param name="color">Clear color</param>
+    public void Clear(in Color? color = null) {
+        if (color != null) ClearColor = color;
+        _renderer?.Enqueue(new ClearAction(ClearColor));
+    }
 
     /// <summary>
     /// Draws a user-defined shape (via <see cref="IDrawShape"/>) into this window for the current frame.
     /// </summary>
     /// <param name="shape">Shape that knows how to render itself with Skia onto a canvas.</param>
-    public void Draw(in IDrawShape shape) => throw new NotImplementedException();
+    public void Draw(in IDrawShape shape)
+    {
+        throw new NotImplementedException();
+    }
 
     /// <summary>
     /// Composites a shared layer onto this window using an optional transform and material override.
@@ -101,15 +162,37 @@ public unsafe sealed class CodeDrawWindow
     public void DrawLayer(CodeDrawLayer layer, Matrix3x3? transform = null, object? material = null)
         => throw new NotImplementedException();
 
-    /// <summary>
-    /// Finalizes and enqueues this frame for presentation.
-    /// </summary>
-    public void Show() => throw new NotImplementedException();
+    private long _lastTokenSubmitted = 0; // guarded by renderer methods
 
-    /// <summary>
-    /// Blocks until the last <see cref="Show"/> frame has been presented.
-    /// </summary>
-    public void WaitForRender() => throw new NotImplementedException();
+    /// <summary>Seal the current staging into a frame and return its token.
+    /// If the previous frame hasn't presented yet, this call waits for it first (off render-thread).</summary>
+    public long Show()
+    {
+        if (_renderer is null) return 0;
+
+        // Auto-backpressure: don't let users enqueue faster than we can present.
+        // Never block the render thread.
+        if (!AbstractWindowRenderer.IsRenderThread(_renderer))
+        {
+            var pending = Interlocked.Read(ref _lastTokenSubmitted);  // todo: this is NOT a pending counter, its just a counter how many already where submitted...
+            Console.WriteLine("pending: " + pending);
+            if (pending != 0) _renderer.WaitForPresented(pending);
+        } else
+        {
+            Console.WriteLine("Show on render thread!");
+        }
+
+        var t = _renderer.SealFrame();
+        Interlocked.Exchange(ref _lastTokenSubmitted, t);
+        return t;
+    }
+
+    /// <summary>Wait for a specific frame token (or the latest, if null) to be presented.</summary>
+    public void WaitForRender(long? frameToken = null)
+    {
+        _renderer?.WaitForPresented(frameToken ?? Interlocked.Read(ref _lastTokenSubmitted));
+    }
+
 
     /// <summary>
     /// Converts a point from window pixels to the local space of a target layer.

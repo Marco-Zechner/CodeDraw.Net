@@ -1,6 +1,6 @@
 using Silk.NET.GLFW;
 
-namespace MarcoZechner.CodeDrawDotNet;
+namespace MarcoZechner.CodeDrawDotNet.Api;
 
 public unsafe partial class CodeDrawWindowBase
 {

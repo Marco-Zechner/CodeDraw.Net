@@ -1,7 +1,7 @@
 using MarcoZechner.CodeDrawDotNet.Engine.Implementations;
 using MarcoZechner.Diagnostics;
 
-namespace MarcoZechner.CodeDrawDotNet;
+namespace MarcoZechner.CodeDrawDotNet.Api;
 
 /// <summary>
 /// Global engine facade for shared state and metrics.

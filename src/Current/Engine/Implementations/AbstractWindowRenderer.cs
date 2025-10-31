@@ -2,6 +2,7 @@ using Silk.NET.OpenGL;
 using Silk.NET.GLFW;
 using System.Collections.Concurrent;
 using MarcoZechner.CodeDrawDotNet.Api.Graphics;
+using MarcoZechner.CodeDrawDotNet.Api;
 
 namespace MarcoZechner.CodeDrawDotNet.Engine.Implementations;
 

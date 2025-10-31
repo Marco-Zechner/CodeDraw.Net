@@ -2,7 +2,7 @@ using MarcoZechner.CodeDrawDotNet.Api.Events;
 using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
 
-namespace MarcoZechner.CodeDrawDotNet;
+namespace MarcoZechner.CodeDrawDotNet.Api;
 
 /// <summary>
 /// Global engine events mirrored from per-window events. Fire AFTER the per-window event has fired.

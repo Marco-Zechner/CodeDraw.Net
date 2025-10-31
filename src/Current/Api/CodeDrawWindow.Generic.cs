@@ -1,7 +1,7 @@
 using MarcoZechner.CodeDrawDotNet.Engine.Implementations;
 using Silk.NET.GLFW;
 
-namespace MarcoZechner.CodeDrawDotNet;
+namespace MarcoZechner.CodeDrawDotNet.Api;
 
 public unsafe class CodeDrawWindow<TRenderer>(string title) : CodeDrawWindowBase(title)
     where TRenderer : AbstractWindowRenderer, new()

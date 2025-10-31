@@ -9,7 +9,7 @@ using MarcoZechner.CodeDrawDotNet.Api.Events;
 using MarcoZechner.CodeDrawDotNet.Engine.Implementations.Actions;
 using MarcoZechner.CodeDrawDotNet.Api.Graphics;
 
-namespace MarcoZechner.CodeDrawDotNet;
+namespace MarcoZechner.CodeDrawDotNet.Api;
 
 public abstract unsafe partial class CodeDrawWindowBase(string title) : IDisposable
 {

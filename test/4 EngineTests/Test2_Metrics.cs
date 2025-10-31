@@ -1,8 +1,7 @@
 using MarcoZechner.ColorLib;
-using MarcoZechner.CodeDrawDotNet.Engine;
-using System;
+using MarcoZechner.CodeDrawDotNet;
 
-namespace MarcoZechner.CodeDrawDotNet.EngineTests;
+namespace MarcoZechner.CodeDrawDotNetEngineTests;
 
 [Order(2)]
 class Test2_Metrics : ITestable
@@ -13,7 +12,7 @@ class Test2_Metrics : ITestable
         {
             Size = new(640, 360),
             // TargetFPS = 1000,
-            VSync = true, //TODO without vsync, fps is too low? and event ups is too low in general?
+            VSync = true, //TODO without vsync, fps is too low?
             Resizable = true,
             ClearColor = new Color(0.08f, 0.1f, 0.13f, 1.0f),
         };

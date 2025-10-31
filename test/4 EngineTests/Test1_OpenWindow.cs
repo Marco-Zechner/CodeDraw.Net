@@ -1,7 +1,8 @@
-using MarcoZechner.CodeDrawDotNet.Engine;
+using MarcoZechner.CodeDrawDotNet;
+using MarcoZechner.CodeDrawDotNet.Api.Events;
 using MarcoZechner.ColorLib;
 
-namespace MarcoZechner.CodeDrawDotNet.EngineTests;
+namespace MarcoZechner.CodeDrawDotNetEngineTests;
 
 [Order(1)]
 class Test1_OpenWindow : ITestable
@@ -52,7 +53,7 @@ class Test1_OpenWindow : ITestable
             if (k == Silk.NET.GLFW.Keys.Escape && a == Silk.NET.GLFW.InputAction.Press)
             {
                 Console.WriteLine("10.1   Escape pressed, requesting close…");
-                win.RequestClose();
+                win.Close();
             }
         };
 
@@ -76,19 +77,19 @@ class Test1_OpenWindow : ITestable
             return k.Key == ConsoleKey.Enter;
         }))
         {
-            case Engine.CloseReason.Unknown:
+            case CloseReason.Unknown:
                 Console.WriteLine("?      CloseReason.Unknown");
                 break;
-            case Engine.CloseReason.RequestedByUser:
+            case CloseReason.RequestedByUser:
                 Console.WriteLine("15.1   CloseReason.RequestedByUser");
                 break;
-            case Engine.CloseReason.UserClosedWindow:
+            case CloseReason.UserClosedWindow:
                 Console.WriteLine("15.3   CloseReason.UserClosedWindow");
                 break;
-            case Engine.CloseReason.WaitForCloseEvent:
+            case CloseReason.WaitForCloseEvent:
                 Console.WriteLine("15.2   CloseReason.WaitForCloseEvent");
                 break;
-            case Engine.CloseReason.AlreadyClosed:
+            case CloseReason.AlreadyClosed:
                 Console.WriteLine("17     CloseReason.AlreadyClosed");
                 break;
         }
@@ -100,19 +101,19 @@ class Test1_OpenWindow : ITestable
             return k.Key == ConsoleKey.Enter;
         }))
         {
-            case Engine.CloseReason.Unknown:
+            case CloseReason.Unknown:
                 Console.WriteLine("?      CloseReason.Unknown");
                 break;
-            case Engine.CloseReason.RequestedByUser:
+            case CloseReason.RequestedByUser:
                 Console.WriteLine("15.1   CloseReason.RequestedByUser");
                 break;
-            case Engine.CloseReason.UserClosedWindow:
+            case CloseReason.UserClosedWindow:
                 Console.WriteLine("15.3   CloseReason.UserClosedWindow");
                 break;
-            case Engine.CloseReason.WaitForCloseEvent:
+            case CloseReason.WaitForCloseEvent:
                 Console.WriteLine("15.2   CloseReason.WaitForCloseEvent");
                 break;
-            case Engine.CloseReason.AlreadyClosed:
+            case CloseReason.AlreadyClosed:
                 Console.WriteLine("17     CloseReason.AlreadyClosed");
                 break;
         }

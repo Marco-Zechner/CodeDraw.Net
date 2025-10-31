@@ -1,6 +1,7 @@
+using MarcoZechner.CodeDrawDotNet;
 using MarcoZechner.ColorLib;
 
-namespace MarcoZechner.CodeDrawDotNet.EngineTests;
+namespace MarcoZechner.CodeDrawDotNetEngineTests;
 
 [Order(3)]
 class Test3_ClearViaWindow : ITestable
@@ -27,7 +28,7 @@ class Test3_ClearViaWindow : ITestable
 
         win.Open();
 
-        // win.WaitForClose(); //TODO: implement?
+        win.WaitForClose();
 
         Console.WriteLine("Expected: window opens, clears to 2 different colors, (switches all 500ms), responsive.");
         Console.WriteLine("Press ENTER to exit…");

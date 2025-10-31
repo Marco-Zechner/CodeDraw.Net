@@ -1,9 +1,10 @@
 // Engine/LayerWorker.cs
+using MarcoZechner.Diagnostics;
 using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
 using System.Collections.Concurrent;
 
-namespace MarcoZechner.CodeDrawDotNet.Engine;
+namespace MarcoZechner.CodeDrawDotNet.Engine.Implementations;
 
 internal sealed unsafe class LayerWorker(Glfw glfw) : IDisposable
 {

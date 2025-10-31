@@ -1,12 +1,9 @@
-// Engine/CodeDrawHost.cs
-using System;
 using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
-using System.Threading;
+using MarcoZechner.Diagnostics;
 using Silk.NET.GLFW;
-using Silk.NET.OpenGL;
 
-namespace MarcoZechner.CodeDrawDotNet.Engine;
+namespace MarcoZechner.CodeDrawDotNet.Engine.Implementations;
 
 internal unsafe sealed class CodeDrawHost : IDisposable
 {
@@ -15,10 +12,10 @@ internal unsafe sealed class CodeDrawHost : IDisposable
     public Glfw Glfw => _glfw!;
     public WindowHandle* ShareRoot => _shareRoot;
 
-    private readonly ConcurrentDictionary<nint, CodeDrawWindow> _winMap = new();
-    internal void RegisterWindow(WindowHandle* h, CodeDrawWindow w) => _winMap[(nint)h] = w;
+    private readonly ConcurrentDictionary<nint, CodeDrawWindowBase> _winMap = new();
+    internal void RegisterWindow(WindowHandle* h, CodeDrawWindowBase w) => _winMap[(nint)h] = w;
     internal void UnregisterWindow(WindowHandle* h) => _winMap.TryRemove((nint)h, out _);
-    internal CodeDrawWindow? ResolveWindow(WindowHandle* h)
+    internal CodeDrawWindowBase? ResolveWindow(WindowHandle* h)
         => _winMap.TryGetValue((nint)h, out var w) ? w : null;
 
     public DateTime StartTimeUtc { get; private set; }
@@ -247,7 +244,7 @@ internal unsafe sealed class CodeDrawHost : IDisposable
         glfw.WindowHint(WindowHintBool.TransparentFramebuffer, true);
     }
 
-    internal void OnWindowCreated(WindowHandle* win, CodeDrawWindow w)
+    internal void OnWindowCreated(WindowHandle* win, CodeDrawWindowBase w)
     {
         // register mapping & install callbacks
         RegisterWindow(win, w);

@@ -1,19 +1,20 @@
 using Silk.NET.OpenGL;
 using Silk.NET.GLFW;
 using System.Collections.Concurrent;
+using MarcoZechner.CodeDrawDotNet.Api.Graphics;
 
-namespace MarcoZechner.CodeDrawDotNet.Engine;
+namespace MarcoZechner.CodeDrawDotNet.Engine.Implementations;
 
-public unsafe abstract class AbstractWindowRenderer(WindowHandle* window, string title)
+public unsafe abstract class AbstractWindowRenderer
 {
-    protected readonly WindowHandle* Window = window;
-    protected readonly string Title = title;
+    protected WindowHandle* Window;
+    protected string Title = "Title";
 
     protected Thread? Thread;
     protected int ThreadId;
     protected volatile bool Running;
 
-    protected CodeDrawWindow? PublicWindow;
+    protected CodeDrawWindowBase? PublicWindow;
 
     // GL plumbing
     protected Glfw Glfw => CodeDrawHost.Instance.Glfw;
@@ -37,7 +38,23 @@ public unsafe abstract class AbstractWindowRenderer(WindowHandle* window, string
 
     protected Func<double>? _fpsGetter;
 
-    public void BindPublic(CodeDrawWindow w) => PublicWindow = w;
+    protected AbstractWindowRenderer() {}
+
+    protected AbstractWindowRenderer(WindowHandle* window, string title)
+    {
+        Window = window;
+        Title = title;
+    }
+
+    internal void Attach(WindowHandle* window, string title)
+    {
+        if (Window != null)
+            throw new InvalidOperationException("Renderer is already attached.");
+        Window = window;
+        Title = title;
+    }
+
+    public void BindPublic(CodeDrawWindowBase w) => PublicWindow = w;
 
     public void Enqueue(IRenderAction action)
     {

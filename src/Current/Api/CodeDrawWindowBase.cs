@@ -181,8 +181,11 @@ public abstract unsafe partial class CodeDrawWindowBase(string title) : IDisposa
     {
         if (_native == null) return;
         var host = CodeDrawHost.Instance;
-        host.Glfw.SetWindowShouldClose(_native, true); // this can be called from any thread, so no reason to send it to UI thread
-        OnNativeCloseRequestedFromUI(reason); // setting the windowCloseFlag will NOT trigger a callback, so we call it here ourselves
+        host.EnqueueUI(() =>
+        {
+            host.Glfw.SetWindowShouldClose(_native, true);
+            OnNativeCloseRequestedFromUI(reason);
+        });
     }
 
     internal void SignalLoadedComplete() => _loadedMre.Set();

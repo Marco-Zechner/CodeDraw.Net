@@ -3,16 +3,16 @@ using Silk.NET.OpenGL;
 using MarcoZechner.Tests.Helpers;
 namespace MarcoZechner.Tests.Test3;
 
-unsafe class Experiment_1
+public unsafe class Experiment_1
 {
-    static Glfw _glfw = null!;
-    static WindowHandle* _winA;
-    static WindowHandle* _winB;
-    static volatile bool _running = true;
+    private static Glfw _glfw = null!;
+    private static WindowHandle* _winA;
+    private static WindowHandle* _winB;
+    private static volatile bool _running = true;
 
     // Cross-context publication (producer -> consumer)
-    static volatile int  _publishedIndex = -1; // 0 or 1
-    static volatile nint _publishedFence = 0;  // GLsync as nint
+    private static volatile int  _publishedIndex = -1; // 0 or 1
+    private static volatile nint _publishedFence = 0;  // GLsync as nint
 
     public static void Run()
     {
@@ -57,7 +57,7 @@ unsafe class Experiment_1
     }
 
     // -------------------- Producer (Window A) --------------------
-    static void RenderA_Producer(WindowHandle* win)
+    private static void RenderA_Producer(WindowHandle* win)
     {
         var gl = GL.GetApi(_glfw.GetProcAddress);
 
@@ -186,7 +186,7 @@ unsafe class Experiment_1
     }
 
     // -------------------- Consumer (Window B) --------------------
-    static void RenderB_Consumer(WindowHandle* win)
+    private static void RenderB_Consumer(WindowHandle* win)
     {
         var gl = GL.GetApi(_glfw.GetProcAddress);
 
@@ -255,7 +255,7 @@ unsafe class Experiment_1
     }
 
     // One-time handoff of the two shared texture names
-    static class SharedNames
+    private static class SharedNames
     {
         public static volatile uint Tex0;
         public static volatile uint Tex1;

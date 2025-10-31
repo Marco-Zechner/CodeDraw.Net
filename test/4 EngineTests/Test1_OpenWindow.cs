@@ -1,11 +1,11 @@
-using MarcoZechner.CodeDrawDotNet;
+using MarcoZechner.CodeDrawDotNet.Api;
 using MarcoZechner.CodeDrawDotNet.Api.Events;
 using MarcoZechner.ColorLib;
 
 namespace MarcoZechner.Tests;
 
 [Order(1)]
-class Test1_OpenWindow : ITestable
+public class Test1_OpenWindow : ITestable
 {
     public void RunTest()
     {

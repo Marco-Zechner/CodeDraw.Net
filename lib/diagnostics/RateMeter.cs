@@ -1,7 +1,7 @@
 using System.Diagnostics;
 
 namespace MarcoZechner.Diagnostics;
-internal sealed class RateMeter
+public sealed class RateMeter
 {
     private readonly double _alpha;               // smoothing factor (0..1)
     private readonly Stopwatch _sw = Stopwatch.StartNew();

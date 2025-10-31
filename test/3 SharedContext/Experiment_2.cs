@@ -7,11 +7,11 @@ namespace MarcoZechner.Tests.Test3;
 public unsafe static class Experiment_2
 {
     // Cross-context state (producer -> consumer)
-    static volatile int  _publishedIndex = -1; // 0 or 1
-    static volatile nint _publishedFence = 0;  // GLsync as nint
+    private static volatile int  _publishedIndex = -1; // 0 or 1
+    private static volatile nint _publishedFence = 0;  // GLsync as nint
 
     // Shared texture names (published once by producer)
-    static class SharedNames
+    private static class SharedNames
     {
         public static volatile uint Tex0;
         public static volatile uint Tex1;

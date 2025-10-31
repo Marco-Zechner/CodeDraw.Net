@@ -9,16 +9,16 @@ namespace MarcoZechner.Tests.Test3;
 
 public class Test3_SharedContext
 {
-    private readonly CancellationTokenSource _cts = new CancellationTokenSource();
+    private readonly CancellationTokenSource _cts = new();
 
-    private async Task SetupSharedLayer()
-    {
-        var mgr = SharedGlManager.Instance;
-    }
+    // private static async Task SetupSharedLayer()
+    // {
+    //     var mgr = SharedGlManager.Instance;
+    // }
 
     public void Run()
     {
-        SetupSharedLayer().GetAwaiter().GetResult();
+        // SetupSharedLayer().GetAwaiter().GetResult();
 
         var tA = new Thread(() => RunWindow("A (shared texture)", 800, 600, 0)) { IsBackground = true };
         var tB = new Thread(() => RunWindow("B (shared texture)", 800, 600, 1)) { IsBackground = true };
@@ -34,12 +34,12 @@ public class Test3_SharedContext
         _cts.Cancel();
     }
 
-    static volatile uint _gSharedTex = 0;
-    static volatile uint _gSharedTex2 = 0;
-    static readonly ManualResetEventSlim _gSharedTexReady = new(false);
-    static readonly ManualResetEventSlim _gSharedTexReady2 = new(false);
+    private static volatile uint _gSharedTex = 0;
+    private static volatile uint _gSharedTex2 = 0;
+    private static readonly ManualResetEventSlim _gSharedTexReady = new(false);
+    private static readonly ManualResetEventSlim _gSharedTexReady2 = new(false);
 
-    static unsafe void RunWindow(string title, int w, int h, int windowIndex)
+    public static unsafe void RunWindow(string title, int w, int h, int windowIndex)
     {
         var mgr = SharedGlManager.Instance;
         var share = mgr.Acquire();

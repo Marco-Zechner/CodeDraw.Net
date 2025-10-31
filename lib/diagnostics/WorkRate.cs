@@ -1,7 +1,7 @@
 using System.Diagnostics;
 
 namespace MarcoZechner.Diagnostics;
-internal sealed class WorkRate
+public sealed class WorkRate
 {
     private readonly RateMeter _rate = new(0.25);
     private readonly Stopwatch _sw = Stopwatch.StartNew();

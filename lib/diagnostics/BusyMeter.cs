@@ -2,7 +2,7 @@ using System.Diagnostics;
 
 namespace MarcoZechner.Diagnostics;
 
-internal sealed class BusyMeter
+public sealed class BusyMeter
 {
     private readonly Stopwatch _sw = Stopwatch.StartNew();
     private long _lastTicks;       // last sample time

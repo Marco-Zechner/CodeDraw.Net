@@ -1,10 +1,10 @@
 using MarcoZechner.ColorLib;
-using MarcoZechner.CodeDrawDotNet;
+using MarcoZechner.CodeDrawDotNet.Api;
 
 namespace MarcoZechner.Tests;
 
 [Order(2)]
-class Test2_Metrics : ITestable
+public class Test2_Metrics : ITestable
 {
     public void RunTest()
     {

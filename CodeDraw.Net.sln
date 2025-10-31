@@ -9,6 +9,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CodeDraw.NetTest", "test\Co
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ttrpg", "ttrpg\ttrpg.csproj", "{68321493-E3E5-4456-A0C1-584C0EB3F189}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "lib", "lib", "{5EB84164-9E65-4E2F-873B-079747B3AF32}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MarcoZechner.Diagnostics", "lib\diagnostics\MarcoZechner.Diagnostics.csproj", "{31E19654-85FF-4F43-8EF2-F4424BD49F6A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -30,5 +34,12 @@ Global
 		{68321493-E3E5-4456-A0C1-584C0EB3F189}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{68321493-E3E5-4456-A0C1-584C0EB3F189}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{68321493-E3E5-4456-A0C1-584C0EB3F189}.Release|Any CPU.Build.0 = Release|Any CPU
+		{31E19654-85FF-4F43-8EF2-F4424BD49F6A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{31E19654-85FF-4F43-8EF2-F4424BD49F6A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{31E19654-85FF-4F43-8EF2-F4424BD49F6A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{31E19654-85FF-4F43-8EF2-F4424BD49F6A}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{31E19654-85FF-4F43-8EF2-F4424BD49F6A} = {5EB84164-9E65-4E2F-873B-079747B3AF32}
 	EndGlobalSection
 EndGlobal

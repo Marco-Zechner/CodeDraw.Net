@@ -1,10 +1,10 @@
-using MarcoZechner.CodeDrawDotNet;
+using MarcoZechner.CodeDrawDotNet.Api;
 using MarcoZechner.ColorLib;
 
 namespace MarcoZechner.Tests;
 
 [Order(3)]
-class Test3_ClearViaWindow : ITestable
+public class Test3_ClearViaWindow : ITestable
 {
     public void RunTest()
     {

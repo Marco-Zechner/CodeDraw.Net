@@ -1,7 +1,7 @@
 using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
-using MarcoZechner.CodeDrawDotNet.Helpers;
-namespace MarcoZechner.CodeDrawDotNet.Test3;
+using MarcoZechner.Tests.Helpers;
+namespace MarcoZechner.Tests.Test3;
 
 unsafe class Experiment_1
 {

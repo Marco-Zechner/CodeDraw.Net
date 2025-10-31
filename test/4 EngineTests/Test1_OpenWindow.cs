@@ -2,7 +2,7 @@ using MarcoZechner.CodeDrawDotNet;
 using MarcoZechner.CodeDrawDotNet.Api.Events;
 using MarcoZechner.ColorLib;
 
-namespace MarcoZechner.CodeDrawDotNetEngineTests;
+namespace MarcoZechner.Tests;
 
 [Order(1)]
 class Test1_OpenWindow : ITestable

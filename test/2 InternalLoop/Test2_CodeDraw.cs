@@ -1,17 +1,18 @@
-using MarcoZechner.CodeDrawDotNet.Old1;
+using MarcoZechner.CodeDrawDotNet;
 using MarcoZechner.ColorLib;
 using MarcoZechner.Math;
 using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
 using SkiaSharp;
+using CodeDraw = MarcoZechner.CodeDrawDotNet.Old1;
 
-namespace MarcoZechner.CodeDrawDotNet.Test2;
+namespace MarcoZechner.Tests.Test2;
 
 public class Test2_CodeDraw
 {
     private static bool _next = true;
 
-    private static Old1.CodeDraw _cd = null!;
+    private static CodeDraw.CodeDraw _cd = null!;
 
     private static readonly Color _bg = Color.WHITE;
     private static readonly Color _coin1 = Color.GOLD;

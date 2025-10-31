@@ -1,12 +1,11 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
-using MarcoZechner.CodeDrawDotNet.Helpers;
 using MarcoZechner.CodeDrawDotNet.Old1;
 using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
-using static MarcoZechner.CodeDrawDotNet.Helpers.GLShader;
+using static MarcoZechner.Tests.Helpers.GLShader;
 
-namespace MarcoZechner.CodeDrawDotNet.Test3;
+namespace MarcoZechner.Tests.Test3;
 
 public class Test3_SharedContext
 {

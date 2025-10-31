@@ -1,5 +1,3 @@
-using System;
-using MarcoZechner.CodeDrawDotNet;
 using MarcoZechner.ColorLib;
 
 namespace MarcoZechner.CodeDrawDotNet.EngineTests;
@@ -17,29 +15,21 @@ class Test3_ClearViaWindow : ITestable
         };
 
         // Clear window via high-level API each frame. Check if lower-level & highlevel mix preserves order
-        // win.BeforeRender += (w, dt) =>
-        // {
-        //     win.Enqueue(g =>
-        //     {
-        //         Console.WriteLine("gfx.a1, press enter for red.");
-        //         Console.ReadLine();
-        //     });
-        //     win.Clear(new Color(1f, 0.07f, 0.1f, 1f)); // acts like w.a2
-        //     win.Show();
-        //     win.Enqueue(g =>
-        //     {
-        //         Console.WriteLine("gfx.a3, press enter for blue gray");
-        //         Console.ReadLine();
-        //     });
-        //     win.Clear(new Color(0.05f, 0.07f, 0.1f, 1f)); // acts like w.a4
-        //     win.Show();
-        //     win.WaitForRender();
-        //     win.WaitForRender();
-        // };
+        win.Update += (w, dt) =>
+        {
+            Thread.Sleep(500);
+            win.Clear(new Color(1f, 0.07f, 0.1f, 1f)); // acts like w.a2
+            win.Show();
+            Thread.Sleep(500);
+            win.Clear(new Color(0.05f, 0.07f, 0.1f, 1f)); // acts like w.a4
+            win.Show();
+        };
 
         win.Open();
 
-        Console.WriteLine("Expected: window opens, clears to the configured color each frame, responsive.");
+        // win.WaitForClose(); //TODO: implement?
+
+        Console.WriteLine("Expected: window opens, clears to 2 different colors, (switches all 500ms), responsive.");
         Console.WriteLine("Press ENTER to exit…");
         Console.ReadLine();
     }

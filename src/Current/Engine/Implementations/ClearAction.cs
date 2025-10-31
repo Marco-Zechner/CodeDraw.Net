@@ -4,10 +4,9 @@ using Silk.NET.OpenGL;
 
 namespace MarcoZechner.CodeDrawDotNet.Engine;
 
-internal sealed class ClearAction : IRenderAction
+internal sealed class ClearAction(in Color c) : IRenderAction
 {
-    private readonly Color _c;
-    public ClearAction(in Color c) => _c = c;
+    private readonly Color _c = c;
 
     public unsafe void Execute(GL gl, Glfw glfw, WindowHandle* window, int fbW, int fbH)
     {

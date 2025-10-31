@@ -1,4 +1,6 @@
 using MarcoZechner.ColorLib;
+using MarcoZechner.CodeDrawDotNet.Engine;
+using System;
 
 namespace MarcoZechner.CodeDrawDotNet.EngineTests;
 
@@ -10,57 +12,42 @@ class Test2_Metrics : ITestable
         var win = new CodeDrawWindow("Test2_Metrics")
         {
             Size = new(640, 360),
-            TargetFPS = 60,
+            // TargetFPS = 1000,
+            VSync = true, //TODO without vsync, fps is too low? and event ups is too low in general?
             Resizable = true,
-            ClearColor = new Color(0.08f, 0.1f, 0.13f, 0.5f),
-            UpdateIntervalMs = 2000
+            ClearColor = new Color(0.08f, 0.1f, 0.13f, 1.0f),
         };
 
         double acc = 0;
-
-        long lastFrame = 0;
-        HashSet<long> missed = [];
 
         win.Update += (w, dt) =>
         {
             acc += dt;
 
-            if (w.Frames % 120 == 0)
-            {
-                w.EnqueueGL(gfx =>
-                {
-                    // Thread.Sleep(20);
-                });
-            }
-
+            // Simple frame: just clear with current clear color
+            // w.Clear(w.ClearColor);
             w.Show();
 
-            if (lastFrame + 1 < w.Frames)
-            {
-                for (long i = lastFrame + 1; i < w.Frames; i++)
-                {
-                    missed.Add(i);
-                }
-            }
-            lastFrame = w.Frames;
-
-            // log a heartbeat every ~1s using dt accumulation
+            // Heartbeat ~1s
             if (acc >= 1.0)
             {
-                Console.WriteLine($"dt≈{dt:0.000}s  Frames={w.Frames}  Uptime={w.Uptime.TotalSeconds:0.0}s  EngineUp={CodeDraw.EngineUptime.TotalSeconds:0.0}s");
-                if (missed.Count > 0)
-                {
-                    Console.WriteLine("Missed Frames since last time: " + string.Join(", ", missed)); //skips a lot of frames...
-                    missed.Clear();
-                }
                 acc = 0;
+
+                var winUp = w.Uptime.TotalSeconds;
+
+                Console.WriteLine(
+                    $"EngineUp={CodeDraw.EngineUptime.TotalSeconds,5:0.00}s  WinUp={winUp,5:0.00}s  FPS={w.FPS,5:0.00}  UPS ={w.UPS,5:0.00}  " +
+                    $"\nEventUPS= {CodeDraw.EventLoopUPS.ToShortString()}  " +
+                    $"\nLayerMetrics= {CodeDraw.LayerWorkerMetrics.ToShortString()}");
             }
         };
 
         win.Open();
 
-        Console.WriteLine("Expected: window shows dark semi transparent background; console logs dt, Frames, Uptime each ~1s.");
+        Console.WriteLine("Expected: window opens, background drawn; console logs EngineUp/WinUp, FPS, UpdateUPS, EventUPS ~each second.");
         Console.WriteLine("Press ENTER to exit…");
         Console.ReadLine();
+
+        win.Dispose();
     }
 }

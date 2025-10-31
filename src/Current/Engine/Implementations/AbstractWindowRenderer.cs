@@ -4,10 +4,10 @@ using System.Collections.Concurrent;
 
 namespace MarcoZechner.CodeDrawDotNet.Engine;
 
-public unsafe abstract class AbstractWindowRenderer
+public unsafe abstract class AbstractWindowRenderer(WindowHandle* window, string title)
 {
-    protected readonly WindowHandle* Window;
-    protected readonly string Title;
+    protected readonly WindowHandle* Window = window;
+    protected readonly string Title = title;
 
     protected Thread? Thread;
     protected int ThreadId;
@@ -33,8 +33,9 @@ public unsafe abstract class AbstractWindowRenderer
 
     private readonly ConcurrentDictionary<long, ManualResetEventSlim> _frameWaiters = new();
 
-    protected AbstractWindowRenderer(WindowHandle* window, string title)
-    { Window = window; Title = title; }
+    public double Fps => _fpsGetter?.Invoke() ?? 0.0; // delegate injected by subclass
+
+    protected Func<double>? _fpsGetter;
 
     public void BindPublic(CodeDrawWindow w) => PublicWindow = w;
 
@@ -109,6 +110,13 @@ public unsafe abstract class AbstractWindowRenderer
         Thread.Start();
     }
 
+    public void StopAndJoin()
+    {
+        Running = false;
+        Thread?.Join();
+        Thread = null;
+    }
+
     private void Main()
     {
         ThreadId = Environment.CurrentManagedThreadId;
@@ -122,10 +130,14 @@ public unsafe abstract class AbstractWindowRenderer
         StartUtc = DateTime.UtcNow;
 
         // Announce ready
-        CodeDrawEvents.RaiseOnWindowLoaded(PublicWindow!, GL!, Glfw, Window);
         PublicWindow!.RaiseLoaded(GL!, Glfw, Window);
+        CodeDrawEvents.RaiseLoaded(PublicWindow!, GL!, Glfw, Window);
+
+        PublicWindow.SignalLoadedComplete();
 
         RunLoop(); // delegate to subclass
+
+        Running = false;
 
         Glfw.MakeContextCurrent(null);
     }

@@ -10,12 +10,18 @@ namespace MarcoZechner.CodeDrawDotNet;
 /// A visible window (with its own render thread) that can draw directly
 /// and/or composite shared layers in a chosen order.
 /// </summary>
-public unsafe sealed class CodeDrawWindow : IDisposable
+/// <remarks>
+/// Creates a new window object. The render thread and GL resources are not created
+/// until <see cref="Open"/> is called.
+/// </remarks>
+/// <param name="title">Window title.</param>
+public unsafe sealed partial class CodeDrawWindow(string title) : IDisposable
 {
     private AbstractWindowRenderer? _renderer;
+    private WindowHandle* _native;
 
     /// <summary>Title shown in the OS window chrome.</summary>
-    public string Title { get; }
+    public string Title { get; } = title ?? throw new ArgumentNullException(nameof(title));
 
     /// <summary>
     /// Drawable size in pixels. Safe to set before <see cref="Open"/>; marshalled to the UI thread after.
@@ -24,6 +30,9 @@ public unsafe sealed class CodeDrawWindow : IDisposable
 
     /// <summary>Whether the window can be resized by the user.</summary>
     public bool Resizable { get; set; } = true;
+
+    /// <summary>Whether vertical sync (vsync) is enabled.</summary>
+    public bool VSync { get; set; } = false;
 
     /// <summary>Target frames per second. 0 = uncapped.</summary>
     public int TargetFPS { get; set; } = 60;
@@ -36,6 +45,7 @@ public unsafe sealed class CodeDrawWindow : IDisposable
 
     /// <summary>Total number of frames presented by this window.</summary>
     public long Frames => _renderer?.Frames ?? 0;
+    public double FPS => _renderer?.Fps ?? 0.0;
 
     /// <summary>User-defined identifier for convenience (optional).</summary>
     public object? Tag { get; set; }
@@ -54,17 +64,17 @@ public unsafe sealed class CodeDrawWindow : IDisposable
     // Optional: warn if a single render action takes longer than this (ms). 0 = off.
     public int LongActionWarnMs { get; set; } = 16;
 
-    internal void RaiseLoaded(GL gl, Glfw glfw, WindowHandle* window) => Loaded?.Invoke(this, gl, glfw, (nint)window);
+    private readonly RateMeter _updateUps = new(0.25);
+    public double UPS => _updateUps.Ewma;
 
-    /// <summary>
-    /// Creates a new window object. The render thread and GL resources are not created
-    /// until <see cref="Open"/> is called.
-    /// </summary>
-    /// <param name="title">Window title.</param>
-    public CodeDrawWindow(string title)
-    {
-        Title = title ?? throw new ArgumentNullException(nameof(title));
-    }
+    private int _disposeGate; // 0 = not disposing, 1 = disposing/closed
+
+    public bool IsClosed => _closedMre.IsSet;
+
+    private readonly ManualResetEventSlim _loadedMre = new(initialState: false);
+    internal void SignalLoadedComplete() => _loadedMre.Set();
+
+    internal void RaiseLoaded(GL gl, Glfw glfw, WindowHandle* window) => Loaded?.Invoke(this, gl, glfw, (nint)window);
 
     /// <summary>
     /// Starts the render thread, creates the GL context, and begins the frame loop.
@@ -72,17 +82,23 @@ public unsafe sealed class CodeDrawWindow : IDisposable
     /// </summary>
     public void Open()
     {
+        if (_closedMre.IsSet || Volatile.Read(ref _disposeGate) == 1)
+            throw new InvalidOperationException("This window instance has been closed. Create a new CodeDrawWindow.");
+
         var host = CodeDrawHost.Instance;
         host.EnsureStarted();
 
-        WindowHandle* handle = host.CreateWindow(Size.X, Size.Y, Title);
+        _native = host.CreateWindow(Size.X, Size.Y, Title);
 
 
-        _renderer = new DefaultWindowRenderer(handle!, Title);
+        _renderer = new DefaultWindowRenderer(_native!, Title);
         _renderer.BindPublic(this);
         _renderer.Start();
 
         StartUpdateLoopIfNeeded();
+        host.OnWindowCreated(_native!, this);
+
+        _loadedMre.Wait();
     }
 
     // Internals
@@ -111,6 +127,7 @@ public unsafe sealed class CodeDrawWindow : IDisposable
 
             try { Update?.Invoke(this, dt); }
             catch (Exception ex) { Console.WriteLine($"[Update ERROR] {ex}"); }
+            finally { _updateUps.Tick(); _updateUps.MaybeSample(); }
 
             if (UpdateIntervalMs > 0)
                 Thread.Sleep(UpdateIntervalMs);
@@ -119,13 +136,46 @@ public unsafe sealed class CodeDrawWindow : IDisposable
         }
     }
 
-    public void Dispose() => Stop();
-
-    public void Stop()
+    public void Dispose()
     {
-        _updateRunning = false;
-        _updateThread?.Join();
-        _updateThread = null;
+        // Only the first caller runs teardown; others wait until closed.
+        if (Interlocked.Exchange(ref _disposeGate, 1) == 1)
+        {
+            _closedMre.Wait();
+            return;
+        }
+
+        try
+        {
+            // stop update loop
+            _updateRunning = false;
+            _updateThread?.Join();
+            _updateThread = null;
+
+            // ensure render thread is stopped
+            _renderer?.StopAndJoin();
+            _renderer = null;
+
+            // unregister & destroy native window
+            var host = CodeDrawHost.Instance;
+            if (_native != null)
+            {
+                host.OnWindowDestroyed(_native);
+                host.DestroyWindowAndMaybeStop(_native);
+                _native = null;
+            }
+
+            try
+            {
+                Closed?.Invoke();
+                CodeDrawEvents.RaiseClosed(this);
+            }
+            catch { /* ignore teardown-callback errors */ }
+        }
+        finally
+        {
+            _closedMre.Set(); // fully closed
+        }
     }
 
     public void EnqueueGL(Action<GL> body)
@@ -140,7 +190,7 @@ public unsafe sealed class CodeDrawWindow : IDisposable
     /// </summary>
     /// <param name="color">Clear color</param>
     public void Clear(in Color? color = null) {
-        if (color != null) ClearColor = color;
+        if (color is not null) ClearColor = color;
         _renderer?.Enqueue(new ClearAction(ClearColor));
     }
 
@@ -175,12 +225,9 @@ public unsafe sealed class CodeDrawWindow : IDisposable
         if (!AbstractWindowRenderer.IsRenderThread(_renderer))
         {
             var pending = Interlocked.Read(ref _lastTokenSubmitted);  // todo: this is NOT a pending counter, its just a counter how many already where submitted...
-            Console.WriteLine("pending: " + pending);
             if (pending != 0) _renderer.WaitForPresented(pending);
         } else
-        {
             Console.WriteLine("Show on render thread!");
-        }
 
         var t = _renderer.SealFrame();
         Interlocked.Exchange(ref _lastTokenSubmitted, t);

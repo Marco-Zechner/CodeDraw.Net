@@ -3,9 +3,9 @@ using Silk.NET.GLFW;
 
 namespace MarcoZechner.CodeDrawDotNet.Engine;
 
-internal sealed class GlAction : IRenderAction
+internal sealed class GlAction(Action<GL> body) : IRenderAction
 {
-    private readonly Action<GL> _body;
-    public GlAction(Action<GL> body) => _body = body;
+    private readonly Action<GL> _body = body;
+
     public unsafe void Execute(GL gl, Glfw glfw, WindowHandle* window, int fbW, int fbH) => _body(gl);
 }

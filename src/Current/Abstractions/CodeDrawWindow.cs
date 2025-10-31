@@ -189,9 +189,9 @@ public unsafe sealed partial class CodeDrawWindow(string title) : IDisposable
     /// Clears the window’s private offscreen buffer for this frame.
     /// </summary>
     /// <param name="color">Clear color</param>
-    public void Clear(in Color? color = null) {
+    public void Clear(in Color? color = null, ClearMask mask = ClearMask.Color) {
         if (color is not null) ClearColor = color;
-        _renderer?.Enqueue(new ClearAction(ClearColor));
+        _renderer?.Enqueue(new ClearAction(ClearColor, mask));
     }
 
     /// <summary>

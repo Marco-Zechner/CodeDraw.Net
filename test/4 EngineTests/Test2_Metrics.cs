@@ -11,8 +11,10 @@ public class Test2_Metrics : ITestable
         var win = new CodeDrawWindow("Test2_Metrics")
         {
             Size = new(640, 360),
-            TargetFPS = 60,
-            VSync = false,
+            // TargetFPS = 0, // caping doesn't work correctly yet. (is always slower than target)
+            UpdateIntervalMs = 1,
+            MaxInflightFrames = 50,
+            VSync = true,
             Resizable = true,
             ClearColor = new Color(0.08f, 0.1f, 0.13f, 1.0f),
         };
@@ -27,6 +29,7 @@ public class Test2_Metrics : ITestable
             // w.Clear(w.ClearColor);
             w.Show();
 
+
             // Heartbeat ~1s
             if (acc >= 1.0)
             {
@@ -34,13 +37,13 @@ public class Test2_Metrics : ITestable
 
                 var winUp = w.Uptime.TotalSeconds;
 
-Console.WriteLine($@"
-Engine Uptime : {CodeDraw.EngineUptime.TotalSeconds,8:0.00}s
-Window Uptime : {winUp,8:0.00}s   FPS: {w.FPS,6:0.00}   UPS: {w.UPS,6:0.00}
-------------------------------------------------------------
-Backlog       : {w.BacklogFrames,8}   Queue: {w.QueuedFrames,8}   Inflight: {w.InflightFrames,8}
+                Console.WriteLine($@"
+Engine Uptime : {CodeDraw.EngineUptime.TotalSeconds,-8:0.00}s
 Event UPS     : {CodeDraw.EventLoopUPS.ToShortString(),-20}
 Layer Metrics : {CodeDraw.LayerWorkerMetrics.ToShortString(),-20}
+------------------------------------------------------------
+Window Uptime : {winUp,-8:0.00}s   FPS: {w.FPS,6:0.00}   UPS: {w.UPS,6:0.00}
+Backlog       : {w.BacklogFrames,-9}   Queue: {w.QueuedFrames,-4}   Inflight: {w.InflightFrames}
 ");
             }
         };

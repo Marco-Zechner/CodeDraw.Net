@@ -91,11 +91,21 @@ public unsafe sealed class DefaultWindowRenderer : AbstractWindowRenderer
                 _fps.MaybeSample();
                 _presentDirty = false;
             }
-            else if (!PublicWindow!.VSync && targetMs > 0)
+
+            if (PublicWindow!.VSync) continue;
+
+            if (!hadFrame && !_presentDirty)
+            {
+                Thread.Yield();
+                continue;
+            }
+
+            // Throttle to target FPS
+            if (targetMs > 0)
             {
                 var spent = frameTimer.Elapsed.TotalMilliseconds;
                 var sleepMs = MathF.Max(0, (float)(targetMs - spent));
-                if (sleepMs >= 1) Thread.Sleep((int)sleepMs);
+                if (sleepMs >= 1) Thread.Sleep((int)sleepMs); //TODO: causes 60fps max? should sleep 4ms (at 240fps) but it only reaches ~16ms
                 else Thread.Yield();
             }
         }

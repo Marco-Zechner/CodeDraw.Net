@@ -9,8 +9,8 @@ public struct EventDrivenMetrics
     public readonly string ToShortString()
     {
         if (IdleSec > 0)
-            return $"Idle: {IdleSec:0.00}s, Busy: {BusyPercent:0.0}%";
+            return $"Idle: {IdleSec,5:0.00}s, Busy: {BusyPercent,5:0.0}%";
         else
-            return $"Jobs: {JobsPerSec:0.0}/s, Busy: {BusyPercent:0.0}%";
+            return $"Jobs: {JobsPerSec,5:0.0}/s, Busy: {BusyPercent,5:0.0}%";
     }
 }

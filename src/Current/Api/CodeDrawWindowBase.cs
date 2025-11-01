@@ -64,11 +64,12 @@ public abstract unsafe partial class CodeDrawWindowBase(string title) : IDisposa
     // Tunables
     public int UpdateIntervalMs { get; set; } = 10;
     public int LongActionWarnMs { get; set; } = 16;
-    public int MaxOutstandingFrames
+    public int MaxInflightFrames
     {
         get => _renderer?.MaxInflightFrames ?? 3;
-        set { if (_renderer is not null) _renderer.MaxInflightFrames = value; }
+        set { if (_renderer is not null) _renderer.MaxInflightFrames = value; else _lastSetMaxInflightFrames = value; }
     }
+    private int _lastSetMaxInflightFrames = 3;
 
     // 5) Lifecycle
     public void Open()
@@ -83,6 +84,7 @@ public abstract unsafe partial class CodeDrawWindowBase(string title) : IDisposa
 
         _renderer = CreateRenderer(_native, Title);
         _renderer.BindPublic(this);
+        _renderer.MaxInflightFrames = _lastSetMaxInflightFrames;
         _renderer.Start();
 
         StartUpdateLoopIfNeeded();
@@ -271,13 +273,14 @@ public abstract unsafe partial class CodeDrawWindowBase(string title) : IDisposa
         while (_updateRunning)
         {
             double now = sw.Elapsed.TotalSeconds;
-            double dt = now - last; last = now;
+            double dt = now - last; 
+            last = now;
 
             try { Update?.Invoke(this, dt); }
             catch (Exception ex) { Console.WriteLine($"[Update ERROR] {ex}"); }
             finally { _updateUps.Tick(); _updateUps.MaybeSample(); }
 
-            if (UpdateIntervalMs > 0) Thread.Sleep(UpdateIntervalMs);
+            if (UpdateIntervalMs - dt * 1000 > 0) Thread.Sleep((int)(UpdateIntervalMs - dt * 1000));
             else Thread.Yield();
         }
     }

@@ -40,6 +40,20 @@ public abstract unsafe partial class CodeDrawWindowBase(string title) : IDisposa
     public object? Tag { get; set; }
     public double UPS => _updateUps.Ewma;
     public bool IsClosed => _closedMre.IsSet;
+    /// <summary>
+    /// Number of frames currently queued or in-flight (backlog).
+    /// </summary>
+    public int BacklogFrames => _renderer?.BacklogFrames ?? 0;
+
+    /// <summary>
+    /// Number of frames currently queued but not yet rendered.
+    /// </summary>
+    public int QueuedFrames => _renderer?.QueuedFrames ?? 0;
+
+    /// <summary>
+    /// Number of frames currently being processed by the renderer (in-flight only).
+    /// </summary>
+    public int InflightFrames => _renderer?.InflightFrames ?? 0;
 
     // 3) Events
     public event Action<CodeDrawWindowBase, GL, Glfw, nint>? Loaded;
@@ -50,6 +64,11 @@ public abstract unsafe partial class CodeDrawWindowBase(string title) : IDisposa
     // Tunables
     public int UpdateIntervalMs { get; set; } = 10;
     public int LongActionWarnMs { get; set; } = 16;
+    public int MaxOutstandingFrames
+    {
+        get => _renderer?.MaxInflightFrames ?? 3;
+        set { if (_renderer is not null) _renderer.MaxInflightFrames = value; }
+    }
 
     // 5) Lifecycle
     public void Open()
@@ -122,10 +141,15 @@ public abstract unsafe partial class CodeDrawWindowBase(string title) : IDisposa
     {
         if (_renderer is null) return 0;
 
+        // Never block the render thread itself
         if (!AbstractWindowRenderer.IsRenderThread(_renderer))
         {
-            var last = Interlocked.Read(ref _lastTokenSubmitted);
-            if (last != 0) _renderer.WaitForPresented(last);
+            // bounded back-pressure: wait until in-flight < MaxInflightFrames
+            _renderer.WaitForInflightSlot();
+        }
+        else
+        {
+            Console.WriteLine("[WARN] Show() called from render thread; skipping inflight wait to avoid deadlock.");
         }
 
         var t = _renderer.SealFrame();

@@ -25,6 +25,7 @@ public unsafe abstract class AbstractWindowRenderer
     public long Frames { get; protected set; }
     public DateTime StartUtc { get; protected set; }
     public TimeSpan Uptime => (StartUtc == default) ? TimeSpan.Zero : DateTime.UtcNow - StartUtc;
+    public int MaxInflightFrames { get; set; } = 3; // how many frames can be “in flight” (submitted but not yet presented)
 
     // ----- batching -----
     private readonly object _stagingLock = new();
@@ -32,6 +33,17 @@ public unsafe abstract class AbstractWindowRenderer
 
     private readonly ConcurrentQueue<(long token, List<IRenderAction> batch)> _frames = new();
     private long _nextToken = 0;
+
+    private readonly ConcurrentQueue<long> _inflightOrder = new();
+    private int _inflightCount;
+    /// <summary>Frames currently queued but not yet rendered.</summary>
+    public int QueuedFrames => _frames.Count;
+
+    /// <summary>Frames currently being rendered or presented.</summary>
+    public int InflightFrames => Volatile.Read(ref _inflightCount);
+
+    /// <summary>Total backlog = Queued + Inflight.</summary>
+    public int BacklogFrames => QueuedFrames + InflightFrames;
 
     private readonly ConcurrentDictionary<long, ManualResetEventSlim> _frameWaiters = new();
 
@@ -75,6 +87,9 @@ public unsafe abstract class AbstractWindowRenderer
         var token = Interlocked.Increment(ref _nextToken);
         _frames.Enqueue((token, batch));
         _frameWaiters.GetOrAdd(token, _ => new ManualResetEventSlim(false));
+
+        _inflightOrder.Enqueue(token);
+        Interlocked.Increment(ref _inflightCount);
         return token;
     }
 
@@ -98,7 +113,6 @@ public unsafe abstract class AbstractWindowRenderer
         }
     }
 
-    // AbstractWindowRenderer.cs (private helpers)
     protected bool TryDequeueFrame(out long token, out List<IRenderAction>? batch)
     {
         if (_frames.TryDequeue(out var item))
@@ -117,6 +131,32 @@ public unsafe abstract class AbstractWindowRenderer
         {
             mres.Set();
             _frameWaiters.TryRemove(token, out _);
+        }
+
+        // dequeue the head (presentation order == submission order)
+        if (_inflightOrder.TryDequeue(out var head))
+        {
+            // optional sanity check:
+            if (head != token) Console.WriteLine($"[WARN] Presented {token} but head was {head}");
+        }
+        Interlocked.Decrement(ref _inflightCount);
+    }
+
+    public void WaitForInflightSlot()
+    {
+        // Fast-path: no throttling
+        if (MaxInflightFrames <= 0) return; // 0 or less = unlimited
+        while (Volatile.Read(ref _inflightCount) >= MaxInflightFrames)
+        {
+            // wait on the oldest pending frame to finish
+            if (_inflightOrder.TryPeek(out var oldest))
+            {
+                WaitForPresented(oldest);
+            }
+            else
+            {
+                Thread.Yield();
+            }
         }
     }
 

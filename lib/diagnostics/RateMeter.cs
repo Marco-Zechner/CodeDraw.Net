@@ -1,6 +1,6 @@
 using System.Diagnostics;
 
-namespace MarcoZechner.Diagnostics;
+namespace MarcoZechner.DiagnosticsDotNet;
 public sealed class RateMeter
 {
     private readonly double _alpha;               // smoothing factor (0..1)

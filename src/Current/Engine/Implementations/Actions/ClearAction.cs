@@ -1,5 +1,5 @@
 using MarcoZechner.CodeDrawDotNet.Api.Graphics;
-using MarcoZechner.ColorLib;
+using MarcoZechner.ColorDotNet;
 using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
 

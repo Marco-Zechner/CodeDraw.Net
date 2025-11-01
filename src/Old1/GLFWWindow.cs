@@ -1,6 +1,5 @@
-using System.Diagnostics;
-using MarcoZechner.ColorLib;
-using MarcoZechner.Math;
+using MarcoZechner.ColorDotNet;
+using MarcoZechner.MathDotNet;
 using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
 using SkiaSharp;
@@ -348,7 +347,7 @@ public unsafe partial class GLFWWindow
         if (AutoClear)
         {
             if (_clearColor.A >= 1)
-                canvas.Clear(_clearColor);
+                canvas.Clear(_clearColor.ToSkia());
             else
                 canvas.Clear(new SKColor(0, 0, 0, 0));
         }

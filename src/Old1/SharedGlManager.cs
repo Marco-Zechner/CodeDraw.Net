@@ -1,6 +1,5 @@
 using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
-using Silk.NET.Core.Native;
 using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
 
@@ -109,7 +108,7 @@ public sealed class SharedGlManager : IDisposable
         if (Interlocked.Decrement(ref _windowRefs) == 0)
         {
             // schedule shutdown on manager thread
-            Enqueue(async gl => await ShutdownCoreAsync());
+            Enqueue(gl => { ShutdownCoreAsync(); return Task.CompletedTask; });
         }
     }
 
@@ -166,7 +165,7 @@ public sealed class SharedGlManager : IDisposable
         _thread = null;
     }
 
-    private unsafe async Task ShutdownCoreAsync()
+    private unsafe void ShutdownCoreAsync()
     {
         // destroy share window + terminate GLFW on manager thread
         if (ShareWindow != null)

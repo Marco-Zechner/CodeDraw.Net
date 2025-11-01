@@ -1,4 +1,4 @@
-namespace MarcoZechner.ColorLib;
+namespace MarcoZechner.ColorDotNet;
 
 public partial record Color {
     public float R { get; set; } = 0.0f;

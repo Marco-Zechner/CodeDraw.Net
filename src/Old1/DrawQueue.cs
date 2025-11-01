@@ -1,3 +1,4 @@
+using MarcoZechner.ColorDotNet;
 using SkiaSharp;
 
 namespace MarcoZechner.CodeDrawDotNet.Old1;
@@ -44,7 +45,7 @@ public class DrawQueue {
             int cornerRadius = settings.CornerRadius; //TODO: implement corner radius for shapes that support it
             shape.Draw(canvas, new SKPaint()
             {
-                Color = settings.DrawColor,
+                Color = settings.DrawColor.ToSkia(),
                 Style = isFill ? SKPaintStyle.StrokeAndFill : SKPaintStyle.Stroke,
                 StrokeWidth = settings.LineWidth,
                 IsAntialias = settings.IsAntiAliased,

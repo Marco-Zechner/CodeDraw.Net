@@ -1,6 +1,6 @@
 using MarcoZechner.CodeDrawDotNet;
-using MarcoZechner.ColorLib;
-using MarcoZechner.Math;
+using MarcoZechner.ColorDotNet;
+using MarcoZechner.MathDotNet;
 using Silk.NET.GLFW;
 using CodeDraw = MarcoZechner.CodeDrawDotNet.Old1;
 

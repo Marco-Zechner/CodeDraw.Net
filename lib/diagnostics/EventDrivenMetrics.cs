@@ -1,4 +1,4 @@
-namespace MarcoZechner.Diagnostics;
+namespace MarcoZechner.DiagnosticsDotNet;
 public struct EventDrivenMetrics
 {
     public double JobsPerSec;

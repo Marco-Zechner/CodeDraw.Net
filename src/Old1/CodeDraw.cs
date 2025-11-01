@@ -1,5 +1,5 @@
 
-using MarcoZechner.ColorLib;
+using MarcoZechner.ColorDotNet;
 using Silk.NET.OpenGL;
 using SkiaSharp;
 

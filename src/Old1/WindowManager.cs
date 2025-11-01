@@ -1,8 +1,6 @@
 using System.Collections.Concurrent;
-using Silk.NET.Maths;
-using MarcoZechner.Math;
+using MarcoZechner.MathDotNet;
 using Silk.NET.Windowing;
-using Silk.NET.GLFW;
 
 namespace MarcoZechner.CodeDrawDotNet.Old1;
 
@@ -75,9 +73,9 @@ internal static class WindowManager
     {
         while (_windowsToCreate.TryDequeue(out var window))
         {
-            if (window.Position == (Vector2D<int>)new Vector2(-1, -1))
+            if (window.Position == new Vector2(-1, -1).ToSilkI())
             {
-                window.Position = _currentAutoOffset;
+                window.Position = _currentAutoOffset.ToSilkI();
                 _currentAutoOffset += _autoOffsetStep;
                 window.Load += () =>
                 {
@@ -87,12 +85,12 @@ internal static class WindowManager
                     if (window.Position.X + window.Size.X > monitorSize.Value.X)
                     {
                         _currentAutoOffset = new(_autoOffsetStep.X, _currentAutoOffset.Y);
-                        window.Position = new Vector2(_currentAutoOffset.X, window.Position.Y);
+                        window.Position = new Vector2(_currentAutoOffset.X, window.Position.Y).ToSilkI();
                     }
                     if (window.Position.Y + window.Size.Y > monitorSize.Value.Y)
                     {
                         _currentAutoOffset = new(_currentAutoOffset.X, _autoOffsetStep.Y);
-                        window.Position = new Vector2(window.Position.X, _currentAutoOffset.Y);
+                        window.Position = new Vector2(window.Position.X, _currentAutoOffset.Y).ToSilkI();
                     }
                 };
             }

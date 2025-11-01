@@ -1,4 +1,4 @@
-namespace MarcoZechner.Math;
+namespace MarcoZechner.MathDotNet;
 
 public enum AngleUnit {
     Degrees,

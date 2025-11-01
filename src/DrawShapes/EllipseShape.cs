@@ -1,4 +1,4 @@
-using MarcoZechner.Math;
+using MarcoZechner.MathDotNet;
 using SkiaSharp;
 
 namespace MarcoZechner.CodeDrawDotNet;

@@ -1,4 +1,4 @@
-using MarcoZechner.Math;
+using MarcoZechner.MathDotNet;
 using Silk.NET.Windowing;
 using WindowBorderSilk = Silk.NET.Windowing.WindowBorder;
 using WindowStateSilk = Silk.NET.Windowing.WindowState;
@@ -44,8 +44,8 @@ public class CodeDrawOptions {
         WindowOptions.Default with
         {
             Title = options.Title,
-            Size = options.Size,
-            Position = options.Position,
+            Size = options.Size.ToSilkI(),
+            Position = options.Position.ToSilkI(),
             TopMost = options.IsAlwaysOnTop,
             WindowBorder = options.WindowBorder switch
             {

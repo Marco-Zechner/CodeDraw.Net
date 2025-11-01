@@ -1,4 +1,4 @@
-using MarcoZechner.ColorLib;
+using MarcoZechner.ColorDotNet;
 using MarcoZechner.CodeDrawDotNet.Api;
 
 namespace MarcoZechner.Tests;

@@ -1,5 +1,5 @@
 // Engine/LayerWorker.cs
-using MarcoZechner.Diagnostics;
+using MarcoZechner.DiagnosticsDotNet;
 using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
 using System.Collections.Concurrent;

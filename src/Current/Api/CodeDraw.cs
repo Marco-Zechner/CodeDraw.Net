@@ -1,5 +1,5 @@
 using MarcoZechner.CodeDrawDotNet.Engine.Implementations;
-using MarcoZechner.Diagnostics;
+using MarcoZechner.DiagnosticsDotNet;
 
 namespace MarcoZechner.CodeDrawDotNet.Api;
 

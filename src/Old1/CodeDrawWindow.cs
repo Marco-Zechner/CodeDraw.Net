@@ -1,6 +1,6 @@
 using System.Runtime.InteropServices;
-using MarcoZechner.ColorLib;
-using MarcoZechner.Math;
+using MarcoZechner.ColorDotNet;
+using MarcoZechner.MathDotNet;
 using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
 using Silk.NET.Windowing;
@@ -13,12 +13,12 @@ public partial class CodeDrawWindow
     private WindowOptions _windowOptions;
     private readonly IWindow _window;
     public Vector2 Size {
-        get => _window.Size;
-        set => _window.Size = value;
+        get => _window.Size.ToVector2();
+        set => _window.Size = value.ToSilkI();
     }
     public Vector2 Position {
-        get => _window.Position;
-        set => _window.Position = value;
+        get => _window.Position.ToVector2();
+        set => _window.Position = value.ToSilkI();
     }
     public string Title {
         get => _window.Title;
@@ -53,7 +53,7 @@ public partial class CodeDrawWindow
         set {
             _scaleCanvasWithWindow = value;
             if (value) {
-                _canvaseScaleOriginalSize = _window.Size;
+                _canvaseScaleOriginalSize = _window.Size.ToVector2();
             }
         }
     }
@@ -143,7 +143,7 @@ public partial class CodeDrawWindow
         var canvas = _surface.Canvas;
 
         if (_clearColor.A >= 1) {
-            canvas.Clear(_clearColor);
+            canvas.Clear(_clearColor.ToSkia());
         } else {
             canvas.Clear(new SKColor(0, 0, 0, 0));
             // canvas.DrawRect(0, 0, _window.FramebufferSize.X, _window.FramebufferSize.Y, new SKPaint
@@ -153,17 +153,17 @@ public partial class CodeDrawWindow
         }
 
         Matrix3x3 automaticMatrix;
-        Vector2 offset = (Vector2)_window.Size * Origin;
+        Vector2 offset = (Vector2)_window.Size.ToVector2() * Origin;
         Matrix3x3 flipXMatrix = Matrix3x3.CreateScale(FlipX ? -1 : 1, FlipY ? -1 : 1);
         if (ScaleCanvasWithWindow) {
-            var scale = (Vector2)_window.Size / _canvaseScaleOriginalSize;
+            var scale = (Vector2)_window.Size.ToVector2() / _canvaseScaleOriginalSize;
             offset /= scale;
             automaticMatrix = Matrix3x3.CreateScale(scale.X, scale.Y) * Matrix3x3.CreateTranslation(offset.X, offset.Y) * flipXMatrix;
         } else {
             automaticMatrix = Matrix3x3.CreateTranslation(offset.X, offset.Y) * flipXMatrix;
         }
 
-        canvas.SetMatrix(WindowMatrix * automaticMatrix);
+        canvas.SetMatrix((WindowMatrix * automaticMatrix).ToSkia());
 
         _drawQueue.Draw(canvas);
 
@@ -195,19 +195,19 @@ public partial class CodeDrawWindow
     }
 
 
-    const int GWL_EXSTYLE = -20;
-    const int WS_EX_LAYERED = 0x80000;
-    const int WS_EX_TRANSPARENT = 0x20;
-    const int LWA_ALPHA = 0x2;
+    private const int GWL_EXSTYLE = -20;
+    private const int WS_EX_LAYERED = 0x80000;
+    private const int WS_EX_TRANSPARENT = 0x20;
+    private const int LWA_ALPHA = 0x2;
 
     [DllImport("user32.dll")]
-    static extern int GetWindowLong(IntPtr hWnd, int nIndex);
+    private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
 
     [DllImport("user32.dll")]
-    static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
+    private static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
 
     [DllImport("user32.dll")]
-    static extern bool SetLayeredWindowAttributes(IntPtr hwnd, uint crKey, byte bAlpha, uint dwFlags);
+    private static extern bool SetLayeredWindowAttributes(IntPtr hwnd, uint crKey, byte bAlpha, uint dwFlags);
 
     private static void MakeWindowTransparent(IntPtr hwnd, byte opacity = 128, bool clickThrough = false)
     {

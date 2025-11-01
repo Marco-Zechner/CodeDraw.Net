@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using MarcoZechner.CodeDrawDotNet.Api;
-using MarcoZechner.Diagnostics;
+using MarcoZechner.DiagnosticsDotNet;
 using Silk.NET.GLFW;
 
 namespace MarcoZechner.CodeDrawDotNet.Engine.Implementations;

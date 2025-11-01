@@ -1,4 +1,4 @@
-using MarcoZechner.Math;
+using MarcoZechner.MathDotNet;
 
 namespace MarcoZechner.CodeDrawDotNet.Old1;
 

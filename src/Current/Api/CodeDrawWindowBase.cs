@@ -1,10 +1,10 @@
 using System.Diagnostics;
-using MarcoZechner.ColorLib;
-using MarcoZechner.Math;
+using MarcoZechner.ColorDotNet;
+using MarcoZechner.MathDotNet;
 using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
 using MarcoZechner.CodeDrawDotNet.Engine.Implementations;
-using MarcoZechner.Diagnostics;
+using MarcoZechner.DiagnosticsDotNet;
 using MarcoZechner.CodeDrawDotNet.Api.Events;
 using MarcoZechner.CodeDrawDotNet.Engine.Implementations.Actions;
 using MarcoZechner.CodeDrawDotNet.Api.Graphics;

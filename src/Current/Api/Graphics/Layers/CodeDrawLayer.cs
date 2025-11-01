@@ -1,5 +1,5 @@
-using MarcoZechner.ColorLib;
-using MarcoZechner.Math;
+using MarcoZechner.ColorDotNet;
+using MarcoZechner.MathDotNet;
 
 namespace MarcoZechner.CodeDrawDotNet.Api.Graphics.Layers;
 

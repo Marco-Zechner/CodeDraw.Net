@@ -1,14 +1,19 @@
 using SkiaSharp;
 
-namespace MarcoZechner.Math;
+namespace MarcoZechner.MathDotNet;
 
-public readonly partial record struct Matrix3x3{
-    public static implicit operator SKMatrix(Matrix3x3 m) => new(
-        m.M11, m.M12, m.M13,
-        m.M21, m.M22, m.M23,
-        m.M31, m.M32, m.M33);
-    public static implicit operator Matrix3x3(SKMatrix m) => new(
-        m.Values[0], m.Values[1], m.Values[2],
-        m.Values[3], m.Values[4], m.Values[5],
-        m.Values[6], m.Values[7], m.Values[8]);
+public static class MatrixSkiaExtensions
+{
+    public static SKMatrix ToSkia(this Matrix3x3 m) => new()
+    {
+        ScaleX = m.M11, SkewX = m.M12, TransX = m.M13,
+        SkewY  = m.M21, ScaleY = m.M22, TransY = m.M23,
+        Persp0 = m.M31, Persp1 = m.M32, Persp2 = m.M33
+    };
+
+    public static Matrix3x3 ToMatrix3x3(this SKMatrix m) => new(
+        m.ScaleX, m.SkewX, m.TransX,
+        m.SkewY,  m.ScaleY, m.TransY,
+        m.Persp0, m.Persp1, m.Persp2
+    );
 }

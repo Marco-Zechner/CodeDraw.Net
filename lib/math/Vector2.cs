@@ -1,6 +1,4 @@
-using System.Numerics;
-
-namespace MarcoZechner.Math;
+namespace MarcoZechner.MathDotNet;
 
 /// <summary>
 /// A 2D vector using float components (default).

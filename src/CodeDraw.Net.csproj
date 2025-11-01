@@ -12,7 +12,12 @@
     <PackageReference Include="SkiaSharp" Version="3.116.1" />
     <PackageReference Include="Topten.RichTextKit" Version="0.4.167" />
     <PackageReference Include="StbImageSharp" Version="2.30.15" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\lib\diagnostics\MarcoZechner.Diagnostics.csproj" />
+    <ProjectReference Include="..\lib\color\MarcoZechner.Color.csproj" />
+    <ProjectReference Include="..\lib\math\MarcoZechner.Math.csproj" />
   </ItemGroup>
 
 </Project>

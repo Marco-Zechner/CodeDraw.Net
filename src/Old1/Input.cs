@@ -1,5 +1,5 @@
 using System.Runtime.InteropServices;
-using MarcoZechner.Math;
+using MarcoZechner.MathDotNet;
 using Silk.NET.GLFW;
 
 namespace MarcoZechner.CodeDrawDotNet.Old1;

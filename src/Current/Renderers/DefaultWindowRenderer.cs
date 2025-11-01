@@ -1,6 +1,6 @@
 using System.Diagnostics;
 using MarcoZechner.CodeDrawDotNet.Engine.Implementations;
-using MarcoZechner.Diagnostics;
+using MarcoZechner.DiagnosticsDotNet;
 using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
 

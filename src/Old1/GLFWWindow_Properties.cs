@@ -1,4 +1,4 @@
-using MarcoZechner.Math;
+using MarcoZechner.MathDotNet;
 using Silk.NET.GLFW;
 
 namespace MarcoZechner.CodeDrawDotNet.Old1;

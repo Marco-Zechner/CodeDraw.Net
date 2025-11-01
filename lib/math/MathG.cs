@@ -1,6 +1,6 @@
 using System.Numerics;
 
-namespace MarcoZechner.Math;
+namespace MarcoZechner.MathDotNet;
 
 public static class MathG
 {

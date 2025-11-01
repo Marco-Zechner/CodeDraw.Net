@@ -1,6 +1,6 @@
 using System.Numerics;
 
-namespace MarcoZechner.Math;
+namespace MarcoZechner.MathDotNet;
 
 public readonly partial record struct Matrix3x3<T>
     where T : unmanaged, INumber<T>

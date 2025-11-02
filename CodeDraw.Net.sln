@@ -3,20 +3,6 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CodeDraw.Net", "src\CodeDraw.Net.csproj", "{870C95CF-E20F-458E-9FBF-C5039DEAA2A1}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CodeDraw.NetTest", "test\CodeDraw.NetTest.csproj", "{E088502D-E9B2-4325-906A-966AE67A999B}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ttrpg", "ttrpg\ttrpg.csproj", "{68321493-E3E5-4456-A0C1-584C0EB3F189}"
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "lib", "lib", "{5EB84164-9E65-4E2F-873B-079747B3AF32}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MarcoZechner.Diagnostics", "lib\diagnostics\MarcoZechner.Diagnostics.csproj", "{31E19654-85FF-4F43-8EF2-F4424BD49F6A}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MarcoZechner.Color", "lib\color\MarcoZechner.Color.csproj", "{54A92064-CE63-4CB1-A4CB-F7DA3192F48C}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MarcoZechner.Math", "lib\math\MarcoZechner.Math.csproj", "{8D40872B-06C4-402B-91D9-4F4ECCBFD6DB}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -24,36 +10,5 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
-	EndGlobalSection
-	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{870C95CF-E20F-458E-9FBF-C5039DEAA2A1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{870C95CF-E20F-458E-9FBF-C5039DEAA2A1}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{870C95CF-E20F-458E-9FBF-C5039DEAA2A1}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{870C95CF-E20F-458E-9FBF-C5039DEAA2A1}.Release|Any CPU.Build.0 = Release|Any CPU
-		{E088502D-E9B2-4325-906A-966AE67A999B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{E088502D-E9B2-4325-906A-966AE67A999B}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{E088502D-E9B2-4325-906A-966AE67A999B}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{E088502D-E9B2-4325-906A-966AE67A999B}.Release|Any CPU.Build.0 = Release|Any CPU
-		{68321493-E3E5-4456-A0C1-584C0EB3F189}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{68321493-E3E5-4456-A0C1-584C0EB3F189}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{68321493-E3E5-4456-A0C1-584C0EB3F189}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{68321493-E3E5-4456-A0C1-584C0EB3F189}.Release|Any CPU.Build.0 = Release|Any CPU
-		{31E19654-85FF-4F43-8EF2-F4424BD49F6A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{31E19654-85FF-4F43-8EF2-F4424BD49F6A}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{31E19654-85FF-4F43-8EF2-F4424BD49F6A}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{31E19654-85FF-4F43-8EF2-F4424BD49F6A}.Release|Any CPU.Build.0 = Release|Any CPU
-		{54A92064-CE63-4CB1-A4CB-F7DA3192F48C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{54A92064-CE63-4CB1-A4CB-F7DA3192F48C}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{54A92064-CE63-4CB1-A4CB-F7DA3192F48C}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{54A92064-CE63-4CB1-A4CB-F7DA3192F48C}.Release|Any CPU.Build.0 = Release|Any CPU
-		{8D40872B-06C4-402B-91D9-4F4ECCBFD6DB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{8D40872B-06C4-402B-91D9-4F4ECCBFD6DB}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{8D40872B-06C4-402B-91D9-4F4ECCBFD6DB}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{8D40872B-06C4-402B-91D9-4F4ECCBFD6DB}.Release|Any CPU.Build.0 = Release|Any CPU
-	EndGlobalSection
-	GlobalSection(NestedProjects) = preSolution
-		{31E19654-85FF-4F43-8EF2-F4424BD49F6A} = {5EB84164-9E65-4E2F-873B-079747B3AF32}
-		{54A92064-CE63-4CB1-A4CB-F7DA3192F48C} = {5EB84164-9E65-4E2F-873B-079747B3AF32}
-		{8D40872B-06C4-402B-91D9-4F4ECCBFD6DB} = {5EB84164-9E65-4E2F-873B-079747B3AF32}
 	EndGlobalSection
 EndGlobal

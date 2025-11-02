@@ -1,0 +1,23 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Silk.NET" Version="2.22.0" />
+    <PackageReference Include="SkiaSharp" Version="3.116.1" />
+    <PackageReference Include="Topten.RichTextKit" Version="0.4.167" />
+    <PackageReference Include="StbImageSharp" Version="2.30.15" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\libs\Diagnostics.Net\Diagnostics.Net.csproj" />
+    <ProjectReference Include="..\..\libs\Color.Net\Color.Net.csproj" />
+    <ProjectReference Include="..\..\libs\Math.Net\Math.Net.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,8 @@
+<Project>
+  <PropertyGroup>
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+    <BaseOutputPath>$(MSBuildThisFileDirectory)artifacts\bin\</BaseOutputPath>
+    <BaseIntermediateOutputPath>$(MSBuildThisFileDirectory)artifacts\obj\</BaseIntermediateOutputPath>
+    <TestResultsDirectory>$(MSBuildThisFileDirectory)artifacts\TestResults\</TestResultsDirectory>
+  </PropertyGroup>
+</Project>

@@ -15,9 +15,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\lib\diagnostics\MarcoZechner.Diagnostics.csproj" />
-    <ProjectReference Include="..\lib\color\MarcoZechner.Color.csproj" />
-    <ProjectReference Include="..\lib\math\MarcoZechner.Math.csproj" />
+    <ProjectReference Include="..\..\libs\Diagnostics.Net\Diagnostics.Net.csproj" />
+    <ProjectReference Include="..\..\libs\Color.Net\Color.Net.csproj" />
+    <ProjectReference Include="..\..\libs\Math.Net\Math.Net.csproj" />
   </ItemGroup>
 
 </Project>

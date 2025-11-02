@@ -1,16 +1,14 @@
-using MarcoZechner.CodeDrawDotNet;
 using MarcoZechner.ColorDotNet;
 using MarcoZechner.MathDotNet;
 using Silk.NET.GLFW;
-using CodeDraw = MarcoZechner.CodeDrawDotNet;
 
-namespace MarcoZechner.Tests.Test1;
+namespace MarcoZechner.CodeDrawDotNet.Tests.Manual;
 
 public class Test1_CodeDraw
 {
     public static long FrameCount => _bsp1.FrameCount;
     private static long _frameOffset = 0;
-    private static CodeDraw.CodeDraw _bsp1 = null!;
+    private static CodeDraw _bsp1 = null!;
     public static void OffsetNow()
     {
         _frameOffset = _bsp1.FrameCount;
@@ -19,7 +17,7 @@ public class Test1_CodeDraw
     public static void Run()
     {
 
-        _bsp1 = new CodeDraw.CodeDraw("Beispiel 1.1")
+        _bsp1 = new("Beispiel 1.1")
         {
             Size = new Vector2<int>(800, 300),
         };

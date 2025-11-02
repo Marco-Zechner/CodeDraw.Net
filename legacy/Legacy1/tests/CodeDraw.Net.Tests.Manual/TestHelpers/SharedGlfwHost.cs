@@ -1,11 +1,8 @@
-// SharedGlfwHost.cs
-using System;
 using System.Collections.Concurrent;
-using System.Threading;
 using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
 
-namespace MarcoZechner.Tests.Helpers;
+namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Helpers;
 
 public unsafe sealed class SharedGlfwHost : IDisposable
 {

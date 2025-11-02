@@ -5,6 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <UserSecretsId>1198e776-0375-44d0-a58d-989166d69e17</UserSecretsId>
   </PropertyGroup>
 
   <PropertyGroup>

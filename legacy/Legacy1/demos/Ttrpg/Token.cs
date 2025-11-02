@@ -1,7 +1,7 @@
 using MarcoZechner.ColorDotNet;
 using MarcoZechner.MathDotNet;
 
-namespace MarcoZechner.ttrpg;
+namespace MarcoZechner.Ttrpg;
 
 public class Token
 {

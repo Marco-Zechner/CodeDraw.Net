@@ -1,8 +1,6 @@
-﻿using MarcoZechner.Tests.Test1;
-using MarcoZechner.Tests.Test2;
-using MarcoZechner.Tests.Test3;
+﻿using MarcoZechner.CodeDrawDotNet.Tests.Manual.Experiments;
 
-namespace MarcoZechner.Tests;
+namespace MarcoZechner.CodeDrawDotNet.Tests.Manual;
 
 public class ProgramOld
 {

@@ -1,7 +1,7 @@
 using MarcoZechner.MathDotNet;
 using Silk.NET.Maths;
 
-namespace MarcoZechner.Extensions;
+namespace MarcoZechner.CodeDrawDotNet.Extensions;
 
 public static class VectorSilkExtensions
 {

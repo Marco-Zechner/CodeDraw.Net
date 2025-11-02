@@ -2,7 +2,7 @@ using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
 using MarcoZechner.Tests.Helpers;
 
-namespace MarcoZechner.Tests.Test3;
+namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Experiments;
 
 public unsafe static class Experiment_2
 {

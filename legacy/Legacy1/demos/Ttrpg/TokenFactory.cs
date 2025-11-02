@@ -1,8 +1,7 @@
 using MarcoZechner.ColorDotNet;
 using MarcoZechner.MathDotNet;
 
-namespace MarcoZechner.ttrpg;
-
+namespace MarcoZechner.Ttrpg;
 public static class TokenFactory
 {
     public static readonly List<Token> Tokens = [];

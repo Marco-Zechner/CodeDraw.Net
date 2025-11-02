@@ -1,14 +1,12 @@
 ﻿
 using MarcoZechner.CodeDrawDotNet;
-using MarcoZechner.CodeDrawDotNet;
 using MarcoZechner.ColorDotNet;
 using MarcoZechner.MathDotNet;
 using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
 using SkiaSharp;
-using CodeDraw = MarcoZechner.CodeDrawDotNet.CodeDraw;
 
-namespace MarcoZechner.ttrpg;
+namespace MarcoZechner.Ttrpg;
 
 public class Program
 {
@@ -770,30 +768,30 @@ private static void RenderPlayer(double dt, SKCanvas canvas, GL gl)
         }
     }
 
-    static Vector2<double> TopLeft(Vector2<int> winSize, Vector2<float> n, float z, Vector2<double> o)
-    {
-        Vector2<double> c = winSize / 2.0;
-        return c - (Vector2<double>)(n * z) / 2.0 + o; // TL of the image on screen
-    }
+    // static Vector2<double> TopLeft(Vector2<int> winSize, Vector2<float> n, float z, Vector2<double> o)
+    // {
+    //     Vector2<double> c = winSize / 2.0;
+    //     return c - (Vector2<double>)(n * z) / 2.0 + o; // TL of the image on screen
+    // }
 
-    static Vector2<double> MapToScreen(Vector2<double> mapPx, Vector2<double> tl, float z)
-    {
-        return tl + mapPx * (double)z;
-    }
+    // static Vector2<double> MapToScreen(Vector2<double> mapPx, Vector2<double> tl, float z)
+    // {
+    //     return tl + mapPx * (double)z;
+    // }
 
-    static Vector2<double> ScreenToMap(Vector2<double> screenPx, Vector2<int> winSize, Vector2<double> offset, float z)
+    private static Vector2<double> ScreenToMap(Vector2<double> screenPx, Vector2<int> winSize, Vector2<double> offset, float z)
     {
         Vector2<double> c = winSize / 2.0;
         return (screenPx - (c + offset)) / (double)z;
     }
 
-    static Vector2<float> Rotate(Vector2<float> v, float cosA, float sinA)
+    private static Vector2<float> Rotate(Vector2<float> v, float cosA, float sinA)
     {
         // x' = x*cos - y*sin ; y' = x*sin + y*cos
         return new Vector2<float>(v.X * cosA - v.Y * sinA, v.X * sinA + v.Y * cosA);
     }
 
-    static Vector2<double> DmScreenToPlayerScreen(Vector2<double> dmScreen)
+    private static Vector2<double> DmScreenToPlayerScreen(Vector2<double> dmScreen)
     {
         // DM: screen -> world
         Vector2<double> cdm = _dm_window.Size / 2.0;
@@ -806,7 +804,7 @@ private static void RenderPlayer(double dt, SKCanvas canvas, GL gl)
         return plScreen;
     }
 
-    static Vector2<float> OrientedNaturalSize(ImageHandle img, int rotDeg)
+    private static Vector2<float> OrientedNaturalSize(ImageHandle img, int rotDeg)
     {
         rotDeg = ((rotDeg % 360) + 360) % 360;
         var n = img.NaturalSize;
@@ -815,7 +813,7 @@ private static void RenderPlayer(double dt, SKCanvas canvas, GL gl)
         return n;
     }
 
-    static (Vector2<double> TL, Vector2<double> Size) GetMapScreenRect(int i, Vector2<int> winSize)
+    private static (Vector2<double> TL, Vector2<double> Size) GetMapScreenRect(int i, Vector2<int> winSize)
     {
         var img = _maps[i];
         int rot = _map_rotations[i];
@@ -835,7 +833,7 @@ private static void RenderPlayer(double dt, SKCanvas canvas, GL gl)
         return (tl, (Vector2<double>)sizePx);
     }
 
-    static int PickMapUnderMouse(Vector2<double> mouseScreen)
+    private static int PickMapUnderMouse(Vector2<double> mouseScreen)
     {
         for (int i = _maps.Count - 1; i >= 0; i--)
         {
@@ -849,7 +847,7 @@ private static void RenderPlayer(double dt, SKCanvas canvas, GL gl)
         return -1;
     }
 
-    static void DeleteMapAt(int index)
+    private static void DeleteMapAt(int index)
     {
         if (index < 0 || index >= _maps.Count) return;
 

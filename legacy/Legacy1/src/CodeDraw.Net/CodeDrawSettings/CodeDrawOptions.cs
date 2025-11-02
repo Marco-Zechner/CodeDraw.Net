@@ -1,4 +1,4 @@
-using MarcoZechner.Extensions;
+using MarcoZechner.CodeDrawDotNet.Extensions;
 using MarcoZechner.MathDotNet;
 using Silk.NET.Windowing;
 using WindowBorderSilk = Silk.NET.Windowing.WindowBorder;

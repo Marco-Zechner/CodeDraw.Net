@@ -1,11 +1,10 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
-using MarcoZechner.CodeDrawDotNet;
+using MarcoZechner.CodeDrawDotNet.Tests.Manual.Helpers;
 using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
-using static MarcoZechner.Tests.Helpers.GLShader;
 
-namespace MarcoZechner.Tests.Test3;
+namespace MarcoZechner.CodeDrawDotNet.Tests.Manual;
 
 public class Test3_SharedContext
 {
@@ -76,10 +75,10 @@ public class Test3_SharedContext
             }, (void*) 0);
         }
 
-        uint prog = CreateProgram(gl, CircleShader.VS, CircleShader.FS);
-        var (vao, vbo, ebo) = CreateFullScreenQuad(gl);
+        uint prog = GLShader.CreateProgram(gl, GLShader.CircleShader.VS, GLShader.CircleShader.FS);
+        var (vao, vbo, ebo) = GLShader.CreateFullScreenQuad(gl);
 
-        uint progLayer = CreateProgram(gl, LayerShader.VS, LayerShader.FS);
+        uint progLayer = GLShader.CreateProgram(gl, GLShader.LayerShader.VS, GLShader.LayerShader.FS);
         int locUTex = gl.GetUniformLocation(progLayer, "uTex");
 
         int locTime   = gl.GetUniformLocation(prog, "uTime");

@@ -16,4 +16,10 @@
     <Description></Description> <!--todo-->
   </PropertyGroup>
 
+  <PropertyGroup>
+    <AssemblyName>ColorDotNet</AssemblyName>
+    <RootNamespace>MarcoZechner.ColorDotNet</RootNamespace>
+    <PackageId>MarcoZechner.ColorDotNet</PackageId>
+  </PropertyGroup>
+
 </Project>

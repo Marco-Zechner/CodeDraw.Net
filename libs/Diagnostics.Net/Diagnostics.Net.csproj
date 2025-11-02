@@ -6,14 +6,17 @@
     <Nullable>enable</Nullable>
     <!-- <GenerateDocumentationFile>true</GenerateDocumentationFile> -->
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
-    <AssemblyName>MarcoZechner.DiagnosticsDotNet</AssemblyName>
-    <RootNamespace>MarcoZechner.DiagnosticsDotNet</RootNamespace>
 
-    <PackageId>MarcoZechner.Diagnostics</PackageId>
     <Authors>Marco Zechner</Authors>
     <RepositoryUrl>https://github.com/...</RepositoryUrl> <!--todo-->
     <PackageLicenseExpression>MIT</PackageLicenseExpression> <!--todo-->
     <Description>Lightweight timing and workload metrics (RateMeter, BusyMeter, WorkRate, EventDrivenMetrics).</Description>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <AssemblyName>DiagnosticsDotNet</AssemblyName>
+    <RootNamespace>MarcoZechner.DiagnosticsDotNet</RootNamespace>
+    <PackageId>MarcoZechner.DiagnosticsDotNet</PackageId>
   </PropertyGroup>
 
 </Project>

@@ -6,14 +6,17 @@
     <Nullable>enable</Nullable>
     <!-- <GenerateDocumentationFile>true</GenerateDocumentationFile> -->
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
-    <AssemblyName>MarcoZechner.MathDotNet</AssemblyName>
-    <RootNamespace>MarcoZechner.MathDotNet</RootNamespace>
 
-    <PackageId>MarcoZechner.Math</PackageId>
     <Authors>Marco Zechner</Authors>
     <RepositoryUrl>https://github.com/...</RepositoryUrl> <!--todo-->
     <PackageLicenseExpression>MIT</PackageLicenseExpression> <!--todo-->
     <Description></Description> <!--todo-->
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <AssemblyName>MathDotNet</AssemblyName>
+    <RootNamespace>MarcoZechner.MathDotNet</RootNamespace>
+    <PackageId>MarcoZechner.MathDotNet</PackageId>
   </PropertyGroup>
 
 </Project>

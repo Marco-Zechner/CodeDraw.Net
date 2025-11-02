@@ -7,6 +7,12 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <AssemblyName>CodeDraw.Net</AssemblyName>
+    <RootNamespace>MarcoZechner.CodeDraw.Net</RootNamespace>
+    <PackageId>MarcoZechner.CodeDraw.Net</PackageId>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="Silk.NET" Version="2.22.0" />
     <PackageReference Include="SkiaSharp" Version="3.116.1" />
@@ -15,9 +21,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\libs\Diagnostics.Net\Diagnostics.Net.csproj" />
-    <ProjectReference Include="..\..\libs\Color.Net\Color.Net.csproj" />
-    <ProjectReference Include="..\..\libs\Math.Net\Math.Net.csproj" />
+    <ProjectReference Include="..\..\..\..\libs\Diagnostics.Net\Diagnostics.Net.csproj" />
+    <ProjectReference Include="..\..\..\..\libs\Color.Net\Color.Net.csproj" />
+    <ProjectReference Include="..\..\..\..\libs\Math.Net\Math.Net.csproj" />
   </ItemGroup>
 
 </Project>

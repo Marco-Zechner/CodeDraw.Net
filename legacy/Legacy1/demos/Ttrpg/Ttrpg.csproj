@@ -7,8 +7,14 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <AssemblyName>Ttrpg</AssemblyName>
+    <RootNamespace>MarcoZechner.Ttrpg</RootNamespace>
+    <PackageId>MarcoZechner.Ttrpg</PackageId>
+  </PropertyGroup>
+
   <ItemGroup>
-    <ProjectReference Include="..\src\CodeDraw.Net.csproj" />
+    <ProjectReference Include="..\..\src\CodeDraw.Net\CodeDraw.Net.csproj" />
   </ItemGroup>
 
 </Project>

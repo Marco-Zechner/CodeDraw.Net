@@ -8,8 +8,14 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <AssemblyName>CodeDraw.Net.Tests.Manual</AssemblyName>
+    <RootNamespace>MarcoZechner.CodeDraw.Net.Tests.Manual</RootNamespace>
+    <PackageId>MarcoZechner.CodeDraw.Net.Tests.Manual</PackageId>
+  </PropertyGroup>
+
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Legacy1.CodeDraw.Net\Legacy1.CodeDraw.Net.csproj" />
+    <ProjectReference Include="..\..\src\CodeDraw.Net\CodeDraw.Net.csproj" />
   </ItemGroup>
 
 </Project>

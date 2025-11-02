@@ -2,7 +2,7 @@
 
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual;
 
-public class ProgramOld
+public static class Program
 {
     private static readonly (string key, string name, Action action)[] _tests =
     [
@@ -18,7 +18,7 @@ public class ProgramOld
     ];
 
 
-    public static void MainOld(string[] args)
+    public static void Main(string[] args)
     {
         if (args.Length > 0)
         {

@@ -1,0 +1,113 @@
+# .editorconfig
+root = true
+
+[*.cs]
+
+#####################################################
+# 1. Private Fields → _camelCase
+#####################################################
+dotnet_naming_rule.private_fields_must_have_underscore.severity = error
+dotnet_naming_rule.private_fields_must_have_underscore.symbols = private_fields
+dotnet_naming_rule.private_fields_must_have_underscore.style = underscore_camel_case
+
+dotnet_naming_symbols.private_fields.applicable_kinds = field
+dotnet_naming_symbols.private_fields.applicable_accessibilities = private
+
+dotnet_naming_style.underscore_camel_case.required_prefix = _
+dotnet_naming_style.underscore_camel_case.capitalization = camel_case
+
+
+#####################################################
+# 2. Properties → PascalCase
+#####################################################
+dotnet_naming_rule.properties_must_be_pascal_case.severity = error
+dotnet_naming_rule.properties_must_be_pascal_case.symbols = properties
+dotnet_naming_rule.properties_must_be_pascal_case.style = pascal_case
+
+dotnet_naming_symbols.properties.applicable_kinds = property
+
+dotnet_naming_style.pascal_case.capitalization = pascal_case
+
+
+#####################################################
+# 3. Methods → PascalCase
+#####################################################
+dotnet_naming_rule.methods_must_be_pascal_case.severity = error
+dotnet_naming_rule.methods_must_be_pascal_case.symbols = methods
+dotnet_naming_rule.methods_must_be_pascal_case.style = pascal_case
+
+dotnet_naming_symbols.methods.applicable_kinds = method
+
+
+#####################################################
+# 4. Classes → PascalCase
+#####################################################
+dotnet_naming_rule.classes_must_be_pascal_case.severity = error
+dotnet_naming_rule.classes_must_be_pascal_case.symbols = classes
+dotnet_naming_rule.classes_must_be_pascal_case.style = pascal_case
+
+dotnet_naming_symbols.classes.applicable_kinds = class
+
+
+#####################################################
+# 5. Constants → ALL_CAPS
+#####################################################
+dotnet_naming_rule.constants_must_be_all_caps.severity = error
+dotnet_naming_rule.constants_must_be_all_caps.symbols = constants
+dotnet_naming_rule.constants_must_be_all_caps.style = all_caps
+
+dotnet_naming_symbols.constants.applicable_kinds = field
+dotnet_naming_symbols.constants.required_modifiers = const
+
+dotnet_naming_style.all_caps.capitalization = all_upper
+
+
+#####################################################
+# 6. Interfaces → IPascalCase
+#####################################################
+dotnet_naming_rule.interfaces_must_start_with_I.severity = error
+dotnet_naming_rule.interfaces_must_start_with_I.symbols = interfaces
+dotnet_naming_rule.interfaces_must_start_with_I.style = pascal_with_i_prefix
+
+dotnet_naming_symbols.interfaces.applicable_kinds = interface
+
+dotnet_naming_style.pascal_with_i_prefix.required_prefix = I
+dotnet_naming_style.pascal_with_i_prefix.capitalization = pascal_case
+
+
+#####################################################
+# 7. Parameters and Locals → camelCase
+#####################################################
+dotnet_naming_rule.locals_and_params_must_be_camel_case.severity = error
+dotnet_naming_rule.locals_and_params_must_be_camel_case.symbols = locals_and_params
+dotnet_naming_rule.locals_and_params_must_be_camel_case.style = camel_case_style
+
+dotnet_naming_symbols.locals_and_params.applicable_kinds = parameter, local
+
+dotnet_naming_style.camel_case_style.capitalization = camel_case
+
+#####################################################
+# 8. Enum Types → PascalCase
+#####################################################
+dotnet_naming_rule.enum_types_must_be_pascal_case.severity = error
+dotnet_naming_rule.enum_types_must_be_pascal_case.symbols = enum_types
+dotnet_naming_rule.enum_types_must_be_pascal_case.style = pascal_case
+
+dotnet_naming_symbols.enum_types.applicable_kinds = enum
+dotnet_naming_symbols.enum_types.applicable_accessibilities = public, internal, protected, private
+
+dotnet_naming_style.pascal_case.capitalization = pascal_case
+
+#####################################################
+# 9. readonly required if possible
+#####################################################
+dotnet_diagnostic.IDE0044.severity = error
+
+dotnet_diagnostic.IDE0065.severity = error   # using directive placement
+dotnet_diagnostic.IDE0040.severity = error   # add accessibility modifiers
+dotnet_diagnostic.IDE0005.severity = error     # remove unused usings
+
+csharp_prefer_file_scoped_namespace = true:error
+
+# IDE0090: Use 'new(...)'
+dotnet_diagnostic.IDE0090.severity = error

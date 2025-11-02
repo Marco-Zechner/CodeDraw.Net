@@ -1,36 +1,135 @@
-# Logs and databases
+##########################
+# Logs, Databases, Temp
+##########################
 *.log
+*.tlog
 *.sqlite3
-
-# .NET
-bin/
-obj/
-*.pdb
-*.user
-*.vs/
-
-# IDEs and editors
-.editorconfig
-.vscode/
-.idea/
-
-# Temporary files
+*.db
+*.db-shm
+*.db-wal
 *.tmp
 *.temp
 *.bak
 *.old
 
-# Archives
+##########################
+# OS-specific
+##########################
+# macOS
+.DS_Store
+.AppleDouble
+.Spotlight-V100
+.Trashes
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+# Linux
+*~
+.nfs*
+
+##########################
+# .NET Build Artifacts
+##########################
+bin/
+obj/
+[Bb]uild/
+[Bb]in*/        # handles bin, Bin64, Bin_Debug, etc.
+[Oo]bj*/        # same idea
+*.dll
+*.exe
+*.pdb
+*.mdb
+*.cache
+*.generated.*
+*.AssemblyAttributes.cs
+project.lock.json
+project.fragment.lock.json
+*.gpState
+
+##########################
+# IDE & Editor Folders
+##########################
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Rider / IntelliJ
+.idea/
+.idea_modules/
+
+# VS Code
+.vscode/
+.history/
+
+# MonoDevelop
+*.userprefs
+
+##########################
+# Build Tools / Packaging
+##########################
+dist/
+build/
+target/
+artifacts/
+publish/
+*.nupkg
+*.snupkg
+*.nuspec
+.nuget/
+coverage*.xml
+TestResults/
+BenchmarkDotNet.Artifacts/
+StyleCopReport.xml
+
+##########################
+# Dependencies & Locks
+##########################
+packages/
+node_modules/
+*.lock
+*.deps.json
+*.runtimeconfig.json
+
+##########################
+# Environment & Secrets
+##########################
+.env
+.env.*
+secrets.json
+appsettings.Development.json
+appsettings.Local.json
+appsettings.*.local.json
+
+##########################
+# Archives & Dumps
+##########################
 *.zip
+*.tar
 *.tar.gz
+*.tgz
 *.rar
 *.7z
+*.gz
+*.dump
+*.dmp
 
-# Build outputs
-/dist/
-/build/
-/target/
+##########################
+# Documentation Builds
+##########################
+docs/_site/
+docs/api/
+docs/site/
+*.docfx
 
-# Other
-.env
-*.lock
+##########################
+# Miscellaneous
+##########################
+# local test data or scratchpads
+scratch/
+temp/
+~$*

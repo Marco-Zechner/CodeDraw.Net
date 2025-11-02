@@ -9,7 +9,7 @@
 
   <PropertyGroup>
     <AssemblyName>CodeDraw.Net</AssemblyName>
-    <RootNamespace>MarcoZechner.CodeDraw.Net</RootNamespace>
+    <RootNamespace>MarcoZechner.CodeDrawDotNet</RootNamespace>
     <PackageId>MarcoZechner.CodeDraw.Net</PackageId>
   </PropertyGroup>
 

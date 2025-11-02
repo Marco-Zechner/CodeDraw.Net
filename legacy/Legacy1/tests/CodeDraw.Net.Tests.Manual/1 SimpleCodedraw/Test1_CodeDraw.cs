@@ -2,7 +2,7 @@ using MarcoZechner.CodeDrawDotNet;
 using MarcoZechner.ColorDotNet;
 using MarcoZechner.MathDotNet;
 using Silk.NET.GLFW;
-using CodeDraw = MarcoZechner.CodeDrawDotNet.Old1;
+using CodeDraw = MarcoZechner.CodeDrawDotNet;
 
 namespace MarcoZechner.Tests.Test1;
 

@@ -3,7 +3,7 @@ using MarcoZechner.Extensions;
 using MarcoZechner.MathDotNet;
 using Silk.NET.Windowing;
 
-namespace MarcoZechner.CodeDrawDotNet.Old1;
+namespace MarcoZechner.CodeDrawDotNet;
 
 internal static class WindowManager
 {

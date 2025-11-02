@@ -5,6 +5,12 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <AssemblyName>CodeDraw.Net.Benchmarks</AssemblyName>
+    <RootNamespace>MarcoZechner.CodeDrawDotNet.Benchmarks</RootNamespace>
+    <PackageId>MarcoZechner.CodeDraw.Net.Benchmarks</PackageId>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="BenchmarkDotNet" Version="0.14.0" />
     <ProjectReference Include="..\..\src\CodeDraw.Net\CodeDraw.Net.csproj" />

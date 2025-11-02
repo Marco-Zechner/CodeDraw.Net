@@ -4,7 +4,7 @@ using MarcoZechner.MathDotNet;
 using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
 using SkiaSharp;
-using CodeDraw = MarcoZechner.CodeDrawDotNet.Old1;
+using CodeDraw = MarcoZechner.CodeDrawDotNet;
 
 namespace MarcoZechner.Tests.Test2;
 

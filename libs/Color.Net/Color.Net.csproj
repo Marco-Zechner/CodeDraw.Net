@@ -17,9 +17,9 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <AssemblyName>ColorDotNet</AssemblyName>
+    <AssemblyName>Color.Net</AssemblyName>
     <RootNamespace>MarcoZechner.ColorDotNet</RootNamespace>
-    <PackageId>MarcoZechner.ColorDotNet</PackageId>
+    <PackageId>MarcoZechner.Color.Net</PackageId>
   </PropertyGroup>
 
 </Project>

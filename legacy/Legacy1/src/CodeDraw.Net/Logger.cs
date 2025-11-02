@@ -1,4 +1,4 @@
-namespace MarcoZechner.CodeDrawDotNet.Old1;
+namespace MarcoZechner.CodeDrawDotNet;
 
 public static class Logger
 {

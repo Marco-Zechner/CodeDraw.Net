@@ -14,9 +14,9 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <AssemblyName>DiagnosticsDotNet</AssemblyName>
+    <AssemblyName>Diagnostics.Net</AssemblyName>
     <RootNamespace>MarcoZechner.DiagnosticsDotNet</RootNamespace>
-    <PackageId>MarcoZechner.DiagnosticsDotNet</PackageId>
+    <PackageId>MarcoZechner.Diagnostics.Net</PackageId>
   </PropertyGroup>
 
 </Project>

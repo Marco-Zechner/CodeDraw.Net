@@ -1,6 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
-using MarcoZechner.CodeDrawDotNet.Old1;
+using MarcoZechner.CodeDrawDotNet;
 using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
 using static MarcoZechner.Tests.Helpers.GLShader;

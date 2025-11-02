@@ -5,7 +5,7 @@ using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
 using SkiaSharp;
 
-namespace MarcoZechner.CodeDrawDotNet.Old1;
+namespace MarcoZechner.CodeDrawDotNet;
 
 public unsafe partial class GLFWWindow
 {

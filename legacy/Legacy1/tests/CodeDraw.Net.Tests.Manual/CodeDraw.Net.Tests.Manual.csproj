@@ -10,7 +10,7 @@
 
   <PropertyGroup>
     <AssemblyName>CodeDraw.Net.Tests.Manual</AssemblyName>
-    <RootNamespace>MarcoZechner.CodeDraw.Net.Tests.Manual</RootNamespace>
+    <RootNamespace>MarcoZechner.CodeDrawDotNet.Tests.Manual</RootNamespace>
     <PackageId>MarcoZechner.CodeDraw.Net.Tests.Manual</PackageId>
   </PropertyGroup>
 

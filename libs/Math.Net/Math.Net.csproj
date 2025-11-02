@@ -14,9 +14,9 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <AssemblyName>MathDotNet</AssemblyName>
+    <AssemblyName>Math.Net</AssemblyName>
     <RootNamespace>MarcoZechner.MathDotNet</RootNamespace>
-    <PackageId>MarcoZechner.MathDotNet</PackageId>
+    <PackageId>MarcoZechner.Math.Net</PackageId>
   </PropertyGroup>
 
 </Project>

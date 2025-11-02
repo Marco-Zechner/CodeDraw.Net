@@ -2,7 +2,7 @@ using System.Runtime.InteropServices;
 using MarcoZechner.MathDotNet;
 using Silk.NET.GLFW;
 
-namespace MarcoZechner.CodeDrawDotNet.Old1;
+namespace MarcoZechner.CodeDrawDotNet;
 
 public unsafe class Input
 {

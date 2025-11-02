@@ -1,12 +1,12 @@
 ﻿
 using MarcoZechner.CodeDrawDotNet;
-using MarcoZechner.CodeDrawDotNet.Old1;
+using MarcoZechner.CodeDrawDotNet;
 using MarcoZechner.ColorDotNet;
 using MarcoZechner.MathDotNet;
 using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
 using SkiaSharp;
-using CodeDraw = MarcoZechner.CodeDrawDotNet.Old1.CodeDraw;
+using CodeDraw = MarcoZechner.CodeDrawDotNet.CodeDraw;
 
 namespace MarcoZechner.ttrpg;
 

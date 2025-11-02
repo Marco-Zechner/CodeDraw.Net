@@ -1,7 +1,7 @@
-// CodeDraw.Net (or <Your>.Math.SilkBridge)
+using MarcoZechner.MathDotNet;
 using Silk.NET.Maths;
 
-namespace MarcoZechner.MathDotNet;
+namespace MarcoZechner.Extensions;
 
 public static class VectorSilkExtensions
 {

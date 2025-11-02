@@ -1,7 +1,8 @@
+using MarcoZechner.ColorDotNet;
 using SkiaSharp;
 using SysColor = System.Drawing.Color;
 
-namespace MarcoZechner.ColorDotNet;
+namespace MarcoZechner.Extensions;
 
 public static class ColorConversionExtensions
 {

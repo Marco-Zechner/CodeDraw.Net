@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using MarcoZechner.ColorDotNet;
+using MarcoZechner.Extensions;
 using MarcoZechner.MathDotNet;
 using Silk.NET.GLFW;
 using Silk.NET.OpenGL;

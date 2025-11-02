@@ -1,4 +1,4 @@
-using MarcoZechner.ColorDotNet;
+using MarcoZechner.Extensions;
 using SkiaSharp;
 
 namespace MarcoZechner.CodeDrawDotNet.Old1;

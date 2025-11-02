@@ -1,7 +1,7 @@
 using System.Reflection;
 using System.Text;
 
-namespace MarcoZechner.Tests;
+namespace MarcoZechner.CodeDrawDotNet.Tests.Manual;
 
 public interface ITestable
 {

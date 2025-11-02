@@ -1,22 +1,24 @@
 using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using MarcoZechner.CodeDrawDotNet.Api;
+using MarcoZechner.CodeDrawDotNet.Api.Events;
+using MarcoZechner.CodeDrawDotNet.Engine.Abstractions;
 using MarcoZechner.DiagnosticsDotNet;
 using Silk.NET.GLFW;
 
-namespace MarcoZechner.CodeDrawDotNet.Engine.Implementations;
+namespace MarcoZechner.CodeDrawDotNet.Engine.Impl;
 
-internal unsafe sealed class CodeDrawHost : IDisposable
+internal unsafe sealed class CodeDrawHost : IDisposable, IWindowHost
 {
     public static CodeDrawHost Instance { get; } = new();
 
     public Glfw Glfw => _glfw!;
     public WindowHandle* ShareRoot => _shareRoot;
 
-    private readonly ConcurrentDictionary<nint, CodeDrawWindowBase> _winMap = new();
-    internal void RegisterWindow(WindowHandle* h, CodeDrawWindowBase w) => _winMap[(nint)h] = w;
+    private readonly ConcurrentDictionary<nint, IWindowEventSink> _winMap = new();
+    internal void RegisterWindow(WindowHandle* h, IWindowEventSink w) => _winMap[(nint)h] = w;
     internal void UnregisterWindow(WindowHandle* h) => _winMap.TryRemove((nint)h, out _);
-    internal CodeDrawWindowBase? ResolveWindow(WindowHandle* h)
+    internal IWindowEventSink? ResolveWindow(WindowHandle* h)
         => _winMap.TryGetValue((nint)h, out var w) ? w : null;
 
     public DateTime StartTimeUtc { get; private set; }
@@ -50,6 +52,8 @@ internal unsafe sealed class CodeDrawHost : IDisposable
     public double HostBusyPercent => _busy.Duty * 100.0;
     public double HostJobsPerSec  => _work.JobsPerSec;
     public double HostIdleSec     => _work.IdleSeconds;
+
+    public ILayerMetricsProvider LayerMetrics => throw new NotImplementedException();
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal IDisposable BeginGlfwEventScope() => _busy.Scope();
@@ -245,7 +249,7 @@ internal unsafe sealed class CodeDrawHost : IDisposable
         glfw.WindowHint(WindowHintBool.TransparentFramebuffer, true);
     }
 
-    internal void OnWindowCreated(WindowHandle* win, CodeDrawWindowBase w)
+    internal void OnWindowCreated(WindowHandle* win, IWindowEventSink w)
     {
         // register mapping & install callbacks
         RegisterWindow(win, w);
@@ -255,5 +259,23 @@ internal unsafe sealed class CodeDrawHost : IDisposable
     {
         DetachCallbacksFor(win);
         UnregisterWindow(win);
+    }
+
+    unsafe void IWindowHost.OnWindowCreated(WindowHandle* win, IWindowEventSink sink)
+    {
+        OnWindowCreated(win, sink);
+    }
+
+    unsafe void IWindowHost.OnWindowDestroyed(WindowHandle* win)
+    {
+        OnWindowDestroyed(win);
+    }
+
+    public unsafe void SetWindowShouldClose(WindowHandle* win, bool shouldClose)
+    {
+        EnqueueUI(() =>
+        {
+            Glfw.SetWindowShouldClose(win, true);
+        });
     }
 }

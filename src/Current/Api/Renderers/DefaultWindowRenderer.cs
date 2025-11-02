@@ -1,17 +1,21 @@
 using System.Diagnostics;
-using MarcoZechner.CodeDrawDotNet.Engine.Implementations;
+using MarcoZechner.CodeDrawDotNet.Engine.Abstractions;
+using MarcoZechner.CodeDrawDotNet.Engine.Impl;
 using MarcoZechner.DiagnosticsDotNet;
 using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
 
-namespace MarcoZechner.CodeDrawDotNet.Renderers;
+namespace MarcoZechner.CodeDrawDotNet.Api.Renderers;
 
-public unsafe sealed class DefaultWindowRenderer : AbstractWindowRenderer
+public unsafe sealed class DefaultWindowRenderer : AbstractWindowRenderer, IHostBootstrap<DefaultWindowRenderer>
 {
     private uint _canvasFbo, _canvasTex, _canvasDepthStencilRb;
     private int _canvasW, _canvasH;
 
     private volatile bool _presentDirty = true;
+
+    public static void EnsureHost()
+        => CodeDrawRuntime.Init(CodeDrawHost.Instance);
 
     private readonly RateMeter _fps = new(0.25);
 
@@ -20,7 +24,11 @@ public unsafe sealed class DefaultWindowRenderer : AbstractWindowRenderer
         _fpsGetter = () => _fps.Ewma;
     }
 
-    public DefaultWindowRenderer(WindowHandle* window, string title) : base(window, title)
+    public DefaultWindowRenderer(IWindowHost host, WindowHandle* window, string title) : base(host, window, title)
+    {
+        _fpsGetter = () => _fps.Ewma;
+    }
+    public DefaultWindowRenderer(IWindowHost host, nint window, string title) : base(host, (WindowHandle*)window, title)
     {
         _fpsGetter = () => _fps.Ewma;
     }

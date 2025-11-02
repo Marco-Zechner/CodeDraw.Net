@@ -1,8 +1,7 @@
 using Silk.NET.OpenGL;
 using Silk.NET.GLFW;
-using MarcoZechner.CodeDrawDotNet.Api.Graphics;
 
-namespace MarcoZechner.CodeDrawDotNet.Engine.Implementations.Actions;
+namespace MarcoZechner.CodeDrawDotNet.Api.Graphics.Actions;
 
 internal sealed class GlAction(Action<GL> body) : IRenderAction
 {

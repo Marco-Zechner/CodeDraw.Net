@@ -3,11 +3,11 @@ using MarcoZechner.ColorDotNet;
 using MarcoZechner.MathDotNet;
 using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
-using MarcoZechner.CodeDrawDotNet.Engine.Implementations;
 using MarcoZechner.DiagnosticsDotNet;
 using MarcoZechner.CodeDrawDotNet.Api.Events;
-using MarcoZechner.CodeDrawDotNet.Engine.Implementations.Actions;
 using MarcoZechner.CodeDrawDotNet.Api.Graphics;
+using MarcoZechner.CodeDrawDotNet.Api.Graphics.Actions;
+using MarcoZechner.CodeDrawDotNet.Engine.Abstractions;
 
 namespace MarcoZechner.CodeDrawDotNet.Api;
 
@@ -77,7 +77,7 @@ public abstract unsafe partial class CodeDrawWindowBase(string title) : IDisposa
         if (_closedMre.IsSet || Volatile.Read(ref _disposeGate) == 1)
             throw new InvalidOperationException("This window instance has been closed. Create a new window.");
 
-        var host = CodeDrawHost.Instance;
+        var host = CodeDrawRuntime.Host;
         host.EnsureStarted();
 
         _native = host.CreateWindow(Size.X, Size.Y, Title);
@@ -111,7 +111,7 @@ public abstract unsafe partial class CodeDrawWindowBase(string title) : IDisposa
             _renderer?.StopAndJoin();
             _renderer = null;
 
-            var host = CodeDrawHost.Instance;
+            var host = CodeDrawRuntime.Host;
             if (_native != null)
             {
                 host.OnWindowDestroyed(_native);
@@ -206,12 +206,9 @@ public abstract unsafe partial class CodeDrawWindowBase(string title) : IDisposa
     internal void RequestClose(CloseReason reason)
     {
         if (_native == null) return;
-        var host = CodeDrawHost.Instance;
-        host.EnqueueUI(() =>
-        {
-            host.Glfw.SetWindowShouldClose(_native, true);
-            OnNativeCloseRequestedFromUI(reason);
-        });
+        var host = CodeDrawRuntime.Host;
+        host.SetWindowShouldClose(_native, true);
+        OnNativeCloseRequestedFromUI(reason); //TODO: ... that should probably be called on the UI thread?
     }
 
     internal void SignalLoadedComplete() => _loadedMre.Set();
@@ -238,7 +235,7 @@ public abstract unsafe partial class CodeDrawWindowBase(string title) : IDisposa
         try { CodeDrawEvents.RaiseCloseRequested(this, args, reason); }
         catch { /* swallow to not break UI loop */ }
 
-        var host = CodeDrawHost.Instance;
+        var host = CodeDrawRuntime.Host;
 
         if (args.Cancel)
         {

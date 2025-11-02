@@ -1,9 +1,8 @@
-using MarcoZechner.CodeDrawDotNet.Api.Graphics;
 using MarcoZechner.ColorDotNet;
 using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
 
-namespace MarcoZechner.CodeDrawDotNet.Engine.Implementations.Actions;
+namespace MarcoZechner.CodeDrawDotNet.Api.Graphics.Actions;
 
 internal sealed class ClearAction(in Color c, ClearMask mask = ClearMask.Color) : IRenderAction
 {

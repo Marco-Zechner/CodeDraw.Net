@@ -1,7 +1,7 @@
 using Silk.NET.GLFW;
 using Silk.NET.Core.Native;
 
-namespace MarcoZechner.CodeDrawDotNet.Engine.Implementations;
+namespace MarcoZechner.CodeDrawDotNet.Engine.Impl;
 
 /// <summary>
 /// Installs GLFW callbacks for one window and relays them to host/window.

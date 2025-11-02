@@ -1,8 +1,9 @@
+using MarcoZechner.CodeDrawDotNet.Api.Events;
 using Silk.NET.GLFW;
 
 namespace MarcoZechner.CodeDrawDotNet.Api;
 
-public unsafe partial class CodeDrawWindowBase
+public unsafe partial class CodeDrawWindowBase : IWindowEventSink
 {
     // ── per-window events (no lifecycle/teardown here) ──────────────────────────
     public event Action<int, int>? WindowSizeChanged;
@@ -85,5 +86,65 @@ public unsafe partial class CodeDrawWindowBase
     {
         MaximizeChanged?.Invoke(maximized);
         CodeDrawEvents.RaiseMaximize(this, maximized);
+    }
+
+    void IWindowEventSink.RaiseWindowSize(int w, int h)
+    {
+        RaiseWindowSize(w, h);
+    }
+
+    void IWindowEventSink.RaiseFramebufferSize(int w, int h)
+    {
+        RaiseFramebufferSize(w, h);
+    }
+
+    void IWindowEventSink.RaiseKey(Keys k, int sc, InputAction a, KeyModifiers m)
+    {
+        RaiseKey(k, sc, a, m);
+    }
+
+    void IWindowEventSink.RaiseMouseButton(MouseButton b, InputAction a, KeyModifiers m)
+    {
+        RaiseMouseButton(b, a, m);
+    }
+
+    void IWindowEventSink.RaiseCursorPos(double x, double y)
+    {
+        RaiseCursorPos(x, y);
+    }
+
+    void IWindowEventSink.RaiseScroll(double xoff, double yoff)
+    {
+        RaiseScroll(xoff, yoff);
+    }
+
+    void IWindowEventSink.RaiseFileDropped(string[] paths)
+    {
+        RaiseFileDropped(paths);
+    }
+
+    void IWindowEventSink.RaiseRefresh()
+    {
+        RaiseRefresh();
+    }
+
+    void IWindowEventSink.RaiseFocus(bool focused)
+    {
+        RaiseFocus(focused);
+    }
+
+    void IWindowEventSink.RaiseIconify(bool iconified)
+    {
+        RaiseIconify(iconified);
+    }
+
+    void IWindowEventSink.RaiseMaximize(bool maximized)
+    {
+        RaiseMaximize(maximized);
+    }
+
+    void IWindowEventSink.OnNativeCloseRequestedFromUI(CloseReason reason)
+    {
+        OnNativeCloseRequestedFromUI(reason);
     }
 }

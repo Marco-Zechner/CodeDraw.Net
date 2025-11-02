@@ -1,4 +1,4 @@
-using MarcoZechner.CodeDrawDotNet.Renderers;
+using MarcoZechner.CodeDrawDotNet.Api.Renderers;
 
 namespace MarcoZechner.CodeDrawDotNet.Api;
 

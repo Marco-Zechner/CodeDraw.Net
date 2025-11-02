@@ -3,13 +3,15 @@ using Silk.NET.GLFW;
 using System.Collections.Concurrent;
 using MarcoZechner.CodeDrawDotNet.Api.Graphics;
 using MarcoZechner.CodeDrawDotNet.Api;
+using MarcoZechner.CodeDrawDotNet.Engine.Impl;
 
-namespace MarcoZechner.CodeDrawDotNet.Engine.Implementations;
+namespace MarcoZechner.CodeDrawDotNet.Engine.Abstractions;
 
 public unsafe abstract class AbstractWindowRenderer
 {
     protected WindowHandle* Window;
     protected string Title = "Title";
+    protected IWindowHost? Host;
 
     protected Thread? Thread;
     protected int ThreadId;
@@ -53,8 +55,9 @@ public unsafe abstract class AbstractWindowRenderer
 
     protected AbstractWindowRenderer() {}
 
-    protected AbstractWindowRenderer(WindowHandle* window, string title)
+    protected AbstractWindowRenderer(IWindowHost host, WindowHandle* window, string title)
     {
+        Host = host;
         Window = window;
         Title = title;
     }

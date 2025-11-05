@@ -12,6 +12,12 @@ public static class CodeDrawRuntime
         _host = host;
     }
 
+    public static void CloseAllWindows()
+    {
+        var host = Host;
+        host.CloseAllWindows();
+    }
+
     internal static IWindowHost Host =>
         _host ?? throw new InvalidOperationException(
             "CodeDraw runtime not initialized. " +

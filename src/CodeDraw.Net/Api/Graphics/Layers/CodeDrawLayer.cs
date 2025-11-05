@@ -1,5 +1,6 @@
 using MarcoZechner.ColorDotNet;
 using MarcoZechner.MathDotNet;
+using MarcoZechner.CodeDrawDotNet.DrawShapes;
 
 namespace MarcoZechner.CodeDrawDotNet.Api.Graphics.Layers;
 

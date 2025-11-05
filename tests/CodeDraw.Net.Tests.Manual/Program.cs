@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Text;
+// using MarcoZechner.CodeDrawDotNet.Api;
 
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual;
 
@@ -88,6 +89,7 @@ public static class Program
                     throw new InvalidOperationException("Failed to construct test (null instance).");
 
                 instance.RunTest();
+                // CodeDrawRuntime.CloseAllWindows(); //TODO: fix
                 sw.Stop();
 
                 result.Duration = sw.Elapsed;

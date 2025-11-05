@@ -18,6 +18,7 @@ public unsafe interface IWindowHost
 
     // used by RequestClose in your API
     void SetWindowShouldClose(WindowHandle* win, bool shouldClose);
+    void CloseAllWindows();
 
     // metrics for CodeDraw facade
     double HostJobsPerSec { get; }

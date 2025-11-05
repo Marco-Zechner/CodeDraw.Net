@@ -278,4 +278,18 @@ internal unsafe sealed class CodeDrawHost : IDisposable, IWindowHost
             Glfw.SetWindowShouldClose(win, true);
         });
     }
+
+    public void CloseAllWindows()
+    {
+        EnqueueUISync(() =>
+        {
+            foreach (var kvp in _winMap)
+            {
+                var winPtr = (WindowHandle*)kvp.Key;
+                var sink  = kvp.Value;
+                Glfw.SetWindowShouldClose(winPtr, true);
+                sink.OnNativeCloseRequestedFromUI(CloseReason.RequestedByUser);
+            }
+        });
+    }
 }

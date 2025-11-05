@@ -8,7 +8,7 @@ public class Test3_ClearViaWindow : ITestable
 {
     public void RunTest()
     {
-        var win = new CodeDrawWindow("Test3_ClearViaWindow")
+        CodeDrawWindow win = new("Test3_ClearViaWindow")
         {
             Size = new(640, 360),
             Resizable = true,

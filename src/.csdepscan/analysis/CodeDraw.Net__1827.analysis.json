@@ -1,0 +1,1474 @@
+{
+  "ClassEdges": [
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api",
+        "Name": "CodeDraw"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Engine.Impl",
+        "Name": "CodeDrawHost"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api",
+        "Name": "CodeDraw"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Engine.Impl",
+        "Name": "LayerWorker"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api",
+        "Name": "CodeDrawEvents"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api.Events",
+        "Name": "CloseRequestedHandler"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api",
+        "Name": "CodeDrawEvents"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api",
+        "Name": "CodeDrawWindowBase"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api",
+        "Name": "CodeDrawEvents"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api.Events",
+        "Name": "CloseEventArgs"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api",
+        "Name": "CodeDrawEvents"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api.Events",
+        "Name": "CloseReason"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api",
+        "Name": "CodeDrawRuntime"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api",
+        "Name": "IWindowHost"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api",
+        "Name": "CodeDrawWindow"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api",
+        "Name": "CodeDrawWindow\u00601"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api",
+        "Name": "CodeDrawWindow"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api.Renderers",
+        "Name": "DefaultWindowRenderer"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api",
+        "Name": "CodeDrawWindowBase"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api",
+        "Name": "CodeDrawEvents"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api",
+        "Name": "CodeDrawWindowBase"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api.Events",
+        "Name": "IWindowEventSink"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api",
+        "Name": "CodeDrawWindowBase"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api.Events",
+        "Name": "CloseReason"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api",
+        "Name": "CodeDrawWindow\u00601"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api",
+        "Name": "IHostBootstrap\u00601"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api",
+        "Name": "CodeDrawWindow\u00601"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api",
+        "Name": "CodeDrawRuntime"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api",
+        "Name": "CodeDrawWindow\u00601"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api",
+        "Name": "IWindowHost"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api",
+        "Name": "CodeDrawWindow\u00601"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Engine.Abstractions",
+        "Name": "AbstractWindowRenderer"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api",
+        "Name": "CodeDrawWindow\u00601"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api",
+        "Name": "CodeDrawWindowBase"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api",
+        "Name": "CodeDrawWindowBase"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api.Graphics",
+        "Name": "IRenderAction"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api",
+        "Name": "CodeDrawWindowBase"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api.Events",
+        "Name": "CloseEventArgs"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api",
+        "Name": "CodeDrawWindowBase"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Engine.Abstractions",
+        "Name": "AbstractWindowRenderer"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api",
+        "Name": "CodeDrawWindowBase"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api",
+        "Name": "CodeDrawRuntime"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api",
+        "Name": "CodeDrawWindowBase"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api",
+        "Name": "IWindowHost"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api",
+        "Name": "CodeDrawWindowBase"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api.Graphics",
+        "Name": "ClearMask"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api",
+        "Name": "CodeDrawWindowBase"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api.Events",
+        "Name": "CloseRequestedHandler"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api",
+        "Name": "CodeDrawWindowBase"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api.Graphics.Actions",
+        "Name": "GlAction"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api",
+        "Name": "CodeDrawWindowBase"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api.Graphics.Actions",
+        "Name": "NativeAction"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api",
+        "Name": "CodeDrawWindowBase"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api.Graphics.Actions",
+        "Name": "ClearAction"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api.Events",
+        "Name": "IWindowEventSink"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api.Events",
+        "Name": "CloseReason"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api.Graphics.Actions",
+        "Name": "ClearAction"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api.Graphics",
+        "Name": "ClearMask"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api.Graphics.Actions",
+        "Name": "ClearAction"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api.Graphics",
+        "Name": "IRenderAction"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api.Graphics.Actions",
+        "Name": "GlAction"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api.Graphics",
+        "Name": "IRenderAction"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api.Graphics.Actions",
+        "Name": "NativeAction"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api.Graphics",
+        "Name": "IRenderAction"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api.Graphics.Layers",
+        "Name": "CodeDrawLayer"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.DrawShapes",
+        "Name": "IDrawShape"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api",
+        "Name": "IWindowHost"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api.Events",
+        "Name": "IWindowEventSink"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api",
+        "Name": "IWindowHost"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Engine.Abstractions",
+        "Name": "ILayerMetricsProvider"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api.Renderers",
+        "Name": "DefaultWindowRenderer"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api",
+        "Name": "CodeDrawRuntime"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api.Renderers",
+        "Name": "DefaultWindowRenderer"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Engine.Impl",
+        "Name": "CodeDrawHost"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api.Renderers",
+        "Name": "DefaultWindowRenderer"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api",
+        "Name": "CodeDrawWindowBase"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api.Renderers",
+        "Name": "DefaultWindowRenderer"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Engine.Abstractions",
+        "Name": "AbstractWindowRenderer"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api.Renderers",
+        "Name": "DefaultWindowRenderer"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api",
+        "Name": "IHostBootstrap\u00601"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api.Renderers",
+        "Name": "DefaultWindowRenderer"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api",
+        "Name": "IWindowHost"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Engine.Abstractions",
+        "Name": "AbstractWindowRenderer"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Engine.Impl",
+        "Name": "CodeDrawHost"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Engine.Abstractions",
+        "Name": "AbstractWindowRenderer"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api",
+        "Name": "CodeDrawWindowBase"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Engine.Abstractions",
+        "Name": "AbstractWindowRenderer"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api",
+        "Name": "CodeDrawEvents"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Engine.Abstractions",
+        "Name": "AbstractWindowRenderer"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api",
+        "Name": "IWindowHost"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Engine.Abstractions",
+        "Name": "AbstractWindowRenderer"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api.Graphics",
+        "Name": "IRenderAction"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Engine.Abstractions",
+        "Name": "ILayerRenderer"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Engine.Abstractions",
+        "Name": "ICommandQueue\u00601"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Engine.Abstractions",
+        "Name": "ILayerRenderer"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Engine.Abstractions",
+        "Name": "IRenderTarget"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Engine.Impl",
+        "Name": "CodeDrawHost"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Engine.Impl",
+        "Name": "GlfwCallbackHub"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Engine.Impl",
+        "Name": "CodeDrawHost"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Engine.Impl",
+        "Name": "LayerWorker"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Engine.Impl",
+        "Name": "CodeDrawHost"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api.Events",
+        "Name": "CloseReason"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Engine.Impl",
+        "Name": "CodeDrawHost"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api",
+        "Name": "IWindowHost"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Engine.Impl",
+        "Name": "CodeDrawHost"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api.Events",
+        "Name": "IWindowEventSink"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Engine.Impl",
+        "Name": "CodeDrawHost"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Engine.Abstractions",
+        "Name": "ILayerMetricsProvider"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Engine.Impl",
+        "Name": "GlfwCallbackHub"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Engine.Impl",
+        "Name": "CodeDrawHost"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Engine.Impl",
+        "Name": "LayerWorker"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Engine.Impl",
+        "Name": "CodeDrawHost"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Engine.Impl",
+        "Name": "LayerWorker"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Engine.Abstractions",
+        "Name": "ILayerMetricsProvider"
+      }
+    }
+  ],
+  "ClassCycles": [
+    [
+      {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Engine.Impl",
+        "Name": "LayerWorker"
+      },
+      {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Engine.Impl",
+        "Name": "GlfwCallbackHub"
+      },
+      {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Engine.Impl",
+        "Name": "CodeDrawHost"
+      }
+    ],
+    [
+      {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Engine.Abstractions",
+        "Name": "AbstractWindowRenderer"
+      },
+      {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api",
+        "Name": "CodeDrawWindowBase"
+      },
+      {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "Namespace": "MarcoZechner.CodeDrawDotNet.Api",
+        "Name": "CodeDrawEvents"
+      }
+    ]
+  ],
+  "NamespaceEdges": [
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "FullName": "MarcoZechner.CodeDrawDotNet.Api"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "FullName": "MarcoZechner.CodeDrawDotNet.Engine.Impl"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "FullName": "MarcoZechner.CodeDrawDotNet.Api"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "FullName": "MarcoZechner.CodeDrawDotNet.Api.Events"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "FullName": "MarcoZechner.CodeDrawDotNet.Api"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "FullName": "MarcoZechner.CodeDrawDotNet.Api.Renderers"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "FullName": "MarcoZechner.CodeDrawDotNet.Api"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "FullName": "MarcoZechner.CodeDrawDotNet.Engine.Abstractions"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "FullName": "MarcoZechner.CodeDrawDotNet.Api"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "FullName": "MarcoZechner.CodeDrawDotNet.Api.Graphics"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "FullName": "MarcoZechner.CodeDrawDotNet.Api"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "FullName": "MarcoZechner.CodeDrawDotNet.Api.Graphics.Actions"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "FullName": "MarcoZechner.CodeDrawDotNet.Api.Graphics.Actions"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "FullName": "MarcoZechner.CodeDrawDotNet.Api.Graphics"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "FullName": "MarcoZechner.CodeDrawDotNet.Api.Graphics.Layers"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "FullName": "MarcoZechner.CodeDrawDotNet.DrawShapes"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "FullName": "MarcoZechner.CodeDrawDotNet.Api.Renderers"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "FullName": "MarcoZechner.CodeDrawDotNet.Api"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "FullName": "MarcoZechner.CodeDrawDotNet.Api.Renderers"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "FullName": "MarcoZechner.CodeDrawDotNet.Engine.Impl"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "FullName": "MarcoZechner.CodeDrawDotNet.Api.Renderers"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "FullName": "MarcoZechner.CodeDrawDotNet.Engine.Abstractions"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "FullName": "MarcoZechner.CodeDrawDotNet.Engine.Abstractions"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "FullName": "MarcoZechner.CodeDrawDotNet.Engine.Impl"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "FullName": "MarcoZechner.CodeDrawDotNet.Engine.Abstractions"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "FullName": "MarcoZechner.CodeDrawDotNet.Api"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "FullName": "MarcoZechner.CodeDrawDotNet.Engine.Abstractions"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "FullName": "MarcoZechner.CodeDrawDotNet.Api.Graphics"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "FullName": "MarcoZechner.CodeDrawDotNet.Engine.Impl"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "FullName": "MarcoZechner.CodeDrawDotNet.Api.Events"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "FullName": "MarcoZechner.CodeDrawDotNet.Engine.Impl"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "FullName": "MarcoZechner.CodeDrawDotNet.Api"
+      }
+    },
+    {
+      "Item1": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "FullName": "MarcoZechner.CodeDrawDotNet.Engine.Impl"
+      },
+      "Item2": {
+        "Project": {
+          "Name": "CodeDraw.Net",
+          "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+        },
+        "FullName": "MarcoZechner.CodeDrawDotNet.Engine.Abstractions"
+      }
+    }
+  ],
+  "ProjectEdges": [],
+  "Project": {
+    "Id": {
+      "Name": "CodeDraw.Net",
+      "Dir": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net"
+    },
+    "CsprojPath": "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net\\CodeDraw.Net.csproj",
+    "SourceFiles": [
+      "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net\\Api\\CodeDraw.cs",
+      "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net\\Api\\CodeDrawEvents.cs",
+      "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net\\Api\\CodeDrawRuntime.cs",
+      "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net\\Api\\CodeDrawWindow.cs",
+      "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net\\Api\\CodeDrawWindow.Events.cs",
+      "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net\\Api\\CodeDrawWindow.Generic.cs",
+      "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net\\Api\\CodeDrawWindowBase.cs",
+      "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net\\Api\\Events\\CloseEventArgs.cs",
+      "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net\\Api\\Events\\CloseReason.cs",
+      "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net\\Api\\Events\\CloseRequestHandler.cs",
+      "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net\\Api\\Events\\IWindowEventSink.cs",
+      "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net\\Api\\Graphics\\Actions\\ClearAction.cs",
+      "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net\\Api\\Graphics\\Actions\\GlAction.cs",
+      "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net\\Api\\Graphics\\Actions\\NativeAction.cs",
+      "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net\\Api\\Graphics\\BlendOp.cs",
+      "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net\\Api\\Graphics\\ClearMask.cs",
+      "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net\\Api\\Graphics\\IRenderAction.cs",
+      "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net\\Api\\Graphics\\Layers\\CodeDrawLayer.cs",
+      "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net\\Api\\IHostBootstrap.cs",
+      "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net\\Api\\IWindowHost.cs",
+      "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net\\Api\\Renderers\\DefaultWindowRenderer.cs",
+      "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net\\DrawShapes\\IDrawShape.cs",
+      "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net\\Engine\\Abstractions\\AbstractWindowRenderer.cs",
+      "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net\\Engine\\Abstractions\\IClock.cs",
+      "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net\\Engine\\Abstractions\\ICommandQueue.cs",
+      "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net\\Engine\\Abstractions\\ILayerMetricsProvider.cs",
+      "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net\\Engine\\Abstractions\\ILayerRenderer.cs",
+      "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net\\Engine\\Abstractions\\IMaterialBinder.cs",
+      "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net\\Engine\\Abstractions\\IRenderTarget.cs",
+      "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net\\Engine\\Abstractions\\IShaderCompiler.cs",
+      "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net\\Engine\\Abstractions\\IWindowRenderer.cs",
+      "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net\\Engine\\Implementations\\CodeDrawHost.cs",
+      "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net\\Engine\\Implementations\\GlfwCallbackHub.cs",
+      "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net\\Engine\\Implementations\\LayerWorker.cs"
+    ],
+    "AssemblyName": "CodeDraw.Net",
+    "ProjectReferencePaths": [
+      "C:\\DevProjects\\CodeDraw.Net\\libs\\Diagnostics.Net\\Diagnostics.Net.csproj",
+      "C:\\DevProjects\\CodeDraw.Net\\libs\\Color.Net\\Color.Net.csproj",
+      "C:\\DevProjects\\CodeDraw.Net\\libs\\Math.Net\\Math.Net.csproj"
+    ],
+    "SolutionPaths": [
+      "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net\\CodeDraw.Net.sln"
+    ]
+  },
+  "TypesByNamespace": {
+    "MarcoZechner.CodeDrawDotNet.Api": [
+      "CodeDraw",
+      "CodeDrawEvents",
+      "CodeDrawRuntime",
+      "CodeDrawWindow",
+      "CodeDrawWindow\u00601",
+      "CodeDrawWindowBase",
+      "IHostBootstrap\u00601",
+      "IWindowHost"
+    ],
+    "MarcoZechner.CodeDrawDotNet.Api.Events": [
+      "CloseEventArgs",
+      "CloseReason",
+      "CloseRequestedHandler",
+      "IWindowEventSink"
+    ],
+    "MarcoZechner.CodeDrawDotNet.Api.Graphics.Actions": [
+      "ClearAction",
+      "GlAction",
+      "NativeAction"
+    ],
+    "MarcoZechner.CodeDrawDotNet.Api.Graphics": [
+      "BlendOp",
+      "ClearMask",
+      "IRenderAction"
+    ],
+    "MarcoZechner.CodeDrawDotNet.Api.Graphics.Layers": [
+      "CodeDrawLayer"
+    ],
+    "MarcoZechner.CodeDrawDotNet.Api.Renderers": [
+      "DefaultWindowRenderer"
+    ],
+    "MarcoZechner.CodeDrawDotNet.DrawShapes": [
+      "IDrawShape"
+    ],
+    "MarcoZechner.CodeDrawDotNet.Engine.Abstractions": [
+      "AbstractWindowRenderer",
+      "IClock",
+      "ICommandQueue\u00601",
+      "ILayerMetricsProvider",
+      "ILayerRenderer",
+      "IMaterialBinder",
+      "IRenderTarget",
+      "IShaderCompiler",
+      "IWindowRenderer"
+    ],
+    "MarcoZechner.CodeDrawDotNet.Engine.Impl": [
+      "CodeDrawHost",
+      "GlfwCallbackHub",
+      "LayerWorker"
+    ]
+  },
+  "ProjectReferencePaths": [
+    "C:\\DevProjects\\CodeDraw.Net\\libs\\Diagnostics.Net\\Diagnostics.Net.csproj",
+    "C:\\DevProjects\\CodeDraw.Net\\libs\\Color.Net\\Color.Net.csproj",
+    "C:\\DevProjects\\CodeDraw.Net\\libs\\Math.Net\\Math.Net.csproj"
+  ],
+  "Solutions": [
+    "C:\\DevProjects\\CodeDraw.Net\\src\\CodeDraw.Net\\CodeDraw.Net.sln"
+  ],
+  "DependencyClosure": [],
+  "ClosureLevel": 0
+}

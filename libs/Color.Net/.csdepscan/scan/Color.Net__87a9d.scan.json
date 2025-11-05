@@ -1,0 +1,24 @@
+{
+  "Project": {
+    "Id": {
+      "Name": "Color.Net",
+      "Dir": "C:\\DevProjects\\CodeDraw.Net\\libs\\Color.Net"
+    },
+    "CsprojPath": "C:\\DevProjects\\CodeDraw.Net\\libs\\Color.Net\\Color.Net.csproj",
+    "SourceFiles": [
+      "C:\\DevProjects\\CodeDraw.Net\\libs\\Color.Net\\Color.cs"
+    ],
+    "AssemblyName": "MarcoZechner.ColorDotNet",
+    "ProjectReferencePaths": [],
+    "SolutionPaths": []
+  },
+  "TypesByNamespace": {
+    "MarcoZechner.ColorDotNet": [
+      "Color"
+    ]
+  },
+  "ProjectReferencePaths": [],
+  "Solutions": [],
+  "DependencyClosure": [],
+  "ClosureLevel": 0
+}

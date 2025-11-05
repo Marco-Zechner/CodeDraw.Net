@@ -1,0 +1,24 @@
+digraph Repo {
+  rankdir=LR;
+  compound=true;
+  nodesep=0.5; ranksep=1.0;
+  graph [fontname="Helvetica", fontsize=20, overlap=false, splines=true];
+  node  [shape=box, fontsize=11, width=1.2, height=0.4];
+  edge  [fontname="Helvetica", fontsize=10, arrowsize=0.8, penwidth=1.15];
+  subgraph "cluster_sln__orphans" {
+    style="rounded"; color="#64748B"; penwidth=2.4; bgcolor="#F8FAFC";
+    labelloc="t"; labeljust="l";
+    label=<(no solution)>;
+    subgraph "cluster_proj__Color.Net__87a9d" {
+      style="rounded"; color="#0ea5e9"; penwidth=1.8; bgcolor="#F0FDFF";
+      labelloc="t"; labeljust="c";
+      label=<libs/Color.Net/Color.Net.csproj>;
+      subgraph "cluster_ns__Color.Net__87a9d__MarcoZechner.ColorDotNet" {
+        style="rounded"; color="#94a3b8"; penwidth=1.2; bgcolor="white";
+        labelloc="t"; labeljust="l";
+        label=<MarcoZechner.ColorDotNet>;
+        "Color.Net__87a9d__MarcoZechner.ColorDotNet__Color" [id="Color.Net__87a9d__MarcoZechner.ColorDotNet__Color", label=<Color>, class="node class"];
+      }
+    }
+  }
+}

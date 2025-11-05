@@ -1,0 +1,34 @@
+{
+  "Project": {
+    "Id": {
+      "Name": "Math.Net",
+      "Dir": "C:\\DevProjects\\CodeDraw.Net\\libs\\Math.Net"
+    },
+    "CsprojPath": "C:\\DevProjects\\CodeDraw.Net\\libs\\Math.Net\\Math.Net.csproj",
+    "SourceFiles": [
+      "C:\\DevProjects\\CodeDraw.Net\\libs\\Math.Net\\AngleType.cs",
+      "C:\\DevProjects\\CodeDraw.Net\\libs\\Math.Net\\MathG.cs",
+      "C:\\DevProjects\\CodeDraw.Net\\libs\\Math.Net\\Matrix3x3.cs",
+      "C:\\DevProjects\\CodeDraw.Net\\libs\\Math.Net\\Matrix3x3Generic.cs",
+      "C:\\DevProjects\\CodeDraw.Net\\libs\\Math.Net\\Vector2.cs",
+      "C:\\DevProjects\\CodeDraw.Net\\libs\\Math.Net\\Vector2Generic.cs"
+    ],
+    "AssemblyName": "Math.Net",
+    "ProjectReferencePaths": [],
+    "SolutionPaths": []
+  },
+  "TypesByNamespace": {
+    "MarcoZechner.MathDotNet": [
+      "AngleUnit",
+      "MathG",
+      "Matrix3x3",
+      "Matrix3x3\u00601",
+      "Vector2",
+      "Vector2\u00601"
+    ]
+  },
+  "ProjectReferencePaths": [],
+  "Solutions": [],
+  "DependencyClosure": [],
+  "ClosureLevel": 0
+}

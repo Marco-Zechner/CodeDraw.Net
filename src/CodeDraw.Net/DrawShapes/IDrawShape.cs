@@ -1,6 +1,6 @@
 using SkiaSharp;
 
-namespace MarcoZechner.CodeDrawDotNet;
+namespace MarcoZechner.CodeDrawDotNet.DrawShapes;
 
 public interface IDrawShape {
     void Draw(SKCanvas canvas, SKPaint paint);

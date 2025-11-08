@@ -138,3 +138,6 @@ docs/site/
 scratch/
 temp/
 ~$*
+
+
+.csdepscan/

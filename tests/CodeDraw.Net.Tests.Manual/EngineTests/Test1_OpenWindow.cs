@@ -1,5 +1,5 @@
 using MarcoZechner.CodeDrawDotNet.Api;
-using MarcoZechner.CodeDrawDotNet.Api.Events;
+using MarcoZechner.CodeDrawDotNet.Interfaces;
 using MarcoZechner.ColorDotNet;
 
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual;

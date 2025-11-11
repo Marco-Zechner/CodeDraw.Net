@@ -19,7 +19,7 @@ public static class CodeDrawEvents
     
 
     // Mirrors: include the originating window
-    public static event Action<CodeDrawWindowBase, int, int>? WindowSize;
+    public static event Action<CodeDrawWindowBase, int, int>? WindowSize; //TODO: replace CodeDrawWindowBase with a interface?
     public static event Action<CodeDrawWindowBase, int, int>? FramebufferSize;
     public static event Action<CodeDrawWindowBase, Keys, int, InputAction, KeyModifiers>? Key;
     public static event Action<CodeDrawWindowBase, MouseButton, InputAction, KeyModifiers>? MouseButton;

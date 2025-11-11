@@ -9,7 +9,7 @@ public static class CodeDrawRuntime
 
     public static void Init(IWindowHost host)
     {
-        if (host is null) throw new ArgumentNullException(nameof(host));
+        ArgumentNullException.ThrowIfNull(host);
         if (Interlocked.Exchange(ref _initialized, 1) == 1) return; // already set
         _host = host;
     }

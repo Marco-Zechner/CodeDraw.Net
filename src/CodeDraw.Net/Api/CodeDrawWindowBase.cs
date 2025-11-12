@@ -80,12 +80,12 @@ public abstract unsafe partial class CodeDrawWindowBase(string title) : IDisposa
         if (_closedMre.IsSet || Volatile.Read(ref _disposeGate) == 1)
             throw new InvalidOperationException("This window instance has been closed. Create a new window.");
 
+        _renderer = CreateRenderer();
         var host = Host;
         host.EnsureStarted(); // todo: still needed?
 
         _native = host.CreateWindow(Size.X, Size.Y, Title);
 
-        _renderer = CreateRenderer();
         _renderer.Attach(host, (nint)_native, Title, this, this);
         _renderer.MaxInflightFrames = _lastSetMaxInflightFrames;
         _renderer.Start();

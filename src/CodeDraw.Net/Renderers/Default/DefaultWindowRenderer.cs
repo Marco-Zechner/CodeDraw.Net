@@ -1,22 +1,23 @@
 using System.Diagnostics;
 using MarcoZechner.CodeDrawDotNet.Api;
 using MarcoZechner.CodeDrawDotNet.Engine;
-using MarcoZechner.CodeDrawDotNet.Interfaces;
 using MarcoZechner.DiagnosticsDotNet;
 using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
 
 namespace MarcoZechner.CodeDrawDotNet.Renderers.Default;
 
-public unsafe sealed class DefaultWindowRenderer : AbstractWindowRenderer, IHostBootstrap<DefaultWindowRenderer> //TODO remove IHostBootstrap?
+public unsafe sealed class DefaultWindowRenderer : AbstractWindowRenderer
 {
+    static DefaultWindowRenderer()
+    {
+        CodeDrawRuntime.Init(CodeDrawHost.Instance);
+    }
+
     private uint _canvasFbo, _canvasTex, _canvasDepthStencilRb;
     private int _canvasW, _canvasH;
 
     private volatile bool _presentDirty = true;
-
-    public static void EnsureHost() //TODO remove?
-        => CodeDrawRuntime.Init(CodeDrawHost.Instance);
 
     private readonly RateMeter _fps = new(0.25);
 

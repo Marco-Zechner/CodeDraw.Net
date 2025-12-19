@@ -3,9 +3,9 @@ namespace MarcoZechner.CodeDrawDotNet;
 public class TextFormat {
     public string FontFamily { get; set; } = "Arial";
     public int FontSize { get; set; } = 12;
-    public FontStyle FontStyle { get; set; } = FontStyle.Regular;
-    public HorizontalAlignment HorizontalAlignment { get; set; } = HorizontalAlignment.Left;
-    public VerticalAlignment VerticalAlignment { get; set; } = VerticalAlignment.Top;
+    public FontStyle FontStyle { get; set; } = FontStyle.REGULAR;
+    public HorizontalAlignment HorizontalAlignment { get; set; } = HorizontalAlignment.LEFT;
+    public VerticalAlignment VerticalAlignment { get; set; } = VerticalAlignment.TOP;
 
     public TextFormat() {
         

@@ -2,7 +2,7 @@ namespace MarcoZechner.CodeDrawDotNet;
 
 public enum VerticalAlignment
 {
-    Top,
-    Middle,
-    Bottom
+    TOP,
+    MIDDLE,
+    BOTTOM
 }

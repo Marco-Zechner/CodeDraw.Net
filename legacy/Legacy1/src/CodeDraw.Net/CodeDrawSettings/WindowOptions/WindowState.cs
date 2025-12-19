@@ -1,8 +1,8 @@
 namespace MarcoZechner.CodeDrawDotNet;
 
 public enum WindowState {
-    Normal,
-    Minimized,
-    Maximized,
-    Fullscreen
+    NORMAL,
+    MINIMIZED,
+    MAXIMIZED,
+    FULLSCREEN
 }

@@ -3,7 +3,7 @@ using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Experiments;
 
-public unsafe class Experiment_1
+public unsafe class Experiment1
 {
     private static Glfw _glfw = null!;
     private static WindowHandle* _winA;
@@ -65,9 +65,9 @@ public unsafe class Experiment_1
         _glfw.SwapInterval(0); // independent swaps for testing
 
         // Geo & shaders
-        var (vao, vbo, ebo) = GLShader.CreateFullScreenQuad(gl);
-        uint progCircle = GLShader.CreateProgram(gl, GLShader.CircleShader.VS, GLShader.CircleShader.FS);
-        uint progBlit   = GLShader.CreateProgram(gl, GLShader.LayerShader.VS, GLShader.LayerShader.FS);
+        var (vao, vbo, ebo) = GlShader.CreateFullScreenQuad(gl);
+        uint progCircle = GlShader.CreateProgram(gl, GlShader.CircleShader.VS, GlShader.CircleShader.FS);
+        uint progBlit   = GlShader.CreateProgram(gl, GlShader.LayerShader.VS, GlShader.LayerShader.FS);
         int  uTex       = gl.GetUniformLocation(progBlit, "uTex");
 
         // Uniform locations
@@ -196,8 +196,8 @@ public unsafe class Experiment_1
         gl.Enable(GLEnum.Blend);
         gl.BlendFunc(GLEnum.SrcAlpha, GLEnum.OneMinusSrcAlpha);
 
-        var (vao, vbo, ebo) = GLShader.CreateFullScreenQuad(gl);
-        uint progBlit = GLShader.CreateProgram(gl, GLShader.LayerShader.VS, GLShader.LayerShader.FS);
+        var (vao, vbo, ebo) = GlShader.CreateFullScreenQuad(gl);
+        uint progBlit = GlShader.CreateProgram(gl, GlShader.LayerShader.VS, GlShader.LayerShader.FS);
         int  uTex     = gl.GetUniformLocation(progBlit, "uTex");
 
         var start = DateTime.UtcNow;

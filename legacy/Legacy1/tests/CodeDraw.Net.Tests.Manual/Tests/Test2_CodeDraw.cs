@@ -6,15 +6,15 @@ using SkiaSharp;
 
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual;
 
-public class Test2_CodeDraw
+public class Test2CodeDraw
 {
     private static bool _next = true;
 
     private static CodeDraw _cd = null!;
 
-    private static readonly Color _bg = Color.WHITE;
-    private static readonly Color _coin1 = Color.GOLD;
-    private static readonly Color _coin2 = Color.SILVER;
+    private static readonly Color _bg = Color.White;
+    private static readonly Color _coin1 = Color.Gold;
+    private static readonly Color _coin2 = Color.Silver;
 
     public static long FrameCount => _cd.FrameCount;
     private static long _frameOffset = 0;
@@ -50,8 +50,8 @@ public class Test2_CodeDraw
 
 
         var tf = _cd.Shapes.TextFormat;
-        tf.HorizontalAlignment = HorizontalAlignment.Center;
-        tf.VerticalAlignment = VerticalAlignment.Middle;
+        tf.HorizontalAlignment = HorizontalAlignment.CENTER;
+        tf.VerticalAlignment = VerticalAlignment.MIDDLE;
         tf.FontSize = 80;
         _cd.Shapes.TextFormat = tf;
     }
@@ -74,7 +74,7 @@ public class Test2_CodeDraw
             _cd.Shapes.FillCircle(150, 150, 100);
             _cd.Shapes.DrawColor = _coin2;
             _cd.Shapes.FillCircle(150, 150, 75);
-            _cd.Shapes.DrawColor = Color.Lerp(_coin2, Color.BLACK, 0.2f);
+            _cd.Shapes.DrawColor = Color.Lerp(_coin2, Color.Black, 0.2f);
             _cd.Shapes.DrawText(150, 150, $"{1}");
         }
         else
@@ -83,12 +83,12 @@ public class Test2_CodeDraw
             _cd.Shapes.FillCircle(150, 150, 100);
             _cd.Shapes.DrawColor = _coin1;
             _cd.Shapes.FillCircle(150, 150, 75);
-            _cd.Shapes.DrawColor = Color.Lerp(_coin1, Color.BLACK, 0.2f);
+            _cd.Shapes.DrawColor = Color.Lerp(_coin1, Color.Black, 0.2f);
             _cd.Shapes.DrawText(150, 150, $"{2}");
         }
 
         float movingX = (_cd.FrameCount - _frameOffset) % 300;
-        _cd.Shapes.DrawColor = Color.RED;
+        _cd.Shapes.DrawColor = Color.Red;
         _cd.Shapes.FillRectangle(movingX, 280, 20, 20);
 
         _cd.Show();

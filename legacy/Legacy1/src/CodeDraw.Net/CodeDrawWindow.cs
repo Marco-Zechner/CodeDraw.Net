@@ -34,7 +34,7 @@ public partial class CodeDrawWindow
     public bool IsInstantDraw { get; set; } = false;
     private bool _drawnNextFrame = false;
     public int LineWidth { get; set; } = 1;
-    public Color DrawColor { get; set; } = Color.BLACK;
+    public Color DrawColor { get; set; } = Color.Black;
     public CornerStyle CornerStyle { get; set; }
     public int CornerRadius { get; set; } = 0;
     public bool IsAntiAliased { get; set; }
@@ -42,11 +42,11 @@ public partial class CodeDrawWindow
 
     private readonly DrawQueue _drawQueue = new();
     private readonly DrawQueue _drawBuffer = new();
-    private Color _clearColor = Color.WHITE;
+    private Color _clearColor = Color.White;
     /// <summary>
     /// Matrix that can be directly accessed and set by the User
     /// </summary>
-    public Matrix3x3 WindowMatrix {get; set;} = Matrix3x3.Identity;
+    public Matrix3X3 WindowMatrix {get; set;} = Matrix3X3.Identity;
     private Vector2 _canvaseScaleOriginalSize = new(600, 600);
     private bool _scaleCanvasWithWindow = false;
     public bool ScaleCanvasWithWindow {
@@ -153,15 +153,15 @@ public partial class CodeDrawWindow
             // });
         }
 
-        Matrix3x3 automaticMatrix;
+        Matrix3X3 automaticMatrix;
         Vector2 offset = (Vector2)_window.Size.ToVector2() * Origin;
-        Matrix3x3 flipXMatrix = Matrix3x3.CreateScale(FlipX ? -1 : 1, FlipY ? -1 : 1);
+        Matrix3X3 flipXMatrix = Matrix3X3.CreateScale(FlipX ? -1 : 1, FlipY ? -1 : 1);
         if (ScaleCanvasWithWindow) {
             var scale = (Vector2)_window.Size.ToVector2() / _canvaseScaleOriginalSize;
             offset /= scale;
-            automaticMatrix = Matrix3x3.CreateScale(scale.X, scale.Y) * Matrix3x3.CreateTranslation(offset.X, offset.Y) * flipXMatrix;
+            automaticMatrix = Matrix3X3.CreateScale(scale.X, scale.Y) * Matrix3X3.CreateTranslation(offset.X, offset.Y) * flipXMatrix;
         } else {
-            automaticMatrix = Matrix3x3.CreateTranslation(offset.X, offset.Y) * flipXMatrix;
+            automaticMatrix = Matrix3X3.CreateTranslation(offset.X, offset.Y) * flipXMatrix;
         }
 
         canvas.SetMatrix((WindowMatrix * automaticMatrix).ToSkia());
@@ -184,7 +184,7 @@ public partial class CodeDrawWindow
 
     public void Clear(Color? clearColor = null) {
         _drawQueue.Clear();
-        if (clearColor == null) _clearColor = Color.BLACK;
+        if (clearColor == null) _clearColor = Color.Black;
         else _clearColor = clearColor;
     }
 

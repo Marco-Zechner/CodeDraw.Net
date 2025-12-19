@@ -2,9 +2,9 @@ namespace MarcoZechner.CodeDrawDotNet;
 
 [Flags]
 public enum FontStyle {
-    Regular = 0,
-    Bold = 1,
-    Italic = 2,
-    Underline = 4,
-    Strikeout = 8,
+    REGULAR = 0,
+    BOLD = 1,
+    ITALIC = 2,
+    UNDERLINE = 4,
+    STRIKEOUT = 8,
 }

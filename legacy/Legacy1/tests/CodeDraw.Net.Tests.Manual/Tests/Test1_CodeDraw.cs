@@ -4,7 +4,7 @@ using Silk.NET.GLFW;
 
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual;
 
-public class Test1_CodeDraw
+public class Test1CodeDraw
 {
     public static long FrameCount => _bsp1.FrameCount;
     private static long _frameOffset = 0;
@@ -24,13 +24,13 @@ public class Test1_CodeDraw
         _bsp1.Resizable = true;
 
         var tf = _bsp1.Shapes.TextFormat;
-        tf.HorizontalAlignment = HorizontalAlignment.Center;
-        tf.VerticalAlignment = VerticalAlignment.Middle;
+        tf.HorizontalAlignment = HorizontalAlignment.CENTER;
+        tf.VerticalAlignment = VerticalAlignment.MIDDLE;
         tf.FontSize = 80;
         _bsp1.Shapes.TextFormat = tf;
 
-        Color color1 = Color.GOLD;
-        Color color2 = Color.SILVER;
+        Color color1 = Color.Gold;
+        Color color2 = Color.Silver;
 
         Task.Run(() =>
         {
@@ -50,17 +50,17 @@ public class Test1_CodeDraw
                     // Console.WriteLine(" --- ");
                 }
 
-                _bsp1.Clear(Color.WHITE);
+                _bsp1.Clear(Color.White);
 
                 _bsp1.Shapes.DrawColor = color1;
                 _bsp1.Shapes.FillCircle(150, 150, 100);
                 _bsp1.Shapes.DrawColor = color2;
                 _bsp1.Shapes.FillCircle(150, 150, 75);
-                _bsp1.Shapes.DrawColor = Color.Lerp(color2, Color.BLACK, 0.2f);
-                _bsp1.Shapes.DrawText(150, 150, $"{(color2 == Color.SILVER ? 2 : 1)}");
+                _bsp1.Shapes.DrawColor = Color.Lerp(color2, Color.Black, 0.2f);
+                _bsp1.Shapes.DrawText(150, 150, $"{(color2 == Color.Silver ? 2 : 1)}");
 
                 float movingX = (_bsp1.FrameCount - _frameOffset) % 300;
-                _bsp1.Shapes.DrawColor = Color.RED;
+                _bsp1.Shapes.DrawColor = Color.Red;
                 _bsp1.Shapes.FillRectangle(movingX, 280, 20, 20);
 
                 _bsp1.Show();

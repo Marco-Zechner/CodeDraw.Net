@@ -17,7 +17,7 @@ using MarcoZechner.CodeDrawDotNet.Tests.Manual.Helpers;
 
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Experiments;
 
-public unsafe static class Experiment_3
+public unsafe static class Experiment3
 {
     private const int SLOT_COUNT = 3;
 
@@ -62,7 +62,7 @@ public unsafe static class Experiment_3
         Console.WriteLine("Experiment_3 running. Close windows or press ENTER to stop.");
         Console.ReadLine();
 
-        host.EnqueueUI(() =>
+        host.EnqueueUi(() =>
         {
             if (!host.Glfw.WindowShouldClose(winA)) host.Glfw.SetWindowShouldClose(winA, true);
             if (!host.Glfw.WindowShouldClose(winB)) host.Glfw.SetWindowShouldClose(winB, true);
@@ -87,9 +87,9 @@ public unsafe static class Experiment_3
         glfw.SwapInterval(0);
         var gl = GL.GetApi(glfw.GetProcAddress);
 
-        var (vao, vbo, ebo) = GLShader.CreateFullScreenQuad(gl);
-        uint progCircle = GLShader.CreateProgram(gl, GLShader.CircleShader.VS, GLShader.CircleShader.FS);
-        uint progBlit   = GLShader.CreateProgram(gl, GLShader.LayerShader.VS, GLShader.LayerShader.FS);
+        var (vao, vbo, ebo) = GlShader.CreateFullScreenQuad(gl);
+        uint progCircle = GlShader.CreateProgram(gl, GlShader.CircleShader.VS, GlShader.CircleShader.FS);
+        uint progBlit   = GlShader.CreateProgram(gl, GlShader.LayerShader.VS, GlShader.LayerShader.FS);
         int  uTex       = gl.GetUniformLocation(progBlit, "uTex");
 
         int locTime   = gl.GetUniformLocation(progCircle, "uTime");
@@ -251,8 +251,8 @@ public unsafe static class Experiment_3
         glfw.SwapInterval(0);
         var gl = GL.GetApi(glfw.GetProcAddress);
 
-        var (vao, vbo, ebo) = GLShader.CreateFullScreenQuad(gl);
-        uint progBlit = GLShader.CreateProgram(gl, GLShader.LayerShader.VS, GLShader.LayerShader.FS);
+        var (vao, vbo, ebo) = GlShader.CreateFullScreenQuad(gl);
+        uint progBlit = GlShader.CreateProgram(gl, GlShader.LayerShader.VS, GlShader.LayerShader.FS);
         int  uTex     = gl.GetUniformLocation(progBlit, "uTex");
 
         // B needs blending (producer offscreen is transparent)

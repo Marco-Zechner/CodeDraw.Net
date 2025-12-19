@@ -10,21 +10,21 @@ namespace MarcoZechner.Ttrpg;
 
 public class Program
 {
-    private static CodeDraw _dm_window = null!;
-    private static CodeDraw _player_window = null!;
+    private static CodeDraw _dmWindow = null!;
+    private static CodeDraw _playerWindow = null!;
     // private static string _map_path = string.Empty;
     // private static ImageHandle? _map_image;
     private static readonly List<ImageHandle> _maps = [];
-    private static readonly List<Vector2<double>> _map_positions = []; // per-map world offset (in image px units)
-    private static readonly List<int> _map_rotations = [];             // 0, 90, 180, 270
-    private static readonly List<float> _map_scales = []; 
+    private static readonly List<Vector2<double>> _mapPositions = []; // per-map world offset (in image px units)
+    private static readonly List<int> _mapRotations = [];             // 0, 90, 180, 270
+    private static readonly List<float> _mapScales = [];
 
     private static int _activeMapIndex = -1;
 
     private static float _zoom = 0.01f;
     private static Vector2<double> _offset = Vector2<double>.Zero;
-    private static float _player_zoom = 0.01f;
-    private static Vector2<double> _player_offset = Vector2<double>.Zero;
+    private static float _playerZoom = 0.01f;
+    private static Vector2<double> _playerOffset = Vector2<double>.Zero;
 
     private static Vector2<double> _mousePos;
     private static Vector2<double> _lastMousePos = Vector2<double>.Zero;
@@ -42,41 +42,41 @@ public class Program
 
     public static void Main(string[] args)
     {
-        _dm_window = new("TTRPG_DM", true)
+        _dmWindow = new("TTRPG_DM", true)
         {
             AutoRender = true
         };
-        _dm_window.OnLoad += LoadDM;
-        _dm_window.OnRender += RenderDM;
-        var input_dm = _dm_window.Input;
-        input_dm.OnFileDrop += LoadMap;
-        input_dm.OnScroll += MouseScroll;
-        input_dm.OnMouseButtonDown += MouseButtonDown;
-        input_dm.OnMouseButtonUp += MouseButtonUp;
-        input_dm.OnCursorPos += MouseMove;
-        _dm_window.OnResizeEnd += AdjustToFitRatio;
-        input_dm.OnKeyDown += KeyDownDM;
-        input_dm.OnKeyUp += KeyUpDM;
+        _dmWindow.OnLoad += LoadDm;
+        _dmWindow.OnRender += RenderDm;
+        var inputDm = _dmWindow.Input;
+        inputDm.OnFileDrop += LoadMap;
+        inputDm.OnScroll += MouseScroll;
+        inputDm.OnMouseButtonDown += MouseButtonDown;
+        inputDm.OnMouseButtonUp += MouseButtonUp;
+        inputDm.OnCursorPos += MouseMove;
+        _dmWindow.OnResizeEnd += AdjustToFitRatio;
+        inputDm.OnKeyDown += KeyDownDm;
+        inputDm.OnKeyUp += KeyUpDm;
 
 
-        _player_window = new("TTRPG_Player", true)
+        _playerWindow = new("TTRPG_Player", true)
         {
             AutoRender = true
         };
-        _player_window.OnLoad += LoadPlayer;
-        _player_window.OnRender += RenderPlayer;
-        _player_window.Input.OnKeyDown += KeyDownPlayer;
+        _playerWindow.OnLoad += LoadPlayer;
+        _playerWindow.OnRender += RenderPlayer;
+        _playerWindow.Input.OnKeyDown += KeyDownPlayer;
 
-        TokenFactory.CreateToken(new Vector2<double>(0, 0), Color.RED, 1.0f, true);
-        TokenFactory.CreateToken(new Vector2<double>(100, 0), Color.GREEN, 1.0f, true, TokenStatus.Dead);
-        TokenFactory.CreateToken(new Vector2<double>(200, 0), Color.BLUE, 1.0f, false);
+        TokenFactory.CreateToken(new Vector2<double>(0, 0), Color.Red, 1.0f, true);
+        TokenFactory.CreateToken(new Vector2<double>(100, 0), Color.Green, 1.0f, true, TokenStatus.DEAD);
+        TokenFactory.CreateToken(new Vector2<double>(200, 0), Color.Blue, 1.0f, false);
 
-        _dm_window.Run();
-        _player_window.Run();
+        _dmWindow.Run();
+        _playerWindow.Run();
 
         Task.Run(() =>
         {
-            while (_dm_window.IsRunning || _player_window.IsRunning)
+            while (_dmWindow.IsRunning || _playerWindow.IsRunning)
             {
                 Update();
                 Thread.Sleep(16);
@@ -93,13 +93,13 @@ public class Program
         // update loop for shared logic
     }
 
-    private static void LoadDM()
+    private static void LoadDm()
     {
-        _dm_window.Size = new Vector2<int>(16, 9) * 100;
-        _dm_window.AlwaysOnTop = true;
+        _dmWindow.Size = new Vector2<int>(16, 9) * 100;
+        _dmWindow.AlwaysOnTop = true;
     }
 
-    private static void LoadPlayer() => _player_window.Size = new Vector2<int>(16, 9) * 100;
+    private static void LoadPlayer() => _playerWindow.Size = new Vector2<int>(16, 9) * 100;
 
     private static void LoadMap(int count, string[] paths)
     {
@@ -108,9 +108,9 @@ public class Program
             if (string.IsNullOrWhiteSpace(p) || !File.Exists(p)) continue;
             var img = ImageHandler.LoadImage(p);
             _maps.Add(img);
-            _map_positions.Add(Vector2<double>.Zero);
-            _map_rotations.Add(0);
-            _map_scales.Add(1f);
+            _mapPositions.Add(Vector2<double>.Zero);
+            _mapRotations.Add(0);
+            _mapScales.Add(1f);
             _activeMapIndex = _maps.Count - 1; // last loaded is active
         }
 
@@ -118,30 +118,30 @@ public class Program
 
         // fit the *active* map to the DM window as initial camera zoom
         var n = _maps[_activeMapIndex].NaturalSize;
-        _zoom = MathG.Clamp(1.0f / MathF.Max(n.X / _dm_window.Size.X, n.Y / _dm_window.Size.Y), 0.01f, 10f);
+        _zoom = MathG.Clamp(1.0f / MathF.Max(n.X / _dmWindow.Size.X, n.Y / _dmWindow.Size.Y), 0.01f, 10f);
         _offset = Vector2<double>.Zero;
 
         // token baseline scale tie-in (keep your behavior; use active image width)
-        Token.globalScale = n.X / 20.0f;
+        Token.GlobalScale = n.X / 20.0f;
     }
 
 
-    private static void RenderDM(double dt, SKCanvas canvas, GL gl)
+    private static void RenderDm(double dt, SKCanvas canvas, GL gl)
     {
-        _dm_window.Clear(Color.DARK_GRAY);
+        _dmWindow.Clear(Color.DarkGray);
 
-        TokenFactory.TriggerTokenEvents(ScreenToMap(_mousePos, _dm_window.Size, _offset, _zoom));
+        TokenFactory.TriggerTokenEvents(ScreenToMap(_mousePos, _dmWindow.Size, _offset, _zoom));
 
         if (_maps.Count > 0)
         {
-            Vector2<double> cdm = _dm_window.Size / 2.0;
+            Vector2<double> cdm = _dmWindow.Size / 2.0;
 
             for (int i = 0; i < _maps.Count; i++)
             {
                 var img = _maps[i];
-                int rot = _map_rotations[i];
-                float s = _map_scales[i];
-                var posWorld = _map_positions[i]; // world offset in image px units
+                int rot = _mapRotations[i];
+                float s = _mapScales[i];
+                var posWorld = _mapPositions[i]; // world offset in image px units
 
                 // oriented natural size depending on 0/90/180/270
                 Vector2<float> n = OrientedNaturalSize(img, rot);
@@ -152,13 +152,13 @@ public class Program
 
                 // screen position of this map's top-left:
                 // place map centered at camera, add camera pan, then add this map's world offset * camera zoom
-                var screenTL = cdm - (Vector2<double>)imageSize / 2.0 + _offset + posWorld * (double)_zoom;
+                var screenTl = cdm - (Vector2<double>)imageSize / 2.0 + _offset + posWorld * (double)_zoom;
 
                 // draw
                 if (rot % 360 == 0)
                 {
-                    _dm_window.Shapes.DrawImage(img,
-                        (Vector2<int>)screenTL,
+                    _dmWindow.Shapes.DrawImage(img,
+                        (Vector2<int>)screenTl,
                         imageSize);
                 }
                 else
@@ -166,7 +166,7 @@ public class Program
                     // 90° steps – we can emulate by drawing with swapped size and a pivot shift.
                     // If your CodeDraw supports rotation, replace with that call.
                     // Fallback: draw via SKCanvas transform.
-                    var center = (Vector2<float>)(screenTL + (Vector2<double>)imageSize / 2.0);
+                    var center = (Vector2<float>)(screenTl + (Vector2<double>)imageSize / 2.0);
 
                     // Use Skia matrix to rotate around center:
                     canvas.Save();
@@ -186,7 +186,7 @@ public class Program
 
                     // Fallback (no rotation capability in Shapes): approximate by swapping size (only correct for 90/270 if your API lacks rotation)
                     canvas.Restore();
-                    _dm_window.Shapes.DrawImage(img,
+                    _dmWindow.Shapes.DrawImage(img,
                         (Vector2<int>)(center - new Vector2<float>(imageSize.Y, imageSize.X) / 2f),
                         new Vector2(imageSize.Y, imageSize.X));
                 }
@@ -200,7 +200,7 @@ public class Program
                 Vector2<float> posScreen = (Vector2<float>)(cdm + _offset + token.Position * (double)zCam);
 
                 // token radius: constant on the map (scales with camera zoom)
-                float r = token.Size * zCam * Token.globalScale;
+                float r = token.Size * zCam * Token.GlobalScale;
 
                 float alpha = token.VisibleToPlayers ? 1.0f : 0.3f;
 
@@ -212,121 +212,121 @@ public class Program
                 Vector2<float> a1 = posScreen + Rotate(new Vector2<float>(0f, -r1), c, s);
                 Vector2<float> b1 = posScreen + Rotate(new Vector2<float>(r1 * 1.3f, 0f), c, s);
                 Vector2<float> c1 = posScreen + Rotate(new Vector2<float>(0f,  r1), c, s);
-                _dm_window.Shapes.DrawColor = Color.BLACK with { A = alpha };
-                _dm_window.Shapes.FillTriangle(a1, b1, c1);
+                _dmWindow.Shapes.DrawColor = Color.Black with { A = alpha };
+                _dmWindow.Shapes.FillTriangle(a1, b1, c1);
 
                 float r2 = r * 0.98f;
                 Vector2<float> a2 = posScreen + Rotate(new Vector2<float>(0f, -r2), c, s);
                 Vector2<float> b2 = posScreen + Rotate(new Vector2<float>(r2 * 1.25f, 0f), c, s);
                 Vector2<float> c2 = posScreen + Rotate(new Vector2<float>(0f,  r2), c, s);
-                _dm_window.Shapes.DrawColor = token.Color with { A = alpha };
-                _dm_window.Shapes.FillTriangle(a2, b2, c2);
+                _dmWindow.Shapes.DrawColor = token.Color with { A = alpha };
+                _dmWindow.Shapes.FillTriangle(a2, b2, c2);
 
                 // circles
-                _dm_window.Shapes.DrawColor = Color.BLACK with { A = alpha };
-                _dm_window.Shapes.FillCircle(posScreen, r);
-                _dm_window.Shapes.DrawColor = token.StatusColor with { A = alpha };
-                _dm_window.Shapes.FillCircle(posScreen, r * 0.98f);
-                _dm_window.Shapes.DrawColor = Color.BLACK with { A = alpha };
-                _dm_window.Shapes.FillCircle(posScreen, r * 0.90f);
-                _dm_window.Shapes.DrawColor = token.Color with { A = alpha };
-                _dm_window.Shapes.FillCircle(posScreen, r * 0.80f);
+                _dmWindow.Shapes.DrawColor = Color.Black with { A = alpha };
+                _dmWindow.Shapes.FillCircle(posScreen, r);
+                _dmWindow.Shapes.DrawColor = token.StatusColor with { A = alpha };
+                _dmWindow.Shapes.FillCircle(posScreen, r * 0.98f);
+                _dmWindow.Shapes.DrawColor = Color.Black with { A = alpha };
+                _dmWindow.Shapes.FillCircle(posScreen, r * 0.90f);
+                _dmWindow.Shapes.DrawColor = token.Color with { A = alpha };
+                _dmWindow.Shapes.FillCircle(posScreen, r * 0.80f);
 
                 // label
-                Color textColor = token.Color.GetBrightness() < 0.5f ? Color.WHITE : Color.BLACK;
-                _dm_window.Shapes.DrawColor = textColor;
-                _dm_window.Shapes.TextFormat = new TextFormat()
+                Color textColor = token.Color.GetBrightness() < 0.5f ? Color.White : Color.Black;
+                _dmWindow.Shapes.DrawColor = textColor;
+                _dmWindow.Shapes.TextFormat = new TextFormat()
                 {
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    VerticalAlignment = VerticalAlignment.Middle,
+                    HorizontalAlignment = HorizontalAlignment.CENTER,
+                    VerticalAlignment = VerticalAlignment.MIDDLE,
                     FontSize = token.FontSize,
                 };
-                _dm_window.Shapes.DrawText(posScreen, token.Name);
+                _dmWindow.Shapes.DrawText(posScreen, token.Name);
             }
-            
+
             if (_measuringDistance)
             {
-                _dm_window.Shapes.DrawColor = Color.YELLOW;
-                _dm_window.Shapes.LineWidth = 10;
-                _dm_window.Shapes.DrawLine((Vector2<float>)_lastMousePos, (Vector2<float>)_mousePos);
-                _dm_window.Shapes.DrawColor = Color.DARK_GRAY with { A = 0.5f };
+                _dmWindow.Shapes.DrawColor = Color.Yellow;
+                _dmWindow.Shapes.LineWidth = 10;
+                _dmWindow.Shapes.DrawLine((Vector2<float>)_lastMousePos, (Vector2<float>)_mousePos);
+                _dmWindow.Shapes.DrawColor = Color.DarkGray with { A = 0.5f };
                 double dist = (_mousePos - _lastMousePos).Length;
-                _dm_window.Shapes.FillCircle((Vector2<float>)_lastMousePos, (float)dist);
-                _dm_window.Shapes.DrawColor = Color.ORANGE;
-                _dm_window.Shapes.DrawCircle((Vector2<float>)_lastMousePos, (float)dist);
+                _dmWindow.Shapes.FillCircle((Vector2<float>)_lastMousePos, (float)dist);
+                _dmWindow.Shapes.DrawColor = Color.Orange;
+                _dmWindow.Shapes.DrawCircle((Vector2<float>)_lastMousePos, (float)dist);
 
-                double defaultTokenSize = 2.0f * _zoom * Token.globalScale; // represents 5 feet
+                double defaultTokenSize = 2.0f * _zoom * Token.GlobalScale; // represents 5 feet
                 double distanceInFeet = dist / defaultTokenSize * 5.0;
                 double distanceInMeters = distanceInFeet * 0.3048;
-                _dm_window.Shapes.TextFormat = new TextFormat()
+                _dmWindow.Shapes.TextFormat = new TextFormat()
                 {
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    VerticalAlignment = VerticalAlignment.Bottom,
+                    HorizontalAlignment = HorizontalAlignment.CENTER,
+                    VerticalAlignment = VerticalAlignment.BOTTOM,
                     FontSize = 24,
                 };
-                _dm_window.Shapes.DrawColor = Color.BLACK;
-                _dm_window.Shapes.DrawText((Vector2)_mousePos, $"{distanceInFeet:0.##} ft\n{distanceInMeters:0.##} m");
+                _dmWindow.Shapes.DrawColor = Color.Black;
+                _dmWindow.Shapes.DrawText((Vector2)_mousePos, $"{distanceInFeet:0.##} ft\n{distanceInMeters:0.##} m");
             }
         }
         else
         {
-            _dm_window.Shapes.TextFormat = new TextFormat()
+            _dmWindow.Shapes.TextFormat = new TextFormat()
             {
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Middle,
+                HorizontalAlignment = HorizontalAlignment.CENTER,
+                VerticalAlignment = VerticalAlignment.MIDDLE,
                 FontSize = 48,
             };
-            _dm_window.Shapes.DrawColor = Color.WHITE;
-            _dm_window.Shapes.DrawText(_dm_window.Size / 2, "Drop a map image file here");
+            _dmWindow.Shapes.DrawColor = Color.White;
+            _dmWindow.Shapes.DrawText(_dmWindow.Size / 2, "Drop a map image file here");
         }
-        _dm_window.Show();
+        _dmWindow.Show();
     }
 
 private static void RenderPlayer(double dt, SKCanvas canvas, GL gl)
 {
-    _player_window.Clear(Color.DARK_GRAY);
+    _playerWindow.Clear(Color.DarkGray);
 
     // --- Player camera follows DM (FIT policy) ---
-    float zDM = _zoom;                       // DM zoom (controller)
-    Vector2<double> offDM = _offset;         // DM offset (controller)
-    var sizeDM = _dm_window.Size;            // Vector2<int>
-    var sizePL = _player_window.Size;        // Vector2<int>
+    float zDm = _zoom;                       // DM zoom (controller)
+    Vector2<double> offDm = _offset;         // DM offset (controller)
+    var sizeDm = _dmWindow.Size;            // Vector2<int>
+    var sizePl = _playerWindow.Size;        // Vector2<int>
 
-    float ratioW = (float)sizePL.X / sizeDM.X;
-    float ratioH = (float)sizePL.Y / sizeDM.Y;
-    float zPL = zDM * MathF.Min(ratioW, ratioH);   // FIT
-    Vector2<double> offPL = offDM * (double)(zPL / zDM);
+    float ratioW = (float)sizePl.X / sizeDm.X;
+    float ratioH = (float)sizePl.Y / sizeDm.Y;
+    float zPl = zDm * MathF.Min(ratioW, ratioH);   // FIT
+    Vector2<double> offPl = offDm * (double)(zPl / zDm);
 
-    _player_zoom = zPL;
-    _player_offset = offPL;
+    _playerZoom = zPl;
+    _playerOffset = offPl;
 
     if (_maps.Count > 0)
     {
-        Vector2<double> cpl = _player_window.Size / 2.0;
+        Vector2<double> cpl = _playerWindow.Size / 2.0;
 
         // --- Draw all maps (same as DM, but with player camera) ---
         for (int i = 0; i < _maps.Count; i++)
         {
             var img = _maps[i];
-            int rot = _map_rotations[i];
-            float s = _map_scales[i];
-            var posWorld = _map_positions[i];
+            int rot = _mapRotations[i];
+            float s = _mapScales[i];
+            var posWorld = _mapPositions[i];
 
             Vector2<float> n = OrientedNaturalSize(img, rot);
-            float z = _player_zoom * s;
+            float z = _playerZoom * s;
             Vector2 imageSize = n * z;
 
-            var screenTL = cpl - (Vector2<double>)imageSize / 2.0
-                                + _player_offset
-                                + posWorld * (double)_player_zoom;
+            var screenTl = cpl - (Vector2<double>)imageSize / 2.0
+                                + _playerOffset
+                                + posWorld * (double)_playerZoom;
 
             if (rot % 360 == 0)
             {
-                _player_window.Shapes.DrawImage(img, (Vector2<int>)screenTL, imageSize);
+                _playerWindow.Shapes.DrawImage(img, (Vector2<int>)screenTl, imageSize);
             }
             else
             {
-                var center = (Vector2<float>)(screenTL + (Vector2<double>)imageSize / 2.0);
+                var center = (Vector2<float>)(screenTl + (Vector2<double>)imageSize / 2.0);
 
                 canvas.Save();
                 canvas.Translate(center.X, center.Y);
@@ -339,7 +339,7 @@ private static void RenderPlayer(double dt, SKCanvas canvas, GL gl)
                 canvas.Restore();
 
                 // Fallback (approximate 90/270 by swapping size)
-                _player_window.Shapes.DrawImage(
+                _playerWindow.Shapes.DrawImage(
                     img,
                     (Vector2<int>)(center - new Vector2<float>(imageSize.Y, imageSize.X) / 2f),
                     new Vector2(imageSize.Y, imageSize.X)
@@ -348,13 +348,13 @@ private static void RenderPlayer(double dt, SKCanvas canvas, GL gl)
         }
 
         // --- Tokens (camera-only) ---
-        float zCam = _player_zoom;
+        float zCam = _playerZoom;
         foreach (var token in TokenFactory.Tokens)
         {
             if (!token.VisibleToPlayers) continue;
 
-            Vector2<float> posScreen = (Vector2<float>)(cpl + _player_offset + token.Position * (double)zCam);
-            float r = token.Size * zCam * Token.globalScale;
+            Vector2<float> posScreen = (Vector2<float>)(cpl + _playerOffset + token.Position * (double)zCam);
+            float r = token.Size * zCam * Token.GlobalScale;
 
             float ang = token.Rotation * (MathF.PI / 180f);
             float c = MathF.Cos(ang), s = MathF.Sin(ang);
@@ -364,36 +364,36 @@ private static void RenderPlayer(double dt, SKCanvas canvas, GL gl)
             Vector2<float> a1 = posScreen + Rotate(new Vector2<float>(0f, -r1), c, s);
             Vector2<float> b1 = posScreen + Rotate(new Vector2<float>(r1 * 1.3f, 0f), c, s);
             Vector2<float> c1 = posScreen + Rotate(new Vector2<float>(0f,  r1), c, s);
-            _player_window.Shapes.DrawColor = Color.BLACK;
-            _player_window.Shapes.FillTriangle(a1, b1, c1);
+            _playerWindow.Shapes.DrawColor = Color.Black;
+            _playerWindow.Shapes.FillTriangle(a1, b1, c1);
 
             float r2 = r * 0.98f;
             Vector2<float> a2 = posScreen + Rotate(new Vector2<float>(0f, -r2), c, s);
             Vector2<float> b2 = posScreen + Rotate(new Vector2<float>(r2 * 1.25f, 0f), c, s);
             Vector2<float> c2 = posScreen + Rotate(new Vector2<float>(0f,  r2), c, s);
-            _player_window.Shapes.DrawColor = token.Color;
-            _player_window.Shapes.FillTriangle(a2, b2, c2);
+            _playerWindow.Shapes.DrawColor = token.Color;
+            _playerWindow.Shapes.FillTriangle(a2, b2, c2);
 
             // circles
-            _player_window.Shapes.DrawColor = Color.BLACK;
-            _player_window.Shapes.FillCircle(posScreen, r);
-            _player_window.Shapes.DrawColor = token.StatusColor;
-            _player_window.Shapes.FillCircle(posScreen, r * 0.98f);
-            _player_window.Shapes.DrawColor = Color.BLACK;
-            _player_window.Shapes.FillCircle(posScreen, r * 0.90f);
-            _player_window.Shapes.DrawColor = token.Color;
-            _player_window.Shapes.FillCircle(posScreen, r * 0.80f);
+            _playerWindow.Shapes.DrawColor = Color.Black;
+            _playerWindow.Shapes.FillCircle(posScreen, r);
+            _playerWindow.Shapes.DrawColor = token.StatusColor;
+            _playerWindow.Shapes.FillCircle(posScreen, r * 0.98f);
+            _playerWindow.Shapes.DrawColor = Color.Black;
+            _playerWindow.Shapes.FillCircle(posScreen, r * 0.90f);
+            _playerWindow.Shapes.DrawColor = token.Color;
+            _playerWindow.Shapes.FillCircle(posScreen, r * 0.80f);
 
             // label
-            Color textColor = token.Color.GetBrightness() < 0.5f ? Color.WHITE : Color.BLACK;
-            _player_window.Shapes.DrawColor = textColor;
-            _player_window.Shapes.TextFormat = new TextFormat()
+            Color textColor = token.Color.GetBrightness() < 0.5f ? Color.White : Color.Black;
+            _playerWindow.Shapes.DrawColor = textColor;
+            _playerWindow.Shapes.TextFormat = new TextFormat()
             {
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Middle,
+                HorizontalAlignment = HorizontalAlignment.CENTER,
+                VerticalAlignment = VerticalAlignment.MIDDLE,
                 FontSize = token.FontSize,
             };
-            _player_window.Shapes.DrawText(posScreen, token.Name);
+            _playerWindow.Shapes.DrawText(posScreen, token.Name);
         }
 
         var localMousePos = DmScreenToPlayerScreen(_mousePos);
@@ -404,54 +404,54 @@ private static void RenderPlayer(double dt, SKCanvas canvas, GL gl)
         {
             var localLastMousePos = DmScreenToPlayerScreen(_lastMousePos);
 
-            _player_window.Shapes.DrawColor = Color.YELLOW;
-            _player_window.Shapes.LineWidth = 10;
-            _player_window.Shapes.DrawLine((Vector2<float>)localLastMousePos, (Vector2<float>)localMousePos);
-            _player_window.Shapes.DrawColor = Color.DARK_GRAY with { A = 0.5f };
+            _playerWindow.Shapes.DrawColor = Color.Yellow;
+            _playerWindow.Shapes.LineWidth = 10;
+            _playerWindow.Shapes.DrawLine((Vector2<float>)localLastMousePos, (Vector2<float>)localMousePos);
+            _playerWindow.Shapes.DrawColor = Color.DarkGray with { A = 0.5f };
             double distPx = (localMousePos - localLastMousePos).Length;
-            _player_window.Shapes.FillCircle((Vector2<float>)localLastMousePos, (float)distPx);
-            _player_window.Shapes.DrawColor = Color.ORANGE;
-            _player_window.Shapes.DrawCircle((Vector2<float>)localLastMousePos, (float)distPx);
+            _playerWindow.Shapes.FillCircle((Vector2<float>)localLastMousePos, (float)distPx);
+            _playerWindow.Shapes.DrawColor = Color.Orange;
+            _playerWindow.Shapes.DrawCircle((Vector2<float>)localLastMousePos, (float)distPx);
 
             // Convert to WORLD distance (independent of screen zoom)
-            double worldDist = distPx / _player_zoom;                    // pixels -> world(map) units
-            double feetPerWorldUnit = 5.0 / (2.0 * Token.globalScale);   // since 2*globalScale world units == 5 ft
+            double worldDist = distPx / _playerZoom;                    // pixels -> world(map) units
+            double feetPerWorldUnit = 5.0 / (2.0 * Token.GlobalScale);   // since 2*globalScale world units == 5 ft
             double distanceInFeet = worldDist * feetPerWorldUnit;
             double distanceInMeters = distanceInFeet * 0.3048;
 
-            _player_window.Shapes.TextFormat = new TextFormat()
+            _playerWindow.Shapes.TextFormat = new TextFormat()
             {
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Bottom,
+                HorizontalAlignment = HorizontalAlignment.CENTER,
+                VerticalAlignment = VerticalAlignment.BOTTOM,
                 FontSize = 24,
             };
-            _player_window.Shapes.DrawColor = Color.BLACK;
-            _player_window.Shapes.DrawText((Vector2)localMousePos, $"{distanceInFeet:0.##} ft\n{distanceInMeters:0.##} m");
+            _playerWindow.Shapes.DrawColor = Color.Black;
+            _playerWindow.Shapes.DrawText((Vector2)localMousePos, $"{distanceInFeet:0.##} ft\n{distanceInMeters:0.##} m");
         }
-        
+
         //small cursor cross
-        _player_window.Shapes.DrawColor = Color.BLACK;
-        _player_window.Shapes.LineWidth = 5;
-        _player_window.Shapes.DrawLine(new Vector2<float>((float)localMousePos.X - 10, (float)localMousePos.Y), new Vector2<float>((float)localMousePos.X + 10, (float)localMousePos.Y));
-        _player_window.Shapes.DrawLine(new Vector2<float>((float)localMousePos.X, (float)localMousePos.Y - 10), new Vector2<float>((float)localMousePos.X, (float)localMousePos.Y + 10));
-        _player_window.Shapes.DrawColor = Color.WHITE;
-        _player_window.Shapes.LineWidth = 3;
-        _player_window.Shapes.DrawLine(new Vector2<float>((float)localMousePos.X - 10, (float)localMousePos.Y), new Vector2<float>((float)localMousePos.X + 10, (float)localMousePos.Y));
-        _player_window.Shapes.DrawLine(new Vector2<float>((float)localMousePos.X, (float)localMousePos.Y - 10), new Vector2<float>((float)localMousePos.X, (float)localMousePos.Y + 10));
+        _playerWindow.Shapes.DrawColor = Color.Black;
+        _playerWindow.Shapes.LineWidth = 5;
+        _playerWindow.Shapes.DrawLine(new Vector2<float>((float)localMousePos.X - 10, (float)localMousePos.Y), new Vector2<float>((float)localMousePos.X + 10, (float)localMousePos.Y));
+        _playerWindow.Shapes.DrawLine(new Vector2<float>((float)localMousePos.X, (float)localMousePos.Y - 10), new Vector2<float>((float)localMousePos.X, (float)localMousePos.Y + 10));
+        _playerWindow.Shapes.DrawColor = Color.White;
+        _playerWindow.Shapes.LineWidth = 3;
+        _playerWindow.Shapes.DrawLine(new Vector2<float>((float)localMousePos.X - 10, (float)localMousePos.Y), new Vector2<float>((float)localMousePos.X + 10, (float)localMousePos.Y));
+        _playerWindow.Shapes.DrawLine(new Vector2<float>((float)localMousePos.X, (float)localMousePos.Y - 10), new Vector2<float>((float)localMousePos.X, (float)localMousePos.Y + 10));
     }
     else
     {
-        _player_window.Shapes.TextFormat = new TextFormat()
+        _playerWindow.Shapes.TextFormat = new TextFormat()
         {
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Middle,
+            HorizontalAlignment = HorizontalAlignment.CENTER,
+            VerticalAlignment = VerticalAlignment.MIDDLE,
             FontSize = 48,
         };
-        _player_window.Shapes.DrawColor = Color.WHITE;
-        _player_window.Shapes.DrawText(_player_window.Size / 2, "Waiting for DM to load a map");
+        _playerWindow.Shapes.DrawColor = Color.White;
+        _playerWindow.Shapes.DrawText(_playerWindow.Size / 2, "Waiting for DM to load a map");
     }
 
-    _player_window.Show();
+    _playerWindow.Show();
 }
 
 
@@ -461,32 +461,32 @@ private static void RenderPlayer(double dt, SKCanvas canvas, GL gl)
         {
             case MouseButton.Right:
                 _isPanning = true;
-                _lastMousePos = _dm_window.Input.GetCursorPos();
+                _lastMousePos = _dmWindow.Input.GetCursorPos();
                 break;
             case MouseButton.Left:
                 if (_mapModification && _maps.Count > 0)
                 {
-                    _activeMapIndex = PickMapUnderMouse(_dm_window.Input.GetCursorPos());
+                    _activeMapIndex = PickMapUnderMouse(_dmWindow.Input.GetCursorPos());
                     if (_activeMapIndex >= 0)
                     {
                         _draggingMap = true;
-                        _lastMousePos = _dm_window.Input.GetCursorPos();
+                        _lastMousePos = _dmWindow.Input.GetCursorPos();
                     }
                     return;
                 }
 
                 // your existing measuring/token drag logic
-                if (_dm_window.Input.GetKey(Keys.M))
+                if (_dmWindow.Input.GetKey(Keys.M))
                 {
                     _measuringDistance = true;
-                    _lastMousePos = _dm_window.Input.GetCursorPos();
+                    _lastMousePos = _dmWindow.Input.GetCursorPos();
                     return;
                 }
-                
+
                 if (TokenFactory.MouseOverToken != null)
                 {
                     _draggingToken = TokenFactory.MouseOverToken;
-                    _lastMousePos = _dm_window.Input.GetCursorPos();
+                    _lastMousePos = _dmWindow.Input.GetCursorPos();
                 }
                 break;
         }
@@ -516,7 +516,7 @@ private static void RenderPlayer(double dt, SKCanvas canvas, GL gl)
         {
             var deltaScreen = position - _lastMousePos;
             // convert screen delta to world (image px) delta using camera zoom only
-            _map_positions[_activeMapIndex] += deltaScreen / (double)_zoom;
+            _mapPositions[_activeMapIndex] += deltaScreen / (double)_zoom;
             _lastMousePos = position;
             return;
         }
@@ -542,21 +542,21 @@ private static void RenderPlayer(double dt, SKCanvas canvas, GL gl)
         switch (key)
         {
             case Keys.F11:
-                _player_window.Decorated = !_player_window.Decorated;
+                _playerWindow.Decorated = !_playerWindow.Decorated;
                 int offsetY = 30;
-                if (!_player_window.Decorated)
+                if (!_playerWindow.Decorated)
                 {
-                    _player_window.Size += new Vector2<int>(0, offsetY);
-                    _player_window.Position -= new Vector2<int>(0, offsetY);
+                    _playerWindow.Size += new Vector2<int>(0, offsetY);
+                    _playerWindow.Position -= new Vector2<int>(0, offsetY);
                     return;
                 }
-                _player_window.Size -= new Vector2<int>(0, offsetY);
-                _player_window.Position += new Vector2<int>(0, offsetY);
+                _playerWindow.Size -= new Vector2<int>(0, offsetY);
+                _playerWindow.Position += new Vector2<int>(0, offsetY);
                 break;
         }
     }
 
-    private static void KeyDownDM(Keys key)
+    private static void KeyDownDm(Keys key)
     {
         switch (key)
         {
@@ -570,19 +570,19 @@ private static void RenderPlayer(double dt, SKCanvas canvas, GL gl)
                 break;
 
             case Keys.F11:
-                _dm_window.Decorated = !_dm_window.Decorated;
+                _dmWindow.Decorated = !_dmWindow.Decorated;
                 int offsetY = 30;
-                if (!_dm_window.Decorated)
+                if (!_dmWindow.Decorated)
                 {
-                    _dm_window.Size += new Vector2<int>(0, offsetY);
-                    _dm_window.Position -= new Vector2<int>(0, offsetY);
+                    _dmWindow.Size += new Vector2<int>(0, offsetY);
+                    _dmWindow.Position -= new Vector2<int>(0, offsetY);
                     return;
                 }
-                _dm_window.Size -= new Vector2<int>(0, offsetY);
-                _dm_window.Position += new Vector2<int>(0, offsetY);
+                _dmWindow.Size -= new Vector2<int>(0, offsetY);
+                _dmWindow.Position += new Vector2<int>(0, offsetY);
                 break;
             case Keys.F12:
-                _dm_window.AlwaysOnTop = !_dm_window.AlwaysOnTop;
+                _dmWindow.AlwaysOnTop = !_dmWindow.AlwaysOnTop;
                 break;
             case Keys.Space:
                 if (TokenFactory.MouseOverToken != null)
@@ -602,18 +602,18 @@ private static void RenderPlayer(double dt, SKCanvas canvas, GL gl)
                 {
                     TokenFactory.DeleteToken(TokenFactory.MouseOverToken);
                 }
-                else if (_dm_window.Input.GetKey(Keys.ControlLeft) && _maps.Count > 0)
+                else if (_dmWindow.Input.GetKey(Keys.ControlLeft) && _maps.Count > 0)
                 {
-                    int idx = PickMapUnderMouse(_dm_window.Input.GetCursorPos());
+                    int idx = PickMapUnderMouse(_dmWindow.Input.GetCursorPos());
                     if (idx >= 0) DeleteMapAt(idx);
                 }
                 break;
             case Keys.N:
-                Vector2<double> mapPos = ScreenToMap(_mousePos, _dm_window.Size, _offset, _zoom);
-                TokenFactory.CreateToken(mapPos, Color.WHITE, 1.0f, false);
+                Vector2<double> mapPos = ScreenToMap(_mousePos, _dmWindow.Size, _offset, _zoom);
+                TokenFactory.CreateToken(mapPos, Color.White, 1.0f, false);
                 break;
             case Keys.V:
-                if (_dm_window.Input.GetKey(Keys.ControlLeft))
+                if (_dmWindow.Input.GetKey(Keys.ControlLeft))
                     TryPasteFromClipboard();
                 break;
             case Keys.F:
@@ -623,7 +623,7 @@ private static void RenderPlayer(double dt, SKCanvas canvas, GL gl)
     }
 
 
-    private static void KeyUpDM(Keys key)
+    private static void KeyUpDm(Keys key)
     {
         if (key == Keys.AltLeft || key == Keys.AltRight)
             _mapModification = false;
@@ -642,10 +642,10 @@ private static void RenderPlayer(double dt, SKCanvas canvas, GL gl)
         if (TokenFactory.MouseOverToken == null)
             return;
 
-        if (_dm_window.Clipboard == null)
+        if (_dmWindow.Clipboard == null)
             return;
 
-        string text = _dm_window.Clipboard;
+        string text = _dmWindow.Clipboard;
         if (string.IsNullOrWhiteSpace(text))
             return;
 
@@ -685,7 +685,7 @@ private static void RenderPlayer(double dt, SKCanvas canvas, GL gl)
         {
             const float sensitivity = 0.12f;              // tweak
             float factor = MathF.Pow(1f + sensitivity, (float)scroll.Y);
-            Token.globalScale *= factor;
+            Token.GlobalScale *= factor;
             return;
         }
 
@@ -694,7 +694,7 @@ private static void RenderPlayer(double dt, SKCanvas canvas, GL gl)
             // multiplicative (relative) scaling – size-aware
             const float sensitivity = 0.12f;
             float factor = MathF.Pow(1f + sensitivity, (float)scroll.Y);
-            _map_scales[_activeMapIndex] = MathG.Clamp(_map_scales[_activeMapIndex] * factor, 0.01f, 100f);
+            _mapScales[_activeMapIndex] = MathG.Clamp(_mapScales[_activeMapIndex] * factor, 0.01f, 100f);
             return;
         }
 
@@ -707,7 +707,7 @@ private static void RenderPlayer(double dt, SKCanvas canvas, GL gl)
 
         // 2) Keep the world point under the cursor fixed
         Vector2<double> m = _mousePos;                 // mouse in window coords
-        Vector2<double> c = _dm_window.Size / 2.0;     // window center
+        Vector2<double> c = _dmWindow.Size / 2.0;     // window center
 
         // world point currently under the mouse (before zoom)
         Vector2<double> world = (m - (c + _offset)) / (double)oldZ;
@@ -724,10 +724,10 @@ private static void RenderPlayer(double dt, SKCanvas canvas, GL gl)
         float a = size.X * size.Y;  // current area
 
         // Target aspect = W/H (from player window)
-        float r = _player_window.AspectRatio;
+        float r = _playerWindow.AspectRatio;
 
         // Only adjust if aspect differs meaningfully
-        if (MathF.Abs(_dm_window.AspectRatio - r) > 0.01)
+        if (MathF.Abs(_dmWindow.AspectRatio - r) > 0.01)
         {
             // Exact real-valued solution with same area and target aspect:
             // H* = sqrt(A / r), W* = r * H*
@@ -764,7 +764,7 @@ private static void RenderPlayer(double dt, SKCanvas canvas, GL gl)
             if ((best.W & 1) != 0) best.W--;
             if ((best.H & 1) != 0) best.H--;
 
-            _dm_window.Size = new Vector2<int>(best.W, best.H);
+            _dmWindow.Size = new Vector2<int>(best.W, best.H);
         }
     }
 
@@ -794,12 +794,12 @@ private static void RenderPlayer(double dt, SKCanvas canvas, GL gl)
     private static Vector2<double> DmScreenToPlayerScreen(Vector2<double> dmScreen)
     {
         // DM: screen -> world
-        Vector2<double> cdm = _dm_window.Size / 2.0;
+        Vector2<double> cdm = _dmWindow.Size / 2.0;
         Vector2<double> world = (dmScreen - (cdm + _offset)) / (double)_zoom;
 
         // Player: world -> screen
-        Vector2<double> cpl = _player_window.Size / 2.0;
-        Vector2<double> plScreen = cpl + _player_offset + world * (double)_player_zoom;
+        Vector2<double> cpl = _playerWindow.Size / 2.0;
+        Vector2<double> plScreen = cpl + _playerOffset + world * (double)_playerZoom;
 
         return plScreen;
     }
@@ -816,9 +816,9 @@ private static void RenderPlayer(double dt, SKCanvas canvas, GL gl)
     private static (Vector2<double> TL, Vector2<double> Size) GetMapScreenRect(int i, Vector2<int> winSize)
     {
         var img = _maps[i];
-        int rot = _map_rotations[i];
-        float s = _map_scales[i];
-        var posWorld = _map_positions[i];
+        int rot = _mapRotations[i];
+        float s = _mapScales[i];
+        var posWorld = _mapPositions[i];
 
         Vector2<double> c = winSize / 2.0;
         Vector2<float> nOriented = OrientedNaturalSize(img, rot);
@@ -837,7 +837,7 @@ private static void RenderPlayer(double dt, SKCanvas canvas, GL gl)
     {
         for (int i = _maps.Count - 1; i >= 0; i--)
         {
-            var (tl, size) = GetMapScreenRect(i, _dm_window.Size);
+            var (tl, size) = GetMapScreenRect(i, _dmWindow.Size);
             if (mouseScreen.X >= tl.X && mouseScreen.X <= tl.X + size.X &&
                 mouseScreen.Y >= tl.Y && mouseScreen.Y <= tl.Y + size.Y)
             {
@@ -855,9 +855,9 @@ private static void RenderPlayer(double dt, SKCanvas canvas, GL gl)
         // try { _maps[index].Dispose(); } catch { /* ignore */ }
 
         _maps.RemoveAt(index);
-        _map_positions.RemoveAt(index);
-        _map_rotations.RemoveAt(index);
-        _map_scales.RemoveAt(index);
+        _mapPositions.RemoveAt(index);
+        _mapRotations.RemoveAt(index);
+        _mapScales.RemoveAt(index);
 
         // fix active/dragging indices/flags
         if (_activeMapIndex == index)

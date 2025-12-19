@@ -12,31 +12,31 @@ public record TextShape(Vector2 Position, string Text, TextFormat Format) : IDra
             DefaultStyle = new Style() {
                 FontFamily = Format.FontFamily,
                 FontSize = Format.FontSize,
-                FontItalic = (Format.FontStyle & FontStyle.Italic) == FontStyle.Italic,
-                StrikeThrough = (Format.FontStyle & FontStyle.Strikeout) == FontStyle.Strikeout ? StrikeThroughStyle.Solid : StrikeThroughStyle.None,
-                Underline = (Format.FontStyle & FontStyle.Underline) == FontStyle.Underline ? UnderlineStyle.Solid : UnderlineStyle.None,
+                FontItalic = (Format.FontStyle & FontStyle.ITALIC) == FontStyle.ITALIC,
+                StrikeThrough = (Format.FontStyle & FontStyle.STRIKEOUT) == FontStyle.STRIKEOUT ? StrikeThroughStyle.Solid : StrikeThroughStyle.None,
+                Underline = (Format.FontStyle & FontStyle.UNDERLINE) == FontStyle.UNDERLINE ? UnderlineStyle.Solid : UnderlineStyle.None,
                 TextColor = paint.Color,
             },
         }
         .Add(Text)
-        .Bold((Format.FontStyle & FontStyle.Bold) == FontStyle.Bold);
+        .Bold((Format.FontStyle & FontStyle.BOLD) == FontStyle.BOLD);
 
         float height = rs.MeasuredHeight;
         float width = rs.MeasuredWidth;
 
         float xOffset = Format.HorizontalAlignment switch
         {
-            HorizontalAlignment.Left => 0,
-            HorizontalAlignment.Center => width/2,
-            HorizontalAlignment.Right => width,
+            HorizontalAlignment.LEFT => 0,
+            HorizontalAlignment.CENTER => width/2,
+            HorizontalAlignment.RIGHT => width,
             _ => 0,
         };
 
         float yOffset = Format.VerticalAlignment switch
         {
-            VerticalAlignment.Top => 0,
-            VerticalAlignment.Middle => height/2,
-            VerticalAlignment.Bottom => height,
+            VerticalAlignment.TOP => 0,
+            VerticalAlignment.MIDDLE => height/2,
+            VerticalAlignment.BOTTOM => height,
             _ => 0,
         };
 

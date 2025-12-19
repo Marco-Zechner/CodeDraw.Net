@@ -5,7 +5,7 @@ using MarcoZechner.ColorDotNet;
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual;
 
 [Order(1)]
-public class Test1_OpenWindow : ITestable
+public class Test1OpenWindow : ITestable
 {
     public void RunTest()
     {
@@ -13,7 +13,7 @@ public class Test1_OpenWindow : ITestable
         {
             Size = new(640, 360),
             Resizable = true,
-            TargetFPS = 60
+            TargetFps = 60
         };
         Console.WriteLine("1      Created CodeDrawWindow");
 
@@ -29,7 +29,7 @@ public class Test1_OpenWindow : ITestable
 
         win.CloseRequested += (w, args, reason) =>
         {
-            if (reason == CloseReason.UserClosedWindow) Console.WriteLine("10.3   CloseRequested: User initiated close (X/Alt+F4)");
+            if (reason == CloseReason.USER_CLOSED_WINDOW) Console.WriteLine("10.3   CloseRequested: User initiated close (X/Alt+F4)");
             Console.WriteLine($"11     CloseRequested event fired, reason: {reason}");
         };
 
@@ -59,7 +59,7 @@ public class Test1_OpenWindow : ITestable
 
         win.Open(); // starts render thread
         Console.WriteLine("4      Opened CodeDrawWindow");
-        win.EnqueueGL(gl =>
+        win.EnqueueGl(gl =>
         {
             Console.WriteLine("6/7    EnqueueGL: setting clear color to white");
         });
@@ -77,19 +77,19 @@ public class Test1_OpenWindow : ITestable
             return k.Key == ConsoleKey.Enter;
         }))
         {
-            case CloseReason.Unknown:
+            case CloseReason.UNKNOWN:
                 Console.WriteLine("?      CloseReason.Unknown");
                 break;
-            case CloseReason.RequestedByUser:
+            case CloseReason.REQUESTED_BY_USER:
                 Console.WriteLine("15.1   CloseReason.RequestedByUser");
                 break;
-            case CloseReason.UserClosedWindow:
+            case CloseReason.USER_CLOSED_WINDOW:
                 Console.WriteLine("15.3   CloseReason.UserClosedWindow");
                 break;
-            case CloseReason.WaitForCloseEvent:
+            case CloseReason.WAIT_FOR_CLOSE_EVENT:
                 Console.WriteLine("15.2   CloseReason.WaitForCloseEvent");
                 break;
-            case CloseReason.AlreadyClosed:
+            case CloseReason.ALREADY_CLOSED:
                 Console.WriteLine("17     CloseReason.AlreadyClosed");
                 break;
         }
@@ -101,19 +101,19 @@ public class Test1_OpenWindow : ITestable
             return k.Key == ConsoleKey.Enter;
         }))
         {
-            case CloseReason.Unknown:
+            case CloseReason.UNKNOWN:
                 Console.WriteLine("?      CloseReason.Unknown");
                 break;
-            case CloseReason.RequestedByUser:
+            case CloseReason.REQUESTED_BY_USER:
                 Console.WriteLine("15.1   CloseReason.RequestedByUser");
                 break;
-            case CloseReason.UserClosedWindow:
+            case CloseReason.USER_CLOSED_WINDOW:
                 Console.WriteLine("15.3   CloseReason.UserClosedWindow");
                 break;
-            case CloseReason.WaitForCloseEvent:
+            case CloseReason.WAIT_FOR_CLOSE_EVENT:
                 Console.WriteLine("15.2   CloseReason.WaitForCloseEvent");
                 break;
-            case CloseReason.AlreadyClosed:
+            case CloseReason.ALREADY_CLOSED:
                 Console.WriteLine("17     CloseReason.AlreadyClosed");
                 break;
         }

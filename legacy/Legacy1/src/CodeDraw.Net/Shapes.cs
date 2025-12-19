@@ -18,7 +18,7 @@ public partial class Shapes
     public void DrawEllipse(float xCenter, float yCenter, float width, float height)
         => DrawEllipse(new Vector2(xCenter, yCenter), new Vector2(width, height));
 
-    public void DrawPie(float xCenter, float yCenter, float radius, float startAngle, float sweepAngle, AngleUnit angleUnit = AngleUnit.Degrees)
+    public void DrawPie(float xCenter, float yCenter, float radius, float startAngle, float sweepAngle, AngleUnit angleUnit = AngleUnit.DEGREES)
         => DrawPie(new Vector2(xCenter, yCenter), radius, startAngle, sweepAngle, angleUnit);
 
     public void DrawTriangle(float x1, float y1, float x2, float y2, float x3, float y3)
@@ -55,7 +55,7 @@ public partial class Shapes
     public void FillEllipse(float xCenter, float yCenter, float width, float height)
         => FillEllipse(new Vector2(xCenter, yCenter), new Vector2(width, height));
 
-    public void FillPie(float xCenter, float yCenter, float radius, float startAngle, float sweepAngle, AngleUnit angleUnit = AngleUnit.Degrees)
+    public void FillPie(float xCenter, float yCenter, float radius, float startAngle, float sweepAngle, AngleUnit angleUnit = AngleUnit.DEGREES)
         => FillPie(new Vector2(xCenter, yCenter), radius, startAngle, sweepAngle, angleUnit);
 
     public void FillTriangle(float x1, float y1, float x2, float y2, float x3, float y3)
@@ -107,7 +107,7 @@ public partial class Shapes
         }
     }
 
-    public void DrawArc(float xCenter, float yCenter, float radius, float startAngle, float sweepAngle, AngleUnit angleUnit = AngleUnit.Degrees)
+    public void DrawArc(float xCenter, float yCenter, float radius, float startAngle, float sweepAngle, AngleUnit angleUnit = AngleUnit.DEGREES)
         => DrawArc(new Vector2(xCenter, yCenter), radius, startAngle, sweepAngle, angleUnit);
 
     #endregion
@@ -135,7 +135,7 @@ public partial class Shapes
         }
     }
 
-    public void FillArc(float xCenter, float yCenter, float radius, float startAngle, float sweepAngle, AngleUnit angleUnit = AngleUnit.Degrees)
+    public void FillArc(float xCenter, float yCenter, float radius, float startAngle, float sweepAngle, AngleUnit angleUnit = AngleUnit.DEGREES)
         => FillArc(new Vector2(xCenter, yCenter), radius, startAngle, sweepAngle, angleUnit);
 
     #endregion

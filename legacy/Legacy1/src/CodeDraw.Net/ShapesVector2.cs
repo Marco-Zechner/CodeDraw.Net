@@ -8,7 +8,7 @@ public partial class Shapes
 {
     public readonly DrawQueue DrawBuffer = new();
     public int LineWidth { get; set; } = 1;
-    public Color DrawColor { get; set; } = Color.BLACK;
+    public Color DrawColor { get; set; } = Color.Black;
     public CornerStyle CornerStyle { get; set; }
     public int CornerRadius { get; set; } = 0;
     public bool IsAntiAliased { get; set; }
@@ -48,7 +48,7 @@ public partial class Shapes
             IsInstantDraw);
     }
 
-    public void DrawPie(Vector2 center, float radius, float startAngle, float sweepAngle, AngleUnit angleUnit = AngleUnit.Degrees)
+    public void DrawPie(Vector2 center, float radius, float startAngle, float sweepAngle, AngleUnit angleUnit = AngleUnit.DEGREES)
     {
         DrawBuffer.Enqueue(
             new PieShape(center, radius, startAngle, sweepAngle, angleUnit),
@@ -108,7 +108,7 @@ public partial class Shapes
             IsInstantDraw);
     }
 
-    public void FillPie(Vector2 center, float radius, float startAngle, float sweepAngle, AngleUnit angleUnit = AngleUnit.Degrees)
+    public void FillPie(Vector2 center, float radius, float startAngle, float sweepAngle, AngleUnit angleUnit = AngleUnit.DEGREES)
     {
         DrawBuffer.Enqueue(
             new PieShape(center, radius, startAngle, sweepAngle, angleUnit),
@@ -169,7 +169,7 @@ public partial class Shapes
             IsInstantDraw);
     }
 
-    public void DrawArc(Vector2 center, float radius, float startAngle, float sweepAngle, AngleUnit angleUnit = AngleUnit.Degrees)
+    public void DrawArc(Vector2 center, float radius, float startAngle, float sweepAngle, AngleUnit angleUnit = AngleUnit.DEGREES)
     {
         DrawBuffer.Enqueue(
             new ArcShape(center, radius, startAngle, sweepAngle, angleUnit),
@@ -197,7 +197,7 @@ public partial class Shapes
             IsInstantDraw);
     }
 
-    public void FillArc(Vector2 center, float radius, float startAngle, float sweepAngle, AngleUnit angleUnit = AngleUnit.Degrees)
+    public void FillArc(Vector2 center, float radius, float startAngle, float sweepAngle, AngleUnit angleUnit = AngleUnit.DEGREES)
     {
         DrawBuffer.Enqueue(
             new ArcShape(center, radius, startAngle, sweepAngle, angleUnit),
@@ -225,13 +225,13 @@ public partial class Shapes
             {
                 FontFamily = TextFormat.FontFamily,
                 FontSize = TextFormat.FontSize,
-                FontItalic = (TextFormat.FontStyle & FontStyle.Italic) == FontStyle.Italic,
-                StrikeThrough = (TextFormat.FontStyle & FontStyle.Strikeout) == FontStyle.Strikeout ? StrikeThroughStyle.Solid : StrikeThroughStyle.None,
-                Underline = (TextFormat.FontStyle & FontStyle.Underline) == FontStyle.Underline ? UnderlineStyle.Solid : UnderlineStyle.None,
+                FontItalic = (TextFormat.FontStyle & FontStyle.ITALIC) == FontStyle.ITALIC,
+                StrikeThrough = (TextFormat.FontStyle & FontStyle.STRIKEOUT) == FontStyle.STRIKEOUT ? StrikeThroughStyle.Solid : StrikeThroughStyle.None,
+                Underline = (TextFormat.FontStyle & FontStyle.UNDERLINE) == FontStyle.UNDERLINE ? UnderlineStyle.Solid : UnderlineStyle.None,
             },
         }
         .Add(text)
-        .Bold((TextFormat.FontStyle & FontStyle.Bold) == FontStyle.Bold);
+        .Bold((TextFormat.FontStyle & FontStyle.BOLD) == FontStyle.BOLD);
         return new Vector2(rs.MeasuredWidth, rs.MeasuredHeight);
     }
 

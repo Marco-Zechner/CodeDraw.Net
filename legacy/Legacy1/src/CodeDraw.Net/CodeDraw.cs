@@ -4,7 +4,7 @@ using SkiaSharp;
 
 namespace MarcoZechner.CodeDrawDotNet;
 
-public class CodeDraw(string title = "title", bool useManagementEvents = false) : GLFWWindow(title, useManagementEvents)
+public class CodeDraw(string title = "title", bool useManagementEvents = false) : GlfwWindow(title, useManagementEvents)
 {
     public readonly Shapes Shapes = new();
     private readonly DrawQueue _drawQueue = new();

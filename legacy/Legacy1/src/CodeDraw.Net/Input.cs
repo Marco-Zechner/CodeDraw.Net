@@ -6,8 +6,8 @@ namespace MarcoZechner.CodeDrawDotNet;
 
 public unsafe class Input
 {
-    private readonly GLFWWindow _window;
-    internal Input(GLFWWindow window)
+    private readonly GlfwWindow _window;
+    internal Input(GlfwWindow window)
     {
         _window = window;
 

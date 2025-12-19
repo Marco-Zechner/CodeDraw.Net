@@ -3,7 +3,7 @@ using Silk.NET.GLFW;
 
 namespace MarcoZechner.CodeDrawDotNet;
 
-public unsafe partial class GLFWWindow
+public unsafe partial class GlfwWindow
 {
     #region Window Settings
     /// <summary>

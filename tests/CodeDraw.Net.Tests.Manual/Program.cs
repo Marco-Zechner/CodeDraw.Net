@@ -28,9 +28,9 @@ public sealed class OrderAttribute : Attribute
 
 public enum TestOutcome
 {
-    Passed,
-    Failed,
-    Unknown
+    PASSED,
+    FAILED,
+    UNKNOWN
 }
 
 public sealed class TestResult
@@ -78,7 +78,7 @@ public static class Program
                 Id = id,
                 Name = name,
                 TypeName = type.FullName ?? type.Name,
-                Outcome = TestOutcome.Unknown
+                Outcome = TestOutcome.UNKNOWN
             };
 
             var sw = System.Diagnostics.Stopwatch.StartNew();
@@ -96,7 +96,7 @@ public static class Program
 
                 if (options.SkipPrompt)
                 {
-                    result.Outcome = TestOutcome.Unknown;
+                    result.Outcome = TestOutcome.UNKNOWN;
                     result.Note = "Skipped user review (-s).";
                     Console.WriteLine("Result: no exception -> outcome set to 'Unknown' (due to -s).");
                 }
@@ -105,11 +105,11 @@ public static class Program
                     var passed = PromptYesNo("Mark test as PASSED? [y/n]: ");
                     if (passed)
                     {
-                        result.Outcome = TestOutcome.Passed;
+                        result.Outcome = TestOutcome.PASSED;
                     }
                     else
                     {
-                        result.Outcome = TestOutcome.Failed;
+                        result.Outcome = TestOutcome.FAILED;
                         Console.Write("Reason for failure: ");
                         result.Note = Console.ReadLine();
                         if (string.IsNullOrWhiteSpace(result.Note))
@@ -121,7 +121,7 @@ public static class Program
             {
                 sw.Stop();
                 result.Duration = sw.Elapsed;
-                result.Outcome = TestOutcome.Failed;
+                result.Outcome = TestOutcome.FAILED;
                 result.Error = FlattenException(ex);
                 Console.WriteLine("Result: FAILED due to exception.");
             }
@@ -327,9 +327,9 @@ public static class Program
             );
         }
 
-        var passed = results.Count(r => r.Outcome == TestOutcome.Passed);
-        var failed = results.Count(r => r.Outcome == TestOutcome.Failed);
-        var unknown = results.Count(r => r.Outcome == TestOutcome.Unknown);
+        var passed = results.Count(r => r.Outcome == TestOutcome.PASSED);
+        var failed = results.Count(r => r.Outcome == TestOutcome.FAILED);
+        var unknown = results.Count(r => r.Outcome == TestOutcome.UNKNOWN);
 
         Console.WriteLine("\nTotals:");
         Console.WriteLine($"  Passed : {passed}");

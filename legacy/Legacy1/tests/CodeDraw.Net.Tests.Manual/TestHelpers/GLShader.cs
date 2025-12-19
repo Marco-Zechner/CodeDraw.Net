@@ -2,7 +2,7 @@ using Silk.NET.OpenGL;
 
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Helpers;
 
-public static class GLShader
+public static class GlShader
 {
     public static uint CreateShader(GL gl, GLEnum type, string src)
     {

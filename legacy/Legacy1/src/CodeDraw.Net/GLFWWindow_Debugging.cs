@@ -2,7 +2,7 @@ using System.Diagnostics;
 
 namespace MarcoZechner.CodeDrawDotNet;
 
-public unsafe partial class GLFWWindow
+public unsafe partial class GlfwWindow
 {
     public bool MonitorRendering = false;
     

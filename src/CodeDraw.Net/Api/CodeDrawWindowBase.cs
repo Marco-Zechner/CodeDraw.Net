@@ -18,7 +18,7 @@ public abstract unsafe partial class CodeDrawWindowBase(string title) : IDisposa
     private IAttachableRenderer? _renderer;
     // 9) Protected / abstract
     protected abstract IAttachableRenderer CreateRenderer();
-    protected WindowHandle* _native;
+    protected WindowHandle* Native;
 
     private Thread? _updateThread;
     private volatile bool _updateRunning;
@@ -28,20 +28,20 @@ public abstract unsafe partial class CodeDrawWindowBase(string title) : IDisposa
 
     private long _lastTokenSubmitted = 0;
     private readonly RateMeter _updateUps = new(0.25);
-    private CloseReason _closeReason = CloseReason.Unknown;
+    private CloseReason _closeReason = CloseReason.UNKNOWN;
 
     // 2) Properties (public API)
     public string Title { get; } = title ?? throw new ArgumentNullException(nameof(title));
     public Vector2<int> Size { get; set; }
     public bool Resizable { get; set; } = true;
     public bool VSync { get; set; } = false;
-    public int TargetFPS { get; set; } = 60;
-    public Color ClearColor { get; set; } = Color.BLACK;
+    public int TargetFps { get; set; } = 60;
+    public Color ClearColor { get; set; } = Color.Black;
     public TimeSpan Uptime => _renderer?.Uptime ?? TimeSpan.Zero;
     public long Frames => _renderer?.Frames ?? 0;
-    public double FPS => _renderer?.Fps ?? 0.0;
+    public double Fps => _renderer?.Fps ?? 0.0;
     public object? Tag { get; set; }
-    public double UPS => _updateUps.Ewma;
+    public double Ups => _updateUps.Ewma;
     public bool IsClosed => _closedMre.IsSet;
     /// <summary>
     /// Number of frames currently queued or in-flight (backlog).
@@ -84,9 +84,9 @@ public abstract unsafe partial class CodeDrawWindowBase(string title) : IDisposa
         var host = Host;
         host.EnsureStarted(); // todo: still needed?
 
-        _native = host.CreateWindow(Size.X, Size.Y, Title);
+        Native = host.CreateWindow(Size.X, Size.Y, Title);
 
-        _renderer.Attach(host, (nint)_native, Title, this, this);
+        _renderer.Attach(host, (nint)Native, Title, this, this);
         _renderer.MaxInflightFrames = _lastSetMaxInflightFrames;
         _renderer.Start();
 
@@ -115,11 +115,11 @@ public abstract unsafe partial class CodeDrawWindowBase(string title) : IDisposa
             _renderer = null;
 
             var host = CodeDrawRuntime.Host;
-            if (_native != null)
+            if (Native != null)
             {
-                host.OnWindowDestroyed(_native);
-                host.DestroyWindowAndMaybeStop(_native);
-                _native = null;
+                host.OnWindowDestroyed(Native);
+                host.DestroyWindowAndMaybeStop(Native);
+                Native = null;
             }
 
             try { Closed?.Invoke(); } catch { }
@@ -133,10 +133,10 @@ public abstract unsafe partial class CodeDrawWindowBase(string title) : IDisposa
     }
 
     // 6) Drawing & presentation
-    public void EnqueueGL(Action<GL> body) => _renderer?.Enqueue(new GlAction(body));
+    public void EnqueueGl(Action<GL> body) => _renderer?.Enqueue(new GlAction(body));
     public void EnqueueNative(Action<GL, Glfw, nint> body) => _renderer?.Enqueue(new NativeAction(body));
 
-    public void Clear(in Color? color = null, ClearMask mask = ClearMask.Color)
+    public void Clear(in Color? color = null, ClearMask mask = ClearMask.COLOR)
     {
         if (color is not null) ClearColor = color;
         _renderer?.Enqueue(new ClearAction(ClearColor, mask));
@@ -170,7 +170,7 @@ public abstract unsafe partial class CodeDrawWindowBase(string title) : IDisposa
     // --- request Close overload that posts to UI thread (no direct callback) ---
     public void Close()
     {
-        RequestClose(CloseReason.RequestedByUser);
+        RequestClose(CloseReason.REQUESTED_BY_USER);
     }
 
     /// <summary>
@@ -182,8 +182,8 @@ public abstract unsafe partial class CodeDrawWindowBase(string title) : IDisposa
 
     public CloseReason WaitForClose(Func<ConsoleKeyInfo, bool>? shouldCloseOnKey = null)
     {
-        if (IsClosed) return CloseReason.AlreadyClosed;
-        _closeReason = CloseReason.Unknown;
+        if (IsClosed) return CloseReason.ALREADY_CLOSED;
+        _closeReason = CloseReason.UNKNOWN;
 
         if (shouldCloseOnKey is null)
         {
@@ -195,7 +195,7 @@ public abstract unsafe partial class CodeDrawWindowBase(string title) : IDisposa
             if (Console.KeyAvailable)
             {
                 var k = Console.ReadKey(intercept: true);
-                try { if (shouldCloseOnKey(k)) RequestClose(CloseReason.WaitForCloseEvent); }
+                try { if (shouldCloseOnKey(k)) RequestClose(CloseReason.WAIT_FOR_CLOSE_EVENT); }
                 catch { /* ignore user callback exceptions */ }
 
             }
@@ -206,9 +206,9 @@ public abstract unsafe partial class CodeDrawWindowBase(string title) : IDisposa
     // 8) Internal hooks used by renderer / host
     internal void RequestClose(CloseReason reason)
     {
-        if (_native == null) return;
+        if (Native == null) return;
         var host = CodeDrawRuntime.Host;
-        host.SetWindowShouldClose(_native, true);
+        host.SetWindowShouldClose(Native, true);
         OnNativeCloseRequestedFromUI(reason); //TODO: ... that should probably be called on the UI thread?
     }
 
@@ -219,7 +219,7 @@ public abstract unsafe partial class CodeDrawWindowBase(string title) : IDisposa
 
 
     // --- UI-thread close entry from GlfwCallbackHub ---
-    internal unsafe void OnNativeCloseRequestedFromUI(CloseReason reason = CloseReason.UserClosedWindow)
+    internal unsafe void OnNativeCloseRequestedFromUI(CloseReason reason = CloseReason.USER_CLOSED_WINDOW)
     {
         var args = new CloseEventArgs();
 
@@ -236,7 +236,7 @@ public abstract unsafe partial class CodeDrawWindowBase(string title) : IDisposa
         if (args.Cancel)
         {
             // veto — clear GLFW flag and continue
-            host.Glfw.SetWindowShouldClose(_native, false);
+            host.Glfw.SetWindowShouldClose(Native, false);
             return;
         }
 

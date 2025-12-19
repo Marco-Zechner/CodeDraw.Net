@@ -21,7 +21,7 @@ public unsafe abstract class AbstractWindowRenderer : IAttachableRenderer
 
     // GL plumbing
     protected Glfw Glfw => CodeDrawHost.Instance.Glfw;
-    protected GL? GL;
+    protected GL? Gl;
 
     // Metrics
     public long Frames { get; protected set; }
@@ -49,9 +49,9 @@ public unsafe abstract class AbstractWindowRenderer : IAttachableRenderer
 
     private readonly ConcurrentDictionary<long, ManualResetEventSlim> _frameWaiters = new();
 
-    public double Fps => _fpsGetter?.Invoke() ?? 0.0; // delegate injected by subclass
+    public double Fps => FpsGetter?.Invoke() ?? 0.0; // delegate injected by subclass
 
-    protected Func<double>? _fpsGetter;
+    protected Func<double>? FpsGetter;
 
     protected AbstractWindowRenderer() {}
 
@@ -186,12 +186,12 @@ public unsafe abstract class AbstractWindowRenderer : IAttachableRenderer
         host.EnsureStarted();
 
         Glfw.MakeContextCurrent(Window);
-        GL = GL.GetApi(Glfw.GetProcAddress);
+        Gl = GL.GetApi(Glfw.GetProcAddress);
 
         StartUtc = DateTime.UtcNow;
 
         // Announce ready
-        Callbacks?.OnLoaded(GL!, Glfw, (nint)Window); //TODO null? cast?
+        Callbacks?.OnLoaded(Gl!, Glfw, (nint)Window); //TODO null? cast?
 
         RunLoop(); // delegate to subclass
 

@@ -4,7 +4,7 @@ using MarcoZechner.CodeDrawDotNet.Tests.Manual.Helpers;
 
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Experiments;
 
-public unsafe static class Experiment_2
+public unsafe static class Experiment2
 {
     // Cross-context state (producer -> consumer)
     private static volatile int  _publishedIndex = -1; // 0 or 1
@@ -37,7 +37,7 @@ public unsafe static class Experiment_2
         Console.ReadLine();
 
         // 4) On ENTER: ask both windows to close (if still alive) and stop host
-        host.EnqueueUI(() =>
+        host.EnqueueUi(() =>
         {
             if (winA != null && !host.Glfw.WindowShouldClose(winA)) host.Glfw.SetWindowShouldClose(winA, true);
             if (winB != null && !host.Glfw.WindowShouldClose(winB)) host.Glfw.SetWindowShouldClose(winB, true);
@@ -61,9 +61,9 @@ public unsafe static class Experiment_2
 
         var gl = GL.GetApi(glfw.GetProcAddress);
 
-        var (vao, vbo, ebo) = GLShader.CreateFullScreenQuad(gl);
-        uint progCircle = GLShader.CreateProgram(gl, GLShader.CircleShader.VS, GLShader.CircleShader.FS);
-        uint progBlit   = GLShader.CreateProgram(gl, GLShader.LayerShader.VS, GLShader.LayerShader.FS);
+        var (vao, vbo, ebo) = GlShader.CreateFullScreenQuad(gl);
+        uint progCircle = GlShader.CreateProgram(gl, GlShader.CircleShader.VS, GlShader.CircleShader.FS);
+        uint progBlit   = GlShader.CreateProgram(gl, GlShader.LayerShader.VS, GlShader.LayerShader.FS);
         int  uTex       = gl.GetUniformLocation(progBlit, "uTex");
 
         // Uniform locations
@@ -181,8 +181,8 @@ public unsafe static class Experiment_2
 
         var gl = GL.GetApi(glfw.GetProcAddress);
 
-        var (vao, vbo, ebo) = GLShader.CreateFullScreenQuad(gl);
-        uint progBlit = GLShader.CreateProgram(gl, GLShader.LayerShader.VS, GLShader.LayerShader.FS);
+        var (vao, vbo, ebo) = GlShader.CreateFullScreenQuad(gl);
+        uint progBlit = GlShader.CreateProgram(gl, GlShader.LayerShader.VS, GlShader.LayerShader.FS);
         int  uTex     = gl.GetUniformLocation(progBlit, "uTex");
 
         // Blend for transparency

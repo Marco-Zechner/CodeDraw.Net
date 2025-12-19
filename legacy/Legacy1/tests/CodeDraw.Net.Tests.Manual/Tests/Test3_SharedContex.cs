@@ -6,7 +6,7 @@ using Silk.NET.OpenGL;
 
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual;
 
-public class Test3_SharedContext
+public class Test3SharedContext
 {
     private readonly CancellationTokenSource _cts = new();
 
@@ -75,10 +75,10 @@ public class Test3_SharedContext
             }, (void*) 0);
         }
 
-        uint prog = GLShader.CreateProgram(gl, GLShader.CircleShader.VS, GLShader.CircleShader.FS);
-        var (vao, vbo, ebo) = GLShader.CreateFullScreenQuad(gl);
+        uint prog = GlShader.CreateProgram(gl, GlShader.CircleShader.VS, GlShader.CircleShader.FS);
+        var (vao, vbo, ebo) = GlShader.CreateFullScreenQuad(gl);
 
-        uint progLayer = GLShader.CreateProgram(gl, GLShader.LayerShader.VS, GLShader.LayerShader.FS);
+        uint progLayer = GlShader.CreateProgram(gl, GlShader.LayerShader.VS, GlShader.LayerShader.FS);
         int locUTex = gl.GetUniformLocation(progLayer, "uTex");
 
         int locTime   = gl.GetUniformLocation(prog, "uTime");

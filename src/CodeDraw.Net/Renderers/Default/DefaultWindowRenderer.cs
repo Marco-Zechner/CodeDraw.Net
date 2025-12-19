@@ -23,12 +23,12 @@ public unsafe sealed class DefaultWindowRenderer : AbstractWindowRenderer
 
     public DefaultWindowRenderer() 
     {
-        _fpsGetter = () => _fps.Ewma;
+        FpsGetter = () => _fps.Ewma;
     }
 
     protected override void RunLoop()
     {
-        var gl = GL!;
+        var gl = Gl!;
         // Good default: enable sRGB when drawing into sRGB targets
         gl.Enable(EnableCap.FramebufferSrgb);
 
@@ -36,9 +36,9 @@ public unsafe sealed class DefaultWindowRenderer : AbstractWindowRenderer
         var warnThresholdMs = PublicWindow!.LongActionWarnMs;
 
         var frameTimer = Stopwatch.StartNew();
-        double targetMs = (PublicWindow!.VSync || PublicWindow!.TargetFPS <= 0)
+        double targetMs = (PublicWindow!.VSync || PublicWindow!.TargetFps <= 0)
             ? 0.0
-            : 1000.0 / PublicWindow!.TargetFPS;
+            : 1000.0 / PublicWindow!.TargetFps;
 
         Glfw.SwapInterval(PublicWindow!.VSync ? 1 : 0);
         while (Running)
@@ -112,7 +112,7 @@ public unsafe sealed class DefaultWindowRenderer : AbstractWindowRenderer
         }
 
         // Cleanup canvas
-        DestroyCanvas(GL!);
+        DestroyCanvas(Gl!);
     }
 
 

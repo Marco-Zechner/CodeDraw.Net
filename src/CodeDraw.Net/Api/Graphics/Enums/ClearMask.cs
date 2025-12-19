@@ -5,13 +5,13 @@ namespace MarcoZechner.CodeDrawDotNet.Api.Graphics;
 public enum ClearMask
 {
     /// <summary>Clear the color buffer.</summary>
-    Color = 1 << 0,
+    COLOR = 1 << 0,
     /// <summary>Clear the depth buffer.</summary>
-    Depth = 1 << 1,
+    DEPTH = 1 << 1,
     /// <summary>Clear the stencil buffer.</summary>
-    Stencil = 1 << 2,
+    STENCIL = 1 << 2,
     /// <summary>Clear color and depth buffers.</summary>
-    ColorDepth = Color | Depth,
+    COLOR_DEPTH = COLOR | DEPTH,
     /// <summary>Clear all: color, depth, and stencil buffers.</summary>
-    All = Color | Depth | Stencil
+    ALL = COLOR | DEPTH | STENCIL
 }

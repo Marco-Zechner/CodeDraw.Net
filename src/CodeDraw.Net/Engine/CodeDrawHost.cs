@@ -81,7 +81,7 @@ internal unsafe sealed class CodeDrawHost : IDisposable, IWindowHost
     {
         if (_running) return;
         _running = true;
-        _uiThread = new Thread(UIThreadMain) { IsBackground = true, Name = "CodeDraw-GLFW-UI" };
+        _uiThread = new Thread(UiThreadMain) { IsBackground = true, Name = "CodeDraw-GLFW-UI" };
         _uiThread.Start();
         _started.WaitOne(); // wait until GLFW + share root created
 
@@ -106,7 +106,7 @@ internal unsafe sealed class CodeDrawHost : IDisposable, IWindowHost
     /// <summary>Enqueue a job to be executed on the UI/GLFW thread (fire-and-forget).
     /// <br></br> NEVER render stuff here, GLFW.PollEvents will block this loop while dragging or resizing a window. (on windows)
     /// </summary>
-    public void EnqueueUI(Action job)
+    public void EnqueueUi(Action job)
     {
         _uiJobs.Enqueue(job);
         try { _glfw?.PostEmptyEvent(); } catch { }
@@ -115,12 +115,12 @@ internal unsafe sealed class CodeDrawHost : IDisposable, IWindowHost
     /// <summary>Execute a job on the UI/GLFW thread and wait for completion.
     /// <br></br> NEVER render stuff here, GLFW.PollEvents will block this loop while dragging or resizing a window. (on windows)
     /// </summary>
-    public void EnqueueUISync(Action job)
+    public void EnqueueUiSync(Action job)
     {
         var done = new AutoResetEvent(false);
         Exception? ex = null;
 
-        EnqueueUI(() =>
+        EnqueueUi(() =>
         {
             try { job(); }
             catch (Exception e) { ex = e; }
@@ -135,7 +135,7 @@ internal unsafe sealed class CodeDrawHost : IDisposable, IWindowHost
     public WindowHandle* CreateWindow(int w, int h, string title)
     {
         WindowHandle* result = null;
-        EnqueueUISync(() =>
+        EnqueueUiSync(() =>
         {
             ApplyCommonHints(_glfw!);
             result = _glfw!.CreateWindow(w, h, title, null, _shareRoot);
@@ -156,7 +156,7 @@ internal unsafe sealed class CodeDrawHost : IDisposable, IWindowHost
         if (win == null) { TryStopIfUnused(); return; }
 
         // Destroy on UI thread, then adjust counts on the caller thread so we can call Stop() safely
-        EnqueueUISync(() =>
+        EnqueueUiSync(() =>
         {
             _glfw!.MakeContextCurrent(null);
             _glfw.DestroyWindow(win);
@@ -166,7 +166,7 @@ internal unsafe sealed class CodeDrawHost : IDisposable, IWindowHost
         TryStopIfUnused();
     }
 
-    private void UIThreadMain()
+    private void UiThreadMain()
     {
         _glfw = Glfw.GetApi();
         if (!_glfw.Init()) throw new Exception("GLFW init failed");
@@ -271,7 +271,7 @@ internal unsafe sealed class CodeDrawHost : IDisposable, IWindowHost
 
     public unsafe void SetWindowShouldClose(WindowHandle* win, bool shouldClose)
     {
-        EnqueueUI(() =>
+        EnqueueUi(() =>
         {
             Glfw.SetWindowShouldClose(win, true);
         });
@@ -279,14 +279,14 @@ internal unsafe sealed class CodeDrawHost : IDisposable, IWindowHost
 
     public void CloseAllWindows()
     {
-        EnqueueUISync(() =>
+        EnqueueUiSync(() =>
         {
             foreach (var kvp in _winMap)
             {
                 var winPtr = (WindowHandle*)kvp.Key;
                 var sink  = kvp.Value;
                 Glfw.SetWindowShouldClose(winPtr, true);
-                sink.OnNativeCloseRequestedFromUI(CloseReason.RequestedByUser);
+                sink.OnNativeCloseRequestedFromUI(CloseReason.REQUESTED_BY_USER);
             }
         });
     }

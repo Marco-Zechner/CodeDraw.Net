@@ -26,7 +26,7 @@ public unsafe sealed class SharedGlfwHost : IDisposable
     {
         if (_running) return;
         _running = true;
-        _uiThread = new Thread(UIThreadMain) { IsBackground = true, Name = "GLFW-UI" };
+        _uiThread = new Thread(UiThreadMain) { IsBackground = true, Name = "GLFW-UI" };
         _uiThread.Start();
         _started.WaitOne(); // wait until GLFW + share root created
     }
@@ -37,13 +37,13 @@ public unsafe sealed class SharedGlfwHost : IDisposable
     {
         if (!_running) return;
         // enqueue stop on UI thread
-        EnqueueUI(() => _running = false);
+        EnqueueUi(() => _running = false);
         _uiThread?.Join();
         _uiThread = null;
     }
 
     /// Enqueue a job to be executed on the UI thread (GLFW thread).
-    public void EnqueueUI(Action job)
+    public void EnqueueUi(Action job)
     {
         _uiJobs.Enqueue(job);
         _work.Set();
@@ -55,7 +55,7 @@ public unsafe sealed class SharedGlfwHost : IDisposable
         WindowHandle* result = null;
         var done = new AutoResetEvent(false);
 
-        EnqueueUI(() =>
+        EnqueueUi(() =>
         {
             // All hints should match share root’s pixel format & version
             ApplyCommonHints(_glfw!);
@@ -84,7 +84,7 @@ public unsafe sealed class SharedGlfwHost : IDisposable
     public void DestroyWindow(WindowHandle* win)
     {
         if (win == null) return;
-        EnqueueUI(() =>
+        EnqueueUi(() =>
         {
             // Ensure its context is not current on any thread
             _glfw!.MakeContextCurrent(null);
@@ -92,7 +92,7 @@ public unsafe sealed class SharedGlfwHost : IDisposable
         });
     }
 
-    private void UIThreadMain()
+    private void UiThreadMain()
     {
         _glfw = Glfw.GetApi();
         if (!_glfw.Init()) throw new Exception("GLFW init failed");

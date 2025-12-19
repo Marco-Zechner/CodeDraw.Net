@@ -21,7 +21,7 @@ public static class CodeDraw
         }
     }
 
-    public static EventDrivenMetrics EventLoopUPS
+    public static EventDrivenMetrics EventLoopUps
     {
         get
         {

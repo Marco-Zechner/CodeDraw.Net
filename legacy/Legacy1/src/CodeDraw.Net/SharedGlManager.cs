@@ -72,7 +72,7 @@ public sealed class SharedGlManager : IDisposable
     private readonly ManualResetEventSlim _ready = new(false); // signals GLFW-inited + share-root created
     private int _windowRefs; // refcount of windows using the manager
 
-    public GL? GLOnManager { get; private set; } // valid only on manager thread
+    public GL? GlOnManager { get; private set; } // valid only on manager thread
 
     public unsafe WindowHandle* ShareWindow { get; private set; } = null;
     public Glfw Glfw { get; private set; } = null!;
@@ -200,12 +200,12 @@ public sealed class SharedGlManager : IDisposable
             Glfw.HideWindow(ShareWindow);
             Glfw.MakeContextCurrent(ShareWindow);
 
-            GLOnManager = GL.GetApi(Glfw.GetProcAddress);
+            GlOnManager = GL.GetApi(Glfw.GetProcAddress);
 
-            GLOnManager.Enable(GLEnum.DebugOutput);
-            GLOnManager.Enable(GLEnum.DebugOutputSynchronous);
+            GlOnManager.Enable(GLEnum.DebugOutput);
+            GlOnManager.Enable(GLEnum.DebugOutputSynchronous);
             unsafe {
-            GLOnManager.DebugMessageCallback((source, type, id, severity, length, message, userparam) => {
+            GlOnManager.DebugMessageCallback((source, type, id, severity, length, message, userparam) => {
                 string msg = Marshal.PtrToStringAnsi(message, length);
                 Logger.LogLine($"[DebugMessageCallback] source: {source}, type: {type}, id: {id}, severity {severity}, length {length}, userParam {userparam}\n{msg}");
             }, (void*) 0);
@@ -215,9 +215,9 @@ public sealed class SharedGlManager : IDisposable
 
             try
             {
-                var ver = GLOnManager.GetStringS(GLEnum.Version);
-                var ven = GLOnManager.GetStringS(GLEnum.Vendor);
-                var ren = GLOnManager.GetStringS(GLEnum.Renderer);
+                var ver = GlOnManager.GetStringS(GLEnum.Version);
+                var ven = GlOnManager.GetStringS(GLEnum.Vendor);
+                var ren = GlOnManager.GetStringS(GLEnum.Renderer);
                 Logger.LogLine($"[SharedGL] Root context: {ver} | {ven} | {ren}");
             }
             catch { /* ignore */ }
@@ -237,7 +237,7 @@ public sealed class SharedGlManager : IDisposable
                     Glfw.MakeContextCurrent(ShareWindow);
                     try
                     {
-                        job(GLOnManager!).GetAwaiter().GetResult();
+                        job(GlOnManager!).GetAwaiter().GetResult();
                     }
                     catch (Exception ex)
                     {
@@ -260,7 +260,7 @@ public sealed class SharedGlManager : IDisposable
         {
             try
             {
-                job(GLOnManager!).GetAwaiter().GetResult();
+                job(GlOnManager!).GetAwaiter().GetResult();
             }
             catch (Exception ex)
             {
@@ -277,7 +277,7 @@ public sealed class SharedGlManager : IDisposable
         }
 
         Glfw.Terminate();
-        GLOnManager = null;
+        GlOnManager = null;
         _ready.Reset();
     }
 }

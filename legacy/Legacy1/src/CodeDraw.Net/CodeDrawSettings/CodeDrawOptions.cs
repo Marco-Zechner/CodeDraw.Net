@@ -31,14 +31,14 @@ public class CodeDrawOptions {
     /// <remarks>
     /// Note: If the border is hidden there will also be no title bar, and no close/minimize button!
     /// </remarks>
-    public WindowBorder WindowBorder { get; set; } = WindowBorder.Resizable;
+    public WindowBorder WindowBorder { get; set; } = WindowBorder.RESIZABLE;
     /// <summary>
     /// Controls the state of the window (normal, minimized, maximized, fullscreen).
     /// </summary>
     /// <remarks>
     /// Note: As of now, this value does not get updated if the user changes the State of the window manually.
     /// </remarks>
-    public WindowState WindowState { get; set; } = WindowState.Normal; //TODO: update this value if it gets changed
+    public WindowState WindowState { get; set; } = WindowState.NORMAL; //TODO: update this value if it gets changed
 
     // implicit convertion to WindowOptions
     public static implicit operator WindowOptions(CodeDrawOptions options) => 
@@ -50,17 +50,17 @@ public class CodeDrawOptions {
             TopMost = options.IsAlwaysOnTop,
             WindowBorder = options.WindowBorder switch
             {
-                WindowBorder.Resizable => WindowBorderSilk.Resizable,
-                WindowBorder.Fixed => WindowBorderSilk.Fixed,
-                WindowBorder.Hidden => WindowBorderSilk.Hidden,
+                WindowBorder.RESIZABLE => WindowBorderSilk.Resizable,
+                WindowBorder.FIXED => WindowBorderSilk.Fixed,
+                WindowBorder.HIDDEN => WindowBorderSilk.Hidden,
                 _ => WindowBorderSilk.Resizable,
             },
             WindowState = options.WindowState switch
             {
-                WindowState.Normal => WindowStateSilk.Normal,
-                WindowState.Minimized => WindowStateSilk.Minimized,
-                WindowState.Maximized => WindowStateSilk.Maximized,
-                WindowState.Fullscreen => WindowStateSilk.Fullscreen,
+                WindowState.NORMAL => WindowStateSilk.Normal,
+                WindowState.MINIMIZED => WindowStateSilk.Minimized,
+                WindowState.MAXIMIZED => WindowStateSilk.Maximized,
+                WindowState.FULLSCREEN => WindowStateSilk.Fullscreen,
                 _ => WindowStateSilk.Normal,
             }
         };

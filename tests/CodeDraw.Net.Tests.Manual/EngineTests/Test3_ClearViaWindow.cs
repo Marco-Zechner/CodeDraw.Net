@@ -4,7 +4,7 @@ using MarcoZechner.ColorDotNet;
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual;
 
 [Order(3)]
-public class Test3_ClearViaWindow : ITestable
+public class Test3ClearViaWindow : ITestable
 {
     public void RunTest()
     {
@@ -12,7 +12,7 @@ public class Test3_ClearViaWindow : ITestable
         {
             Size = new(640, 360),
             Resizable = true,
-            TargetFPS = 60,
+            TargetFps = 60,
         };
 
         // Clear window via high-level API each frame. Check if lower-level & highlevel mix preserves order

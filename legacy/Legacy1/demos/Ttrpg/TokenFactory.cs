@@ -8,7 +8,7 @@ public static class TokenFactory
     public static Token? MouseOverToken = null;
 
 
-    public static Token CreateToken(Vector2<double> position, Color color, float size = 1.0f, bool visibleToPlayers = false, TokenStatus status = TokenStatus.Alive, string? name = null)
+    public static Token CreateToken(Vector2<double> position, Color color, float size = 1.0f, bool visibleToPlayers = false, TokenStatus status = TokenStatus.ALIVE, string? name = null)
     {
         var token = new Token(position)
         {

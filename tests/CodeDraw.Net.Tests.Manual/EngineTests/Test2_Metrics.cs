@@ -4,7 +4,7 @@ using MarcoZechner.CodeDrawDotNet.Api;
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual;
 
 [Order(2)]
-public class Test2_Metrics : ITestable
+public class Test2Metrics : ITestable
 {
     public void RunTest()
     {
@@ -39,10 +39,10 @@ public class Test2_Metrics : ITestable
 
                 Console.WriteLine($@"
 Engine Uptime : {CodeDraw.EngineUptime.TotalSeconds,-8:0.00}s
-Event UPS     : {CodeDraw.EventLoopUPS.ToShortString(),-20}
+Event UPS     : {CodeDraw.EventLoopUps.ToShortString(),-20}
 Layer Metrics : {CodeDraw.LayerWorkerMetrics.ToShortString(),-20}
 ------------------------------------------------------------
-Window Uptime : {winUp,-8:0.00}s   FPS: {w.FPS,6:0.00}   UPS: {w.UPS,6:0.00}
+Window Uptime : {winUp,-8:0.00}s   FPS: {w.Fps,6:0.00}   UPS: {w.Ups,6:0.00}
 Backlog       : {w.BacklogFrames,-9}   Queue: {w.QueuedFrames,-4}   Inflight: {w.InflightFrames}
 ");
             }

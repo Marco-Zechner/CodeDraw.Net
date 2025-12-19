@@ -6,15 +6,15 @@ public static class Program
 {
     private static readonly (string key, string name, Action action)[] _tests =
     [
-        ("1", "Simple CodeDraw", Test1_CodeDraw.Run),
-        ("2", "Internal Loop", Test2_CodeDraw.Run),
+        ("1", "Simple CodeDraw", Test1CodeDraw.Run),
+        ("2", "Internal Loop", Test2CodeDraw.Run),
         ("3", "Shared Context", () => {
-            var test3 = new Test3_SharedContext();
+            var test3 = new Test3SharedContext();
             test3.Run();
         }),
-        ("3E1", "Shared Context Experiment 1", Experiment_1.Run),
-        ("3E2", "Shared Context Experiment 2", Experiment_2.Run),
-        ("3E3", "Shared Context Experiment 3", Experiment_3.Run),
+        ("3E1", "Shared Context Experiment 1", Experiment1.Run),
+        ("3E2", "Shared Context Experiment 2", Experiment2.Run),
+        ("3E3", "Shared Context Experiment 3", Experiment3.Run),
     ];
 
 

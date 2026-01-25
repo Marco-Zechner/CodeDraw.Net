@@ -216,7 +216,6 @@ public unsafe abstract class AbstractWindowRenderer : IAttachableRenderer
         Gl = GL.GetApi(name => CodeDrawHost.Instance.WithGlfw(glfw => glfw.GetProcAddress(name)));
 
         Gl.Enable(EnableCap.DebugOutput);
-        Gl.Enable(EnableCap.DebugOutputSynchronous);
         Gl.DebugMessageCallback((_, type, id, sev, len, msg, _) =>
         {
             var s = System.Runtime.InteropServices.Marshal.PtrToStringAnsi(msg, len);

@@ -7,7 +7,7 @@ public interface IAttachableRenderer {
     long SealFrame();
     void WaitForPresented(long? token = null);
     void WaitForInflightSlot();
-    void Enqueue(IRenderAction action);
+    void Enqueue(IRenderCommand cmd);
     int MaxInflightFrames { get; set; }
     // Optional metrics:
     int BacklogFrames { get; }
@@ -16,6 +16,6 @@ public interface IAttachableRenderer {
     long Frames       { get; }
     double Fps        { get; }
     TimeSpan Uptime { get; }
-    
+
     bool IsRenderThread();
 }

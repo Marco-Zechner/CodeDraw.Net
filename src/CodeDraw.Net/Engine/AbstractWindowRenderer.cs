@@ -33,9 +33,9 @@ public unsafe abstract class AbstractWindowRenderer : IAttachableRenderer
 
     // ----- batching -----
     private readonly object _stagingLock = new();
-    private readonly List<IRenderAction> _staging = []; // current “recording”
+    private readonly List<IRenderCommand> _staging = []; // current “recording”
 
-    private readonly ConcurrentQueue<(long token, List<IRenderAction> batch)> _frames = new();
+    private readonly ConcurrentQueue<(long token, List<IRenderCommand> batch)> _frames = new();
     private long _nextToken = 0;
 
     private BlendMode2D _currentBlendModeForSync = BlendMode2D.RGB_BLEND_KEEP_DST_ALPHA;
@@ -76,9 +76,9 @@ public unsafe abstract class AbstractWindowRenderer : IAttachableRenderer
         PublicWindow = settings;
     }
 
-    public void Enqueue(IRenderAction action)
+    public void Enqueue(IRenderCommand cmd)
     {
-        lock (_stagingLock) _staging.Add(action);
+        lock (_stagingLock) _staging.Add(cmd);
     }
 
     public void SetBlendModeForFrameSync(BlendMode2D mode) => _currentBlendModeForSync = mode;
@@ -86,7 +86,7 @@ public unsafe abstract class AbstractWindowRenderer : IAttachableRenderer
     // seal staging into a frame; returns token
     public long SealFrame()
     {
-        List<IRenderAction> batch;
+        List<IRenderCommand> batch;
         lock (_stagingLock)
         {
             batch = _staging.Count > 0 ? [.. _staging] : [];
@@ -124,7 +124,7 @@ public unsafe abstract class AbstractWindowRenderer : IAttachableRenderer
         }
     }
 
-    protected bool TryDequeueFrame(out long token, out List<IRenderAction>? batch)
+    protected bool TryDequeueFrame(out long token, out List<IRenderCommand>? batch)
     {
         if (_frames.TryDequeue(out var item))
         {

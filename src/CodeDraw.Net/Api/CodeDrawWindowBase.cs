@@ -6,6 +6,7 @@ using Silk.NET.OpenGL;
 using MarcoZechner.DiagnosticsDotNet;
 using MarcoZechner.CodeDrawDotNet.Api.Graphics.Actions;
 using MarcoZechner.CodeDrawDotNet.Api.Graphics.Enums;
+using MarcoZechner.CodeDrawDotNet.Engine;
 using MarcoZechner.CodeDrawDotNet.Interfaces;
 using MarcoZechner.CodeDrawDotNet.Interfaces.Primitives;
 
@@ -69,6 +70,11 @@ public abstract unsafe partial class CodeDrawWindowBase(string title) : IDisposa
     /// Number of frames currently being processed by the renderer (in-flight only).
     /// </summary>
     public int InflightFrames => _renderer?.InflightFrames ?? 0;
+
+    public ILayerHandle? GetCanvasLayer()
+    {
+        return (_renderer as Renderers.Default.DefaultWindowRenderer)?.CanvasLayer;
+    }
 
     // 3) Events
     public event Action<CodeDrawWindowBase, GL, Glfw, nint>? Loaded;

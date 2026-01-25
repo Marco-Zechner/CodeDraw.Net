@@ -1,4 +1,5 @@
 ﻿using MarcoZechner.CodeDrawDotNet.Api.Graphics.Actions;
+using MarcoZechner.CodeDrawDotNet.Interfaces;
 using MarcoZechner.ColorDotNet;
 
 namespace MarcoZechner.CodeDrawDotNet.Api;
@@ -82,5 +83,10 @@ public partial class CodeDrawWindowBase
         }
 
         _renderer?.Enqueue(new DrawTriangles2DAction(data, vertexCount: segments * 3));
+    }
+
+    public void DrawLayer(ILayerHandle layer, bool premultiply = false)
+    {
+        _renderer?.Enqueue(new DrawLayerCommand(layer, premultiply));
     }
 }

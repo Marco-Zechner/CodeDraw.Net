@@ -3,7 +3,7 @@ using Silk.NET.OpenGL;
 
 namespace MarcoZechner.CodeDrawDotNet.Interfaces;
 
-public interface IRenderAction
+public interface IRenderAction : IRenderCommand
 {
     /// <summary>Executes on the window’s render thread.</summary>
     unsafe void Execute(GL gl, Glfw glfw, WindowHandle* window, int fbW, int fbH);

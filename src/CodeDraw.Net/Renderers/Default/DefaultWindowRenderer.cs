@@ -1,8 +1,9 @@
 using System.Diagnostics;
 using MarcoZechner.CodeDrawDotNet.Api;
+using MarcoZechner.CodeDrawDotNet.Api.Graphics.Actions;
 using MarcoZechner.CodeDrawDotNet.Engine;
+using MarcoZechner.CodeDrawDotNet.Interfaces;
 using MarcoZechner.DiagnosticsDotNet;
-using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
 
 namespace MarcoZechner.CodeDrawDotNet.Renderers.Default;
@@ -20,6 +21,10 @@ public unsafe sealed class DefaultWindowRenderer : AbstractWindowRenderer
     private uint _presentVao, _presentVbo;
     private uint _presentProgram;
     private int _presentLocTex;
+
+    private readonly SharedLayer _canvasLayer = new();
+
+    public ILayerHandle CanvasLayer => _canvasLayer;
 
     private volatile bool _presentDirty = true;
 
@@ -65,13 +70,23 @@ public unsafe sealed class DefaultWindowRenderer : AbstractWindowRenderer
             {
                 // Render into the persistent canvas
                 BindCanvas(gl);
-                foreach (var act in batch!)
+                foreach (var cmd in batch!)
                 {
                     var sw = Stopwatch.StartNew();
-                    act.Execute(gl, Glfw, Window, fbW, fbH);
+                    switch (cmd)
+                    {
+                        case IRenderAction act:
+                            act.Execute(gl, Glfw, Window, fbW, fbH);
+                            break;
+                        case DrawLayerCommand dla:
+                            RenderLayerTexture(((SharedLayer)dla.Layer).Tex, fbW, fbH, dla.Premultiply);
+                            break;
+                        default:
+                            throw new NotSupportedException($"Unknown render command: {cmd.GetType().Name}");
+                    }
                     sw.Stop();
                     if (warnThresholdMs > 0 && sw.ElapsedMilliseconds > warnThresholdMs)
-                        Console.WriteLine($"[Render Watchdog] {act.GetType().Name} took {sw.ElapsedMilliseconds} ms");
+                        Console.WriteLine($"[Render Watchdog] {cmd.GetType().Name} took {sw.ElapsedMilliseconds} ms");
                 }
                 Unbind(gl);
 
@@ -162,6 +177,12 @@ public unsafe sealed class DefaultWindowRenderer : AbstractWindowRenderer
         _canvasDepthStencilRb = newRb;
         _canvasFbo = newFbo;
         _canvasW = w; _canvasH = h;
+
+        _canvasLayer.Fbo = _canvasFbo;
+        _canvasLayer.Tex = _canvasTex;
+        _canvasLayer.DepthStencilRb = _canvasDepthStencilRb;
+        _canvasLayer.Width = _canvasW;
+        _canvasLayer.Height = _canvasH;
 
         // Initialize new canvas to window clear color
         gl.ClearColor(PublicWindow!.ClearColor.R, PublicWindow!.ClearColor.G,
@@ -332,5 +353,90 @@ public unsafe sealed class DefaultWindowRenderer : AbstractWindowRenderer
             }
             return s;
         }
+    }
+
+    private uint _blitProgram;
+    private int _blitLocTex;
+    private int _blitLocPremul;
+    private uint _blitVao, _blitVbo;
+
+    private void EnsureBlitResources(GL gl)
+    {
+        if (_blitProgram != 0) return;
+
+        const string vs = """
+                              #version 330 core
+                              layout(location=0) in vec2 a_pos;
+                              layout(location=1) in vec2 a_uv;
+                              out vec2 v_uv;
+                              void main(){ v_uv=a_uv; gl_Position=vec4(a_pos,0,1); }
+                          """;
+
+        const string fs = """
+                              #version 330 core
+                              in vec2 v_uv;
+                              out vec4 o;
+                              uniform sampler2D u_tex;
+                              uniform int u_premul;
+                              void main(){
+                                  vec4 c = texture(u_tex, v_uv);
+                                  if(u_premul != 0) c = vec4(c.rgb * c.a, c.a);
+                                  o = c;
+                              }
+                          """;
+
+        _blitProgram = CompileProgram(gl, vs, fs);
+        _blitLocTex = gl.GetUniformLocation(_blitProgram, "u_tex");
+        _blitLocPremul = gl.GetUniformLocation(_blitProgram, "u_premul");
+
+        // same quad as present (pos+uv)
+        float[] quad =
+        {
+            -1f,-1f, 0f,0f,   1f,-1f, 1f,0f,   1f, 1f, 1f,1f,
+            -1f,-1f, 0f,0f,   1f, 1f, 1f,1f,  -1f, 1f, 0f,1f,
+        };
+
+        _blitVao = gl.GenVertexArray();
+        _blitVbo = gl.GenBuffer();
+
+        gl.BindVertexArray(_blitVao);
+        gl.BindBuffer(BufferTargetARB.ArrayBuffer, _blitVbo);
+        unsafe { fixed(float* p = quad) gl.BufferData(BufferTargetARB.ArrayBuffer, (nuint)(quad.Length*sizeof(float)), p, BufferUsageARB.StaticDraw); }
+
+        gl.EnableVertexAttribArray(0);
+        gl.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, 4*sizeof(float), (void*)0);
+
+        gl.EnableVertexAttribArray(1);
+        gl.VertexAttribPointer(1, 2, VertexAttribPointerType.Float, false, 4*sizeof(float), (void*)(2*sizeof(float)));
+
+        gl.BindBuffer(BufferTargetARB.ArrayBuffer, 0);
+        gl.BindVertexArray(0);
+    }
+
+    private void RenderLayerTexture(uint tex, int fbW, int fbH, bool premultiply)
+    {
+        var gl = Gl!;
+        EnsureBlitResources(gl);
+
+        // Draw into currently bound framebuffer (canvas or default backbuffer)
+        gl.Viewport(0, 0, (uint)fbW, (uint)fbH);
+
+        // IMPORTANT: do NOT silently mess with the user's blend mode here.
+        // Just make sure we can actually draw (color mask).
+        gl.ColorMask(true, true, true, true);
+
+        gl.UseProgram(_blitProgram);
+
+        gl.ActiveTexture(TextureUnit.Texture0);
+        gl.BindTexture(TextureTarget.Texture2D, tex);
+        gl.Uniform1(_blitLocTex, 0);
+        gl.Uniform1(_blitLocPremul, premultiply ? 1 : 0);
+
+        gl.BindVertexArray(_blitVao);
+        gl.DrawArrays(PrimitiveType.Triangles, 0, 6);
+
+        gl.BindVertexArray(0);
+        gl.BindTexture(TextureTarget.Texture2D, 0);
+        gl.UseProgram(0);
     }
 }

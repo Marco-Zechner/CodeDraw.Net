@@ -11,7 +11,7 @@ public class Test1OpenWindow : ITestable
     {
         var win = new CodeDrawWindow("Test1_OpenWindow")
         {
-            Size = new(640, 360),
+            Size = new(1000, 360),
             Resizable = true,
             TargetFps = 60
         };

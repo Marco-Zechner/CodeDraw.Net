@@ -191,6 +191,15 @@ public abstract unsafe partial class CodeDrawWindowBase(string title) : IDisposa
         RequestClose(CloseReason.REQUESTED_BY_USER);
     }
 
+    public CloseReason WaitForClose()
+    {
+        if (IsClosed) return CloseReason.ALREADY_CLOSED;
+        _closeReason = CloseReason.UNKNOWN;
+
+        _closedMre.Wait();
+        return _closeReason;
+    }
+
     /// <summary>
     /// Wait until close; if the user presses <paramref name="triggerKey"/> in the console,
     /// this will call <see cref="RequestClose"/> (same as clicking X).

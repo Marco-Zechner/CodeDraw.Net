@@ -57,6 +57,22 @@ public unsafe abstract class AbstractWindowRenderer : IAttachableRenderer
 
     protected Func<double>? FpsGetter;
 
+    private int _fbW;
+    private int _fbH;
+
+    public void SetFramebufferSizeFromUi(int w, int h)
+    {
+        Volatile.Write(ref _fbW, w);
+        Volatile.Write(ref _fbH, h);
+    }
+
+    protected (int w, int h) GetFramebufferSizeCached()
+    {
+        int w = Volatile.Read(ref _fbW);
+        int h = Volatile.Read(ref _fbH);
+        return (w, h);
+    }
+
     protected AbstractWindowRenderer() {}
 
     internal void Attach(WindowHandle* window, string title)
@@ -194,6 +210,9 @@ public unsafe abstract class AbstractWindowRenderer : IAttachableRenderer
         host.EnsureStarted();
 
         CodeDrawHost.Instance.WithGlfw(glfw => glfw.MakeContextCurrent(Window));
+        CodeDrawHost.Instance.GlfwUnsafe.GetFramebufferSize(Window, out int w, out int h);
+        SetFramebufferSizeFromUi(w, h);
+
         Gl = GL.GetApi(name => CodeDrawHost.Instance.WithGlfw(glfw => glfw.GetProcAddress(name)));
 
         Gl.Enable(EnableCap.DebugOutput);

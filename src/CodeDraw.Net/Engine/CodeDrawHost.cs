@@ -11,8 +11,7 @@ internal sealed unsafe class CodeDrawHost : IDisposable, IWindowHost
 {
     public static CodeDrawHost Instance { get; } = new();
 
-    [Obsolete("Do not access GLFW directly. Use WithGlfw / EnqueueUi instead.", error: true)]
-    public Glfw Glfw => _glfw!;
+    public Glfw GlfwUnsafe => _glfwUnsafe!;
     public WindowHandle* ShareRoot => _shareRoot;
     private readonly AutoResetEvent _uiWake = new(false);
 
@@ -25,7 +24,7 @@ internal sealed unsafe class CodeDrawHost : IDisposable, IWindowHost
     public DateTime StartTimeUtc { get; private set; }
 
     private Thread? _uiThread;
-    private Glfw? _glfw;
+    private Glfw? _glfwUnsafe;
     private volatile bool _running;
     private readonly AutoResetEvent _started = new(false);
     private readonly ConcurrentQueue<Action> _uiJobs = new();
@@ -66,7 +65,7 @@ internal sealed unsafe class CodeDrawHost : IDisposable, IWindowHost
     private readonly ConcurrentDictionary<nint, GlfwCallbackHub> _hubs = new();
 
     private void AttachCallbacksFor(WindowHandle* win)
-        => _hubs[(nint)win] = new GlfwCallbackHub(_glfw!, win, this);
+        => _hubs[(nint)win] = new GlfwCallbackHub(_glfwUnsafe!, win, this);
 
     private void DetachCallbacksFor(WindowHandle* win)
     {
@@ -89,7 +88,7 @@ internal sealed unsafe class CodeDrawHost : IDisposable, IWindowHost
         _uiThread.Start();
         _started.WaitOne(); // wait until GLFW + share root created
 
-        _layerWorker = new LayerWorker(_glfw!);
+        _layerWorker = new LayerWorker(_glfwUnsafe!);
         _layerWorker.Start();
     }
 
@@ -188,33 +187,33 @@ internal sealed unsafe class CodeDrawHost : IDisposable, IWindowHost
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public T WithGlfw<T>(Func<Glfw, T> f)
     {
-        lock (_glfwLock) return f(_glfw!);
+        lock (_glfwLock) return f(_glfwUnsafe!);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void WithGlfw(Action<Glfw> f)
     {
-        lock (_glfwLock) f(_glfw!);
+        lock (_glfwLock) f(_glfwUnsafe!);
     }
 
     private void UiThreadMain()
     {
-        _glfw = Glfw.GetApi();
-        if (!_glfw.Init()) throw new Exception("GLFW init failed");
+        _glfwUnsafe = Glfw.GetApi();
+        if (!_glfwUnsafe.Init()) throw new Exception("GLFW init failed");
 
         // NOTE: set callbacks under lock as well (consistency)
         lock (_glfwLock)
         {
-            _glfw.SetErrorCallback((error, description) =>
+            _glfwUnsafe.SetErrorCallback((error, description) =>
             {
                 Console.WriteLine($"GLFW Error: {error} - {description}");
             });
 
-            ApplyCommonHints(_glfw);
+            ApplyCommonHints(_glfwUnsafe);
 
-            _shareRoot = _glfw.CreateWindow(1, 1, "share-root", null, null);
+            _shareRoot = _glfwUnsafe.CreateWindow(1, 1, "share-root", null, null);
             if (_shareRoot == null) throw new Exception("Failed to create share-root");
-            _glfw.HideWindow(_shareRoot);
+            _glfwUnsafe.HideWindow(_shareRoot);
         }
 
         AttachCallbacksFor(_shareRoot);
@@ -236,7 +235,7 @@ internal sealed unsafe class CodeDrawHost : IDisposable, IWindowHost
             _work.MaybeSample();
 
             // 2) Pump GLFW events QUICKLY under lock (non-blocking)
-            WithGlfw(glfw => glfw.PollEvents());
+            _glfwUnsafe.PollEvents();
 
             // 3) Sleep until we have work or after a short timeout
             // timeout keeps input responsive even if nobody posts events/jobs
@@ -257,12 +256,12 @@ internal sealed unsafe class CodeDrawHost : IDisposable, IWindowHost
         {
             if (_shareRoot != null)
             {
-                _glfw.MakeContextCurrent(null);
-                _glfw.DestroyWindow(_shareRoot);
+                _glfwUnsafe.MakeContextCurrent(null);
+                _glfwUnsafe.DestroyWindow(_shareRoot);
                 _shareRoot = null;
             }
-            _glfw.Terminate();
-            _glfw = null;
+            _glfwUnsafe.Terminate();
+            _glfwUnsafe = null;
         }
     }
 

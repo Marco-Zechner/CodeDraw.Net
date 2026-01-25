@@ -249,6 +249,11 @@ public abstract unsafe partial class CodeDrawWindowBase(string title) : IDisposa
 
     internal void NotifyRendererStopped() => _closedMre.Set();
 
+    internal void OnFramebufferSizeFromUi(int fbW, int fbH)
+    {
+        if (_renderer is AbstractWindowRenderer awr)
+            awr.SetFramebufferSizeFromUi(fbW, fbH);
+    }
 
     // --- UI-thread close entry from GlfwCallbackHub ---
     internal void OnNativeCloseRequestedFromUI(CloseReason reason = CloseReason.USER_CLOSED_WINDOW)
@@ -268,7 +273,7 @@ public abstract unsafe partial class CodeDrawWindowBase(string title) : IDisposa
         if (args.Cancel)
         {
             // veto — clear GLFW flag and continue
-            host.Glfw.SetWindowShouldClose(Native, false);
+            host.GlfwUnsafe.SetWindowShouldClose(Native, false);
             return;
         }
 

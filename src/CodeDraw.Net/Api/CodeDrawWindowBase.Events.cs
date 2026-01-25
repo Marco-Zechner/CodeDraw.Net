@@ -31,6 +31,7 @@ public partial class CodeDrawWindowBase : IWindowEventSink
 
     internal void RaiseFramebufferSize(int w, int h)
     {
+        OnFramebufferSizeFromUi(w, h);
         FramebufferSizeChanged?.Invoke(w, h);
         CodeDrawEvents.RaiseFramebufferSize(this, w, h);
     }
@@ -88,6 +89,8 @@ public partial class CodeDrawWindowBase : IWindowEventSink
         MaximizeChanged?.Invoke(maximized);
         CodeDrawEvents.RaiseMaximize(this, maximized);
     }
+
+    // ===== IWindowEventSink implementation =====
 
     void IWindowEventSink.RaiseWindowSize(int w, int h)
     {

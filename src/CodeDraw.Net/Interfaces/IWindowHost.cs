@@ -5,7 +5,7 @@ namespace MarcoZechner.CodeDrawDotNet.Interfaces;
 
 public unsafe interface IWindowHost
 {
-    Glfw Glfw { get; }  // you already exposed it; ok to keep here
+    Glfw GlfwUnsafe { get; }
     DateTime StartTimeUtc { get; }
     void EnsureStarted();
 

@@ -58,18 +58,13 @@ public unsafe sealed class DefaultWindowRenderer : AbstractWindowRenderer
             frameTimer.Restart();
 
             // Size & canvas
-            var (fbW, fbH) = CodeDrawHost.Instance.WithGlfw(glfw =>
-            {
-                glfw.GetFramebufferSize(Window, out int w, out int h);
-                return (w, h);
-            });
+            var (fbW, fbH) = GetFramebufferSizeCached();
 
-            if (fbW <= 0 || fbH <= 0)
+            if (fbW != _canvasW || fbH != _canvasH)
             {
-                Thread.Sleep(8);
-                continue;
+                if (fbW <= 0 || fbH <= 0) { Thread.Sleep(8); continue; }
+                EnsureCanvas(gl, fbW, fbH);
             }
-            EnsureCanvas(gl, fbW, fbH);
 
             // 1) See if there is a sealed frame to execute
             var hadFrame = TryDequeueFrame(out long token, out var batch);
@@ -107,7 +102,7 @@ public unsafe sealed class DefaultWindowRenderer : AbstractWindowRenderer
 
                 // Present once
                 PresentCanvas(gl, fbW, fbH);
-                CodeDrawHost.Instance.WithGlfw(glfw => glfw.SwapBuffers(Window));
+                CodeDrawHost.Instance.GlfwUnsafe.SwapBuffers(Window);
                 Frames++;
                 _fps.Tick();
                 _fps.MaybeSample();
@@ -120,7 +115,7 @@ public unsafe sealed class DefaultWindowRenderer : AbstractWindowRenderer
             {
                 // No new work but we owe a present (fresh window / post-resize)
                 PresentCanvas(gl, fbW, fbH);
-                CodeDrawHost.Instance.WithGlfw(glfw => glfw.SwapBuffers(Window));
+                CodeDrawHost.Instance.GlfwUnsafe.SwapBuffers(Window);
                 Frames++;
                 _fps.Tick();
                 _fps.MaybeSample();

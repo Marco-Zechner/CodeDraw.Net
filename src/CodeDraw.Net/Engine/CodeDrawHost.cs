@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using MarcoZechner.CodeDrawDotNet.Interfaces;
+using MarcoZechner.CodeDrawDotNet.Interfaces.Primitives;
 using MarcoZechner.DiagnosticsDotNet;
 using Silk.NET.GLFW;
 

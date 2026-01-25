@@ -1,8 +1,8 @@
 using MarcoZechner.CodeDrawDotNet.Api;
-using MarcoZechner.CodeDrawDotNet.Interfaces;
+using MarcoZechner.CodeDrawDotNet.Interfaces.Primitives;
 using MarcoZechner.ColorDotNet;
 
-namespace MarcoZechner.CodeDrawDotNet.Tests.Manual;
+namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.EngineTests;
 
 [Order(1)]
 public class Test1OpenWindow : ITestable

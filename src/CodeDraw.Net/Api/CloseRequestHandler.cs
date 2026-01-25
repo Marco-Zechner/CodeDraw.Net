@@ -1,4 +1,5 @@
 using MarcoZechner.CodeDrawDotNet.Interfaces;
+using MarcoZechner.CodeDrawDotNet.Interfaces.Primitives;
 
 namespace MarcoZechner.CodeDrawDotNet.Api;
 

@@ -1,4 +1,5 @@
 using MarcoZechner.CodeDrawDotNet.Interfaces;
+using MarcoZechner.CodeDrawDotNet.Interfaces.Primitives;
 using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
 
@@ -16,7 +17,7 @@ public static class CodeDrawEvents
     public static event Action<CodeDrawWindowBase, GL, Glfw, nint>? Loaded;
     internal unsafe static void RaiseLoaded(CodeDrawWindowBase w, GL gl, Glfw glfw, WindowHandle* window)
     => Loaded?.Invoke(w, gl, glfw, (nint)window);
-    
+
 
     // Mirrors: include the originating window
     public static event Action<CodeDrawWindowBase, int, int>? WindowSize; //TODO: replace CodeDrawWindowBase with a interface?

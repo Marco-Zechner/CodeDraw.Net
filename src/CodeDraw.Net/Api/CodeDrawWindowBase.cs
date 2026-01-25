@@ -6,7 +6,9 @@ using Silk.NET.OpenGL;
 using MarcoZechner.DiagnosticsDotNet;
 using MarcoZechner.CodeDrawDotNet.Api.Graphics;
 using MarcoZechner.CodeDrawDotNet.Api.Graphics.Actions;
+using MarcoZechner.CodeDrawDotNet.Api.Graphics.Enums;
 using MarcoZechner.CodeDrawDotNet.Interfaces;
+using MarcoZechner.CodeDrawDotNet.Interfaces.Primitives;
 
 namespace MarcoZechner.CodeDrawDotNet.Api;
 

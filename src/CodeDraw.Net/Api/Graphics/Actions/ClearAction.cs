@@ -1,3 +1,4 @@
+using MarcoZechner.CodeDrawDotNet.Api.Graphics.Enums;
 using MarcoZechner.CodeDrawDotNet.Interfaces;
 using MarcoZechner.ColorDotNet;
 using Silk.NET.GLFW;

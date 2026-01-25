@@ -1,7 +1,7 @@
 using MarcoZechner.ColorDotNet;
 using MarcoZechner.CodeDrawDotNet.Api;
 
-namespace MarcoZechner.CodeDrawDotNet.Tests.Manual;
+namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.EngineTests;
 
 [Order(2)]
 public class Test2Metrics : ITestable

@@ -1,4 +1,5 @@
 using MarcoZechner.CodeDrawDotNet.Interfaces;
+using MarcoZechner.CodeDrawDotNet.Interfaces.Primitives;
 using Silk.NET.GLFW;
 
 namespace MarcoZechner.CodeDrawDotNet.Api;

@@ -1,7 +1,7 @@
 using MarcoZechner.CodeDrawDotNet.Api;
 using MarcoZechner.ColorDotNet;
 
-namespace MarcoZechner.CodeDrawDotNet.Tests.Manual;
+namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.EngineTests;
 
 [Order(3)]
 public class Test3ClearViaWindow : ITestable

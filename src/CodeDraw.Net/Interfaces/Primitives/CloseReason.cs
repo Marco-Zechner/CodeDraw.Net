@@ -1,5 +1,5 @@
 
-namespace MarcoZechner.CodeDrawDotNet.Interfaces;
+namespace MarcoZechner.CodeDrawDotNet.Interfaces.Primitives;
 
 public enum CloseReason
 {

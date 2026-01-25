@@ -1,4 +1,4 @@
-namespace MarcoZechner.CodeDrawDotNet.Api.Graphics;
+namespace MarcoZechner.CodeDrawDotNet.Api.Graphics.Enums;
 
 /// <summary>Bitmask of buffers for clear operations.</summary>
 [Flags]

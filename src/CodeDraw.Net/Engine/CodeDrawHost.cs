@@ -7,7 +7,7 @@ using Silk.NET.GLFW;
 
 namespace MarcoZechner.CodeDrawDotNet.Engine;
 
-internal unsafe sealed class CodeDrawHost : IDisposable, IWindowHost
+internal sealed unsafe class CodeDrawHost : IDisposable, IWindowHost
 {
     public static CodeDrawHost Instance { get; } = new();
 
@@ -275,7 +275,7 @@ internal unsafe sealed class CodeDrawHost : IDisposable, IWindowHost
     {
         EnqueueUi(() =>
         {
-            Glfw.SetWindowShouldClose(win, true);
+            Glfw.SetWindowShouldClose(win, shouldClose);
         });
     }
 
@@ -290,6 +290,15 @@ internal unsafe sealed class CodeDrawHost : IDisposable, IWindowHost
                 Glfw.SetWindowShouldClose(winPtr, true);
                 sink.OnNativeCloseRequestedFromUI(CloseReason.REQUESTED_BY_USER);
             }
+        });
+    }
+
+    public unsafe void RequestClose(WindowHandle* win, CloseReason reason)
+    {
+        EnqueueUi(() =>
+        {
+            Glfw.SetWindowShouldClose(win, true);
+            ResolveWindow(win)?.OnNativeCloseRequestedFromUI(reason);
         });
     }
 

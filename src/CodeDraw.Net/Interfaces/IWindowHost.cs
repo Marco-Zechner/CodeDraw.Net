@@ -1,10 +1,10 @@
+using MarcoZechner.CodeDrawDotNet.Interfaces.Primitives;
 using Silk.NET.GLFW;
 
 namespace MarcoZechner.CodeDrawDotNet.Interfaces;
 
 public unsafe interface IWindowHost
 {
-    static IWindowHost Instance { get; }  // TODO: nullable?
     Glfw Glfw { get; }  // you already exposed it; ok to keep here
     DateTime StartTimeUtc { get; }
     void EnsureStarted();
@@ -18,6 +18,7 @@ public unsafe interface IWindowHost
 
     // API
     void SetWindowShouldClose(WindowHandle* win, bool shouldClose);
+    void RequestClose(WindowHandle* win, CloseReason reason);
     void CloseAllWindows();
     void ResizeWindow(WindowHandle* win, int width, int height);
 

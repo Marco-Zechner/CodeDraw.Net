@@ -33,18 +33,16 @@ public abstract unsafe partial class CodeDrawWindowBase(string title) : IDisposa
 
     // 2) Properties (public API)
     public string Title { get; } = title ?? throw new ArgumentNullException(nameof(title));
-    private Vector2<int> _size = Vector2<int>.Zero;
+    private Vector2<int> _size = new(1280,720);
 
     public Vector2<int> Size
     {
-        get
-        {
-            return _size;
-        }
+        get => _size;
         set
         {
             _size = value;
-            Host.ResizeWindow(Native, _size.X, _size.Y);
+            if (Native != null)
+                Host.ResizeWindow(Native, _size.X, _size.Y);
         }
     }
     public bool Resizable { get; set; } = true;
@@ -96,17 +94,17 @@ public abstract unsafe partial class CodeDrawWindowBase(string title) : IDisposa
 
         _renderer = CreateRenderer();
         var host = Host;
-        host.EnsureStarted(); // todo: still needed?
-
+        host.EnsureStarted();
 
         Native = host.CreateWindow(Size.X, Size.Y, Title);
+
+        host.OnWindowCreated(Native!, this);
 
         _renderer.Attach(host, (nint)Native, Title, this, this);
         _renderer.MaxInflightFrames = _lastSetMaxInflightFrames;
         _renderer.Start();
 
         StartUpdateLoopIfNeeded();
-        // host.OnWindowCreated(_native!, this); //TODO check
 
         // Wait until both per-window and global Loaded handlers have completed
 
@@ -227,9 +225,7 @@ public abstract unsafe partial class CodeDrawWindowBase(string title) : IDisposa
     internal void RequestClose(CloseReason reason)
     {
         if (Native == null) return;
-        var host = CodeDrawRuntime.Host;
-        host.SetWindowShouldClose(Native, true);
-        OnNativeCloseRequestedFromUI(reason); //TODO: ... that should probably be called on the UI thread?
+        CodeDrawRuntime.Host.RequestClose(Native, reason);
     }
 
     internal void RaiseCloseRequested(CloseEventArgs args, CloseReason reason)

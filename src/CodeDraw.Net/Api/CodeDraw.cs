@@ -15,7 +15,7 @@ public static class CodeDraw
     {
         get
         {
-            var host = IWindowHost.Instance;
+            var host = CodeDrawRuntime.Host;
             host.EnsureStarted();
             return DateTime.UtcNow - host.StartTimeUtc;
         }
@@ -25,7 +25,7 @@ public static class CodeDraw
     {
         get
         {
-            var host = IWindowHost.Instance;
+            var host = CodeDrawRuntime.Host;
             host.EnsureStarted();
             return new EventDrivenMetrics
             {
@@ -40,7 +40,7 @@ public static class CodeDraw
     {
         get
         {
-            var host = IWindowHost.Instance;
+            var host = CodeDrawRuntime.Host;
             host.EnsureStarted();
             var lw = host.LayerMetrics;
             return new EventDrivenMetrics

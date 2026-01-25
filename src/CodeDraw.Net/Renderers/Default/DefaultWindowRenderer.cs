@@ -17,11 +17,15 @@ public unsafe sealed class DefaultWindowRenderer : AbstractWindowRenderer
     private uint _canvasFbo, _canvasTex, _canvasDepthStencilRb;
     private int _canvasW, _canvasH;
 
+    private uint _presentVao, _presentVbo;
+    private uint _presentProgram;
+    private int _presentLocTex;
+
     private volatile bool _presentDirty = true;
 
     private readonly RateMeter _fps = new(0.25);
 
-    public DefaultWindowRenderer() 
+    public DefaultWindowRenderer()
     {
         FpsGetter = () => _fps.Ewma;
     }
@@ -113,6 +117,11 @@ public unsafe sealed class DefaultWindowRenderer : AbstractWindowRenderer
 
         // Cleanup canvas
         DestroyCanvas(Gl!);
+
+        if (_presentVbo != 0) gl.DeleteBuffer(_presentVbo);
+        if (_presentVao != 0) gl.DeleteVertexArray(_presentVao);
+        if (_presentProgram != 0) gl.DeleteProgram(_presentProgram);
+        _presentVbo = _presentVao = _presentProgram = 0;
     }
 
 
@@ -190,21 +199,138 @@ public unsafe sealed class DefaultWindowRenderer : AbstractWindowRenderer
 
     private void PresentCanvas(GL gl, int fbW, int fbH)
     {
-        // Blit canvas → default backbuffer
-        gl.BindFramebuffer(FramebufferTarget.ReadFramebuffer, _canvasFbo);
-        gl.ReadBuffer(ReadBufferMode.ColorAttachment0);
+        EnsurePresentResources(gl);
 
-        gl.BindFramebuffer(FramebufferTarget.DrawFramebuffer, 0);
-        gl.DrawBuffer(DrawBufferMode.Back);
+        // draw to default backbuffer
+        gl.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
+        gl.Viewport(0, 0, (uint)fbW, (uint)fbH);
 
-        gl.BlitFramebuffer(
-            0, 0, _canvasW, _canvasH,
-            0, 0, fbW, fbH,
-            ClearBufferMask.ColorBufferBit,
-            BlitFramebufferFilter.Nearest);
+        // Present must be deterministic:
+        gl.Disable(EnableCap.Blend);
+        gl.ColorMask(true, true, true, true);
 
-        // Unbind read/draw FBOs
-        gl.BindFramebuffer(FramebufferTarget.ReadFramebuffer, 0);
-        gl.BindFramebuffer(FramebufferTarget.DrawFramebuffer, 0);
+        gl.UseProgram(_presentProgram);
+
+        gl.ActiveTexture(TextureUnit.Texture0);
+        gl.BindTexture(TextureTarget.Texture2D, _canvasTex);
+        gl.Uniform1(_presentLocTex, 0);
+
+        gl.BindVertexArray(_presentVao);
+        gl.DrawArrays(PrimitiveType.Triangles, 0, 6);
+
+        gl.BindVertexArray(0);
+        gl.BindTexture(TextureTarget.Texture2D, 0);
+        gl.UseProgram(0);
+    }
+
+    private void EnsurePresentResources(GL gl)
+    {
+        if (_presentProgram != 0) return;
+
+        const string vs = """
+                          #version 330 core
+                          layout(location=0) in vec2 a_pos;
+                          layout(location=1) in vec2 a_uv;
+                          out vec2 v_uv;
+                          void main() {
+                              v_uv = a_uv;
+                              gl_Position = vec4(a_pos, 0.0, 1.0);
+                          }
+                          """;
+
+        const string fs = """
+                          #version 330 core
+                          in vec2 v_uv;
+                          out vec4 o;
+                          uniform sampler2D u_tex;
+                          void main() {
+                              vec4 c = texture(u_tex, v_uv);
+                              // Premultiply once for the OS compositor:
+                              o = vec4(c.rgb * c.a, c.a);
+                          }
+                          """;
+
+        _presentProgram = CompileProgram(gl, vs, fs);
+        _presentLocTex = gl.GetUniformLocation(_presentProgram, "u_tex");
+
+        // Fullscreen quad (two triangles), NDC coords
+        // pos(x,y), uv(u,v)
+        float[] quad =
+        {
+            // tri 1
+            -1f, -1f,  0f, 0f,
+            1f, -1f,  1f, 0f,
+            1f,  1f,  1f, 1f,
+            // tri 2
+            -1f, -1f,  0f, 0f,
+            1f,  1f,  1f, 1f,
+            -1f,  1f,  0f, 1f,
+        };
+
+        _presentVao = gl.GenVertexArray();
+        _presentVbo = gl.GenBuffer();
+
+        gl.BindVertexArray(_presentVao);
+        gl.BindBuffer(BufferTargetARB.ArrayBuffer, _presentVbo);
+        unsafe
+        {
+            fixed (float* p = quad)
+            {
+                gl.BufferData(BufferTargetARB.ArrayBuffer, (nuint)(quad.Length * sizeof(float)), p, BufferUsageARB.StaticDraw);
+            }
+        }
+
+        // a_pos
+        gl.EnableVertexAttribArray(0);
+        gl.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, 4 * sizeof(float), (void*)0);
+
+        // a_uv
+        gl.EnableVertexAttribArray(1);
+        gl.VertexAttribPointer(1, 2, VertexAttribPointerType.Float, false, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+
+        gl.BindBuffer(BufferTargetARB.ArrayBuffer, 0);
+        gl.BindVertexArray(0);
+    }
+
+    private static uint CompileProgram(GL gl, string vsSrc, string fsSrc)
+    {
+        uint vs = Compile(ShaderType.VertexShader, vsSrc);
+        uint fs = Compile(ShaderType.FragmentShader, fsSrc);
+
+        uint p = gl.CreateProgram();
+        gl.AttachShader(p, vs);
+        gl.AttachShader(p, fs);
+        gl.LinkProgram(p);
+
+        gl.GetProgram(p, ProgramPropertyARB.LinkStatus, out int linked);
+        if (linked == 0)
+        {
+            string log = gl.GetProgramInfoLog(p);
+            gl.DeleteProgram(p);
+            throw new Exception($"Program link failed:\n{log}");
+        }
+
+        gl.DetachShader(p, vs);
+        gl.DetachShader(p, fs);
+        gl.DeleteShader(vs);
+        gl.DeleteShader(fs);
+
+        return p;
+
+        uint Compile(ShaderType type, string src)
+        {
+            uint s = gl.CreateShader(type);
+            gl.ShaderSource(s, src);
+            gl.CompileShader(s);
+
+            gl.GetShader(s, ShaderParameterName.CompileStatus, out int ok);
+            if (ok == 0)
+            {
+                string log = gl.GetShaderInfoLog(s);
+                gl.DeleteShader(s);
+                throw new Exception($"{type} compile failed:\n{log}");
+            }
+            return s;
+        }
     }
 }

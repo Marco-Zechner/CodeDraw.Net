@@ -20,19 +20,6 @@ internal sealed unsafe class SetBlendMode2DAction(BlendMode2D mode) : IRenderAct
             case BlendMode2D.OPAQUE_REPLACE:
                 gl.Disable(EnableCap.Blend);
                 break;
-
-            default:
-            case BlendMode2D.RGB_BLEND_KEEP_DST_ALPHA:
-                gl.Enable(EnableCap.Blend);
-                gl.BlendEquationSeparate(BlendEquationModeEXT.FuncAdd, BlendEquationModeEXT.FuncAdd);
-                gl.BlendFuncSeparate(
-                    BlendingFactor.SrcAlpha,
-                    BlendingFactor.OneMinusSrcAlpha,
-                    BlendingFactor.Zero,
-                    BlendingFactor.One
-                );
-                break;
-
             case BlendMode2D.WRITE_ALPHA_REPLACE:
                 // Only alpha writes, RGB untouched
                 gl.ColorMask(false, false, false, true);
@@ -41,6 +28,27 @@ internal sealed unsafe class SetBlendMode2DAction(BlendMode2D mode) : IRenderAct
                 gl.BlendFuncSeparate(
                     BlendingFactor.Zero, BlendingFactor.One,
                     BlendingFactor.One,  BlendingFactor.Zero
+                );
+                break;
+            case BlendMode2D.RGB_BLEND_SOURCEOVER_ALPHA:
+                gl.Enable(EnableCap.Blend);
+                gl.BlendEquationSeparate(BlendEquationModeEXT.FuncAdd, BlendEquationModeEXT.Max);
+                gl.BlendFuncSeparate(
+                    BlendingFactor.SrcAlpha,
+                    BlendingFactor.OneMinusSrcAlpha,
+                    BlendingFactor.One,
+                    BlendingFactor.One
+                );
+                break;
+            case BlendMode2D.RGB_BLEND_KEEP_DST_ALPHA:
+            default:
+                gl.Enable(EnableCap.Blend);
+                gl.BlendEquationSeparate(BlendEquationModeEXT.FuncAdd, BlendEquationModeEXT.FuncAdd);
+                gl.BlendFuncSeparate(
+                    BlendingFactor.SrcAlpha,
+                    BlendingFactor.OneMinusSrcAlpha,
+                    BlendingFactor.Zero,
+                    BlendingFactor.One
                 );
                 break;
         }

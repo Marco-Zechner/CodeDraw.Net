@@ -46,13 +46,13 @@ public class Test5BlendModesAndAlpha : ITestable
             w.FillRect(0, 0, hw, hh, new Color(0.15f, 0.35f, 0.95f, 1.0f));
 
             // TR: blue transparent (note: replace mode means it overwrites, including alpha)
-            w.FillRect(hw, 0, hw, hh, new Color(0.15f, 0.35f, 0.95f, 0.35f));
+            w.FillRect(hw, 0, hw, hh, new Color(0.15f, 0.35f, 0.95f, 0.5f));
 
             // BL: red opaque
             w.FillRect(0, hh, hw, hh, new Color(0.95f, 0.20f, 0.20f, 1.0f));
 
             // BR: red transparent
-            w.FillRect(hw, hh, hw, hh, new Color(0.95f, 0.20f, 0.20f, 0.35f));
+            w.FillRect(hw, hh, hw, hh, new Color(0.95f, 0.20f, 0.20f, 0.5f));
 
             // ─────────────────────────────────────────────────────────────
             // B) BlendMode: BLEND (RGB blends, DST alpha preserved)
@@ -83,7 +83,6 @@ public class Test5BlendModesAndAlpha : ITestable
             // D) BlendMode: BLEND again
             // yellow circle moving in a square path through all 4 quads
             // ─────────────────────────────────────────────────────────────
-            w.SetBlendMode2D(BlendMode2D.RGB_BLEND_KEEP_DST_ALPHA);
 
             // Square path: move along a loop inside the full window
             float pad = MathF.Min(hw, hh) * 0.15f;
@@ -119,7 +118,15 @@ public class Test5BlendModesAndAlpha : ITestable
             }
 
             float rYellow = MathF.Min(hw, hh) * 0.10f;
+            w.SetBlendMode2D(BlendMode2D.RGB_BLEND_KEEP_DST_ALPHA);
             w.FillCircle(px, py, rYellow, new Color(0.98f, 0.92f, 0.20f, 0.75f));
+
+            // ─────────────────────────────────────────────────────────────
+            // E) BlendMode: SourceOverAlpha
+            // yellow circle moving in a square path through all 4 quads
+            // ─────────────────────────────────────────────────────────────
+            w.SetBlendMode2D(BlendMode2D.RGB_BLEND_SOURCEOVER_ALPHA);
+            w.FillCircle(width-px, height-py, rYellow, new Color(0.98f, 0.92f, 0.20f, 0.75f));
 
             w.Show();
         };

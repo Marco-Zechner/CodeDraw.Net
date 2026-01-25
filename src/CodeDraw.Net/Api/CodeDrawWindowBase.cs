@@ -4,7 +4,6 @@ using MarcoZechner.MathDotNet;
 using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
 using MarcoZechner.DiagnosticsDotNet;
-using MarcoZechner.CodeDrawDotNet.Api.Graphics;
 using MarcoZechner.CodeDrawDotNet.Api.Graphics.Actions;
 using MarcoZechner.CodeDrawDotNet.Api.Graphics.Enums;
 using MarcoZechner.CodeDrawDotNet.Interfaces;
@@ -27,9 +26,10 @@ public abstract unsafe partial class CodeDrawWindowBase(string title) : IDisposa
     private readonly ManualResetEventSlim _closedMre = new(initialState: false);
     private int _disposeGate;
 
-    private long _lastTokenSubmitted = 0;
+    private long _lastTokenSubmitted;
     private readonly RateMeter _updateUps = new(0.25);
     private CloseReason _closeReason = CloseReason.UNKNOWN;
+    private BlendMode2D _blendMode2D = BlendMode2D.RGB_BLEND_KEEP_DST_ALPHA;
 
     // 2) Properties (public API)
     public string Title { get; } = title ?? throw new ArgumentNullException(nameof(title));
@@ -46,7 +46,7 @@ public abstract unsafe partial class CodeDrawWindowBase(string title) : IDisposa
         }
     }
     public bool Resizable { get; set; } = true;
-    public bool VSync { get; set; } = false;
+    public bool VSync { get; set; }
     public int TargetFps { get; set; } = 60;
     public Color ClearColor { get; set; } = Color.Black;
     public TimeSpan Uptime => _renderer?.Uptime ?? TimeSpan.Zero;
@@ -93,6 +93,9 @@ public abstract unsafe partial class CodeDrawWindowBase(string title) : IDisposa
             throw new InvalidOperationException("This window instance has been closed. Create a new window.");
 
         _renderer = CreateRenderer();
+        if (_renderer is Engine.AbstractWindowRenderer awr)
+            awr.SetBlendModeForFrameSync(_blendMode2D);
+
         var host = Host;
         host.EnsureStarted();
 
@@ -139,8 +142,17 @@ public abstract unsafe partial class CodeDrawWindowBase(string title) : IDisposa
                 Native = null;
             }
 
-            try { Closed?.Invoke(); } catch { }
-            try { CodeDrawEvents.RaiseClosed(this); } catch { }
+            try { Closed?.Invoke(); }
+            catch
+            {
+                // ignored
+            }
+
+            try { CodeDrawEvents.RaiseClosed(this); }
+            catch
+            {
+                // ignored
+            }
         }
         finally
         {
@@ -157,7 +169,7 @@ public abstract unsafe partial class CodeDrawWindowBase(string title) : IDisposa
     public void Clear(in Color? color = null, ClearMask mask = ClearMask.COLOR)
     {
         if (color is not null) ClearColor = color;
-        _renderer?.Enqueue(new ClearAction(ClearColor, mask));
+        _renderer?.Enqueue(new ClearAction(ClearColor, mask, _blendMode2D));
     }
 
     public long Show()
@@ -189,15 +201,6 @@ public abstract unsafe partial class CodeDrawWindowBase(string title) : IDisposa
     public void Close()
     {
         RequestClose(CloseReason.REQUESTED_BY_USER);
-    }
-
-    public CloseReason WaitForClose()
-    {
-        if (IsClosed) return CloseReason.ALREADY_CLOSED;
-        _closeReason = CloseReason.UNKNOWN;
-
-        _closedMre.Wait();
-        return _closeReason;
     }
 
     /// <summary>
@@ -244,7 +247,7 @@ public abstract unsafe partial class CodeDrawWindowBase(string title) : IDisposa
 
 
     // --- UI-thread close entry from GlfwCallbackHub ---
-    internal unsafe void OnNativeCloseRequestedFromUI(CloseReason reason = CloseReason.USER_CLOSED_WINDOW)
+    internal void OnNativeCloseRequestedFromUI(CloseReason reason = CloseReason.USER_CLOSED_WINDOW)
     {
         var args = new CloseEventArgs();
 
@@ -302,9 +305,29 @@ public abstract unsafe partial class CodeDrawWindowBase(string title) : IDisposa
 
     public void OnLoaded(GL gl, Glfw glfw, nint window)
     {
+        SetBlendMode2D(_blendMode2D);
+
         Loaded?.Invoke(this, gl, glfw, window);
         CodeDrawEvents.RaiseLoaded(this, gl, glfw, (WindowHandle*)window); //TODO cast?
         _loadedMre.Set();
+    }
+
+    public void SetBlendMode2D(BlendMode2D mode)
+    {
+        _blendMode2D = mode;
+
+        if (_renderer is Engine.AbstractWindowRenderer awr)
+            awr.SetBlendModeForFrameSync(mode);
+
+        _renderer?.Enqueue(new SetBlendMode2DAction(mode));
+    }
+
+    public void SetWindowAlpha(float a)
+    {
+        var prev = _blendMode2D;
+        SetBlendMode2D(BlendMode2D.WRITE_ALPHA_REPLACE);
+        FillRect(0, 0, Size.X, Size.Y, new Color(0,0,0,a));
+        SetBlendMode2D(prev);
     }
 
     public void OnPresented(long token)

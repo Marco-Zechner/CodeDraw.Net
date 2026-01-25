@@ -1,6 +1,8 @@
 using Silk.NET.OpenGL;
 using Silk.NET.GLFW;
 using System.Collections.Concurrent;
+using MarcoZechner.CodeDrawDotNet.Api.Graphics.Actions;
+using MarcoZechner.CodeDrawDotNet.Api.Graphics.Enums;
 using MarcoZechner.CodeDrawDotNet.Interfaces;
 
 namespace MarcoZechner.CodeDrawDotNet.Engine;
@@ -35,6 +37,8 @@ public unsafe abstract class AbstractWindowRenderer : IAttachableRenderer
 
     private readonly ConcurrentQueue<(long token, List<IRenderAction> batch)> _frames = new();
     private long _nextToken = 0;
+
+    private BlendMode2D _currentBlendModeForSync = BlendMode2D.RGB_BLEND_KEEP_DST_ALPHA;
 
     private readonly ConcurrentQueue<long> _inflightOrder = new();
     private int _inflightCount;
@@ -77,6 +81,8 @@ public unsafe abstract class AbstractWindowRenderer : IAttachableRenderer
         lock (_stagingLock) _staging.Add(action);
     }
 
+    public void SetBlendModeForFrameSync(BlendMode2D mode) => _currentBlendModeForSync = mode;
+
     // seal staging into a frame; returns token
     public long SealFrame()
     {
@@ -86,6 +92,8 @@ public unsafe abstract class AbstractWindowRenderer : IAttachableRenderer
             batch = _staging.Count > 0 ? [.. _staging] : [];
             _staging.Clear();
         }
+
+        batch.Insert(0, new RenderStateSyncAction(_currentBlendModeForSync));
 
         var token = Interlocked.Increment(ref _nextToken);
         _frames.Enqueue((token, batch));
@@ -188,20 +196,24 @@ public unsafe abstract class AbstractWindowRenderer : IAttachableRenderer
         Glfw.MakeContextCurrent(Window);
         Gl = GL.GetApi(Glfw.GetProcAddress);
 
+        Gl2DResources.Install(Gl!, (nint)Window);
+
         StartUtc = DateTime.UtcNow;
 
         // Announce ready
-        Callbacks?.OnLoaded(Gl!, Glfw, (nint)Window); //TODO null? cast?
+        Callbacks?.OnLoaded(Gl!, Glfw, (nint)Window);
 
         RunLoop(); // delegate to subclass
 
         Running = false;
+
+        Gl2DResources.Uninstall(Gl!, (nint)Window);
 
         Glfw.MakeContextCurrent(null);
     }
 
     protected abstract void RunLoop();
 
-    public bool IsRenderThread() 
+    public bool IsRenderThread()
         => Environment.CurrentManagedThreadId == _threadId;
 }

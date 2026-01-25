@@ -48,6 +48,7 @@ internal unsafe sealed class CodeDrawHost : IDisposable, IWindowHost
     private readonly WorkRate  _work = new();
 
     public double HostBusyPercent => _busy.Duty * 100.0;
+
     public double HostJobsPerSec  => _work.JobsPerSec;
     public double HostIdleSec     => _work.IdleSeconds;
 
@@ -288,6 +289,14 @@ internal unsafe sealed class CodeDrawHost : IDisposable, IWindowHost
                 Glfw.SetWindowShouldClose(winPtr, true);
                 sink.OnNativeCloseRequestedFromUI(CloseReason.REQUESTED_BY_USER);
             }
+        });
+    }
+
+    public void ResizeWindow(WindowHandle* win, int width, int height)
+    {
+        EnqueueUi(() =>
+        {
+            Glfw.SetWindowSize(win, width, height);
         });
     }
 }

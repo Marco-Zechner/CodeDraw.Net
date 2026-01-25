@@ -3,7 +3,7 @@ using Silk.NET.GLFW;
 
 namespace MarcoZechner.CodeDrawDotNet.Api;
 
-public unsafe partial class CodeDrawWindowBase : IWindowEventSink
+public partial class CodeDrawWindowBase : IWindowEventSink
 {
     // ── per-window events (no lifecycle/teardown here) ──────────────────────────
     public event Action<int, int>? WindowSizeChanged;

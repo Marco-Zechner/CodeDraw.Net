@@ -16,9 +16,10 @@ public unsafe interface IWindowHost
     void OnWindowCreated(WindowHandle* win, IWindowEventSink sink);
     void OnWindowDestroyed(WindowHandle* win);
 
-    // used by RequestClose in your API
+    // API
     void SetWindowShouldClose(WindowHandle* win, bool shouldClose);
     void CloseAllWindows();
+    void ResizeWindow(WindowHandle* win, int width, int height);
 
     // metrics for CodeDraw facade
     double HostJobsPerSec { get; }

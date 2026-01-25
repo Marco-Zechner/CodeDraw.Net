@@ -13,8 +13,7 @@ namespace MarcoZechner.CodeDrawDotNet.Api;
 public abstract unsafe partial class CodeDrawWindowBase(string title) : IDisposable, IRenderThreadCallbacks, IWindowSettings
 {
     // 1) Fields
-    protected IWindowHost Host => _host ??= CodeDrawRuntime.Host;
-    private IWindowHost? _host;
+    protected IWindowHost Host => CodeDrawRuntime.Host;
     private IAttachableRenderer? _renderer;
     // 9) Protected / abstract
     protected abstract IAttachableRenderer CreateRenderer();
@@ -32,7 +31,20 @@ public abstract unsafe partial class CodeDrawWindowBase(string title) : IDisposa
 
     // 2) Properties (public API)
     public string Title { get; } = title ?? throw new ArgumentNullException(nameof(title));
-    public Vector2<int> Size { get; set; }
+    private Vector2<int> _size = Vector2<int>.Zero;
+
+    public Vector2<int> Size
+    {
+        get
+        {
+            return _size;
+        }
+        set
+        {
+            _size = value;
+            Host.ResizeWindow(Native, _size.X, _size.Y);
+        }
+    }
     public bool Resizable { get; set; } = true;
     public bool VSync { get; set; } = false;
     public int TargetFps { get; set; } = 60;
@@ -40,9 +52,9 @@ public abstract unsafe partial class CodeDrawWindowBase(string title) : IDisposa
     public TimeSpan Uptime => _renderer?.Uptime ?? TimeSpan.Zero;
     public long Frames => _renderer?.Frames ?? 0;
     public double Fps => _renderer?.Fps ?? 0.0;
-    public object? Tag { get; set; }
     public double Ups => _updateUps.Ewma;
     public bool IsClosed => _closedMre.IsSet;
+    public bool IsOpen => _loadedMre.IsSet;
     /// <summary>
     /// Number of frames currently queued or in-flight (backlog).
     /// </summary>
@@ -84,6 +96,7 @@ public abstract unsafe partial class CodeDrawWindowBase(string title) : IDisposa
         var host = Host;
         host.EnsureStarted(); // todo: still needed?
 
+
         Native = host.CreateWindow(Size.X, Size.Y, Title);
 
         _renderer.Attach(host, (nint)Native, Title, this, this);
@@ -94,6 +107,10 @@ public abstract unsafe partial class CodeDrawWindowBase(string title) : IDisposa
         // host.OnWindowCreated(_native!, this); //TODO check
 
         // Wait until both per-window and global Loaded handlers have completed
+
+        //TODO set internal size here? and switch to polling the size from the window i guess
+
+
         _loadedMre.Wait();
     }
 
@@ -127,6 +144,7 @@ public abstract unsafe partial class CodeDrawWindowBase(string title) : IDisposa
         }
         finally
         {
+            _loadedMre.Reset();
             _closedMre.Set();
             GC.SuppressFinalize(this);
         }
@@ -263,7 +281,7 @@ public abstract unsafe partial class CodeDrawWindowBase(string title) : IDisposa
         while (_updateRunning)
         {
             double now = sw.Elapsed.TotalSeconds;
-            double dt = now - last; 
+            double dt = now - last;
             last = now;
 
             try { Update?.Invoke(this, dt); }

@@ -37,6 +37,9 @@ public unsafe sealed class DefaultWindowRenderer : AbstractWindowRenderer
 
     protected override void RunLoop()
     {
+        if (CodeDrawHost.Instance.WithGlfw(glfw => glfw.GetCurrentContext() != Window))
+            throw new InvalidOperationException("Render thread lost current context!");
+
         var gl = Gl!;
         // Good default: enable sRGB when drawing into sRGB targets
         gl.Enable(EnableCap.FramebufferSrgb);
@@ -49,13 +52,18 @@ public unsafe sealed class DefaultWindowRenderer : AbstractWindowRenderer
             ? 0.0
             : 1000.0 / PublicWindow!.TargetFps;
 
-        Glfw.SwapInterval(PublicWindow!.VSync ? 1 : 0);
+        CodeDrawHost.Instance.WithGlfw(glfw => glfw.SwapInterval(PublicWindow!.VSync ? 1 : 0));
         while (Running)
         {
             frameTimer.Restart();
 
             // Size & canvas
-            Glfw.GetFramebufferSize(Window, out var fbW, out var fbH);
+            var (fbW, fbH) = CodeDrawHost.Instance.WithGlfw(glfw =>
+            {
+                glfw.GetFramebufferSize(Window, out int w, out int h);
+                return (w, h);
+            });
+
             if (fbW <= 0 || fbH <= 0)
             {
                 Thread.Sleep(8);
@@ -76,10 +84,15 @@ public unsafe sealed class DefaultWindowRenderer : AbstractWindowRenderer
                     switch (cmd)
                     {
                         case IRenderAction act:
-                            act.Execute(gl, Glfw, Window, fbW, fbH);
+                            act.Execute(gl, null, Window, fbW, fbH); //TODO: pass glfw again
                             break;
                         case DrawLayerCommand dla:
-                            RenderLayerTexture(((SharedLayer)dla.Layer).Tex, fbW, fbH, dla.Premultiply);
+                            // var src = (SharedLayer)dla.Layer;
+                            //
+                            // // If another window wrote this layer, wait until its latest write is complete
+                            // ConsumerWaitBeforeSampling(gl, src);
+                            //
+                            // RenderLayerTexture(src.Tex, fbW, fbH, dla.Premultiply);
                             break;
                         default:
                             throw new NotSupportedException($"Unknown render command: {cmd.GetType().Name}");
@@ -90,9 +103,11 @@ public unsafe sealed class DefaultWindowRenderer : AbstractWindowRenderer
                 }
                 Unbind(gl);
 
+                ProducerFenceAfterCanvasWrite(gl, _canvasLayer);
+
                 // Present once
                 PresentCanvas(gl, fbW, fbH);
-                Glfw.SwapBuffers(Window);
+                CodeDrawHost.Instance.WithGlfw(glfw => glfw.SwapBuffers(Window));
                 Frames++;
                 _fps.Tick();
                 _fps.MaybeSample();
@@ -105,7 +120,7 @@ public unsafe sealed class DefaultWindowRenderer : AbstractWindowRenderer
             {
                 // No new work but we owe a present (fresh window / post-resize)
                 PresentCanvas(gl, fbW, fbH);
-                Glfw.SwapBuffers(Window);
+                CodeDrawHost.Instance.WithGlfw(glfw => glfw.SwapBuffers(Window));
                 Frames++;
                 _fps.Tick();
                 _fps.MaybeSample();
@@ -189,6 +204,8 @@ public unsafe sealed class DefaultWindowRenderer : AbstractWindowRenderer
                       PublicWindow!.ClearColor.B, PublicWindow!.ClearColor.A);
         gl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit | ClearBufferMask.StencilBufferBit);
 
+        ProducerFenceAfterCanvasWrite(gl, _canvasLayer);
+
         // Present once after resize
         _presentDirty = true;
 
@@ -200,6 +217,11 @@ public unsafe sealed class DefaultWindowRenderer : AbstractWindowRenderer
 
     private void DestroyCanvas(GL gl)
     {
+        foreach (var f in _canvasLayer.DrainFencesForDisposal())
+        {
+            if (f != 0) gl.DeleteSync(f);
+        }
+
         if (_canvasFbo != 0) { gl.DeleteFramebuffer(_canvasFbo); _canvasFbo = 0; }
         if (_canvasDepthStencilRb != 0) { gl.DeleteRenderbuffer(_canvasDepthStencilRb); _canvasDepthStencilRb = 0; }
         if (_canvasTex != 0) { gl.DeleteTexture(_canvasTex); _canvasTex = 0; }
@@ -438,5 +460,28 @@ public unsafe sealed class DefaultWindowRenderer : AbstractWindowRenderer
         gl.BindVertexArray(0);
         gl.BindTexture(TextureTarget.Texture2D, 0);
         gl.UseProgram(0);
+    }
+
+    private void ProducerFenceAfterCanvasWrite(GL gl, SharedLayer layer)
+    {
+        // Insert fence marking "all previous GL writes are complete"
+        // Then flush to make the fence visible/submittable across contexts.
+        nint newFence = gl.FenceSync(SyncCondition.SyncGpuCommandsComplete, SyncBehaviorFlags.None);
+        gl.Flush();
+
+        // Retire an old fence (safe to delete; it's >= ring size frames old)
+        nint oldFence = layer.PushFence(newFence);
+        if (oldFence != 0)
+            gl.DeleteSync(oldFence);
+    }
+
+    private static void ConsumerWaitBeforeSampling(GL gl, SharedLayer layer)
+    {
+        nint fence = Volatile.Read(ref layer.LatestFence);
+        if (fence == 0) return;
+
+        // GPU-side wait: ensures this context doesn't sample Tex before producer finished.
+        // Timeout ignored = wait as long as needed.
+        gl.WaitSync(fence, SyncBehaviorFlags.None, ulong.MaxValue);
     }
 }

@@ -9,7 +9,6 @@ public partial class CodeDrawWindowBase
     // Fill a rectangle in pixel coords (top-left origin), solid color.
     public void FillRect(float x, float y, float w, float h, in Color c)
     {
-        // 2 triangles = 6 vertices. Each vertex: x,y,r,g,b,a
         float r = c.R, g = c.G, b = c.B, a = c.A;
 
         float x0 = x,     y0 = y;
@@ -17,11 +16,10 @@ public partial class CodeDrawWindowBase
 
         var data = new float[]
         {
-            // tri 1
             x0, y0, r,g,b,a,
             x1, y0, r,g,b,a,
             x1, y1, r,g,b,a,
-            // tri 2
+
             x0, y0, r,g,b,a,
             x1, y1, r,g,b,a,
             x0, y1, r,g,b,a,

@@ -63,20 +63,20 @@ public partial class CodeDrawWindow
     public bool FlipX { get; set; } = false;
 
     public CodeDrawWindow(float xLeft = -1, float yTop = -1, float width = 600, float height = 600, string title = "CodeDraw") : this(
-        new Vector2(xLeft, yTop), 
-        new Vector2(width, height), 
+        new Vector2(xLeft, yTop),
+        new Vector2(width, height),
         title
     ) {}
 
     public CodeDrawWindow() : this(
-        new Vector2(-1, -1), 
-        new Vector2(600, 600), 
+        new Vector2(-1, -1),
+        new Vector2(600, 600),
         "CodeDraw"
     ) {}
 
     public CodeDrawWindow(string title = "CodeDraw") : this(
-        new Vector2(-1, -1), 
-        new Vector2(600, 600), 
+        new Vector2(-1, -1),
+        new Vector2(600, 600),
         title
     ) {}
 
@@ -100,7 +100,7 @@ public partial class CodeDrawWindow
 
         WindowManager.AddWindow(_window);
     }
-    
+
     public static void WaitTillAllWindowsClosed()
     {
         while (WindowManager.HasOpenWindows)
@@ -223,7 +223,6 @@ public partial class CodeDrawWindow
 
     public void MakeWindowTransparent(byte opacity = 128, bool clickThrough = false)
     {
-        Glfw.GetApi();
         if (_window.Native?.Win32 == null) {
             Console.WriteLine("MakeWindowTransparent: Window is null!");
             return;

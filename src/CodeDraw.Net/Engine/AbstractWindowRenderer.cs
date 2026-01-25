@@ -22,7 +22,7 @@ public unsafe abstract class AbstractWindowRenderer : IAttachableRenderer
     protected IRenderThreadCallbacks? Callbacks;
 
     // GL plumbing
-    protected Glfw Glfw => CodeDrawHost.Instance.Glfw;
+    // protected Glfw Glfw => CodeDrawHost.Instance.Glfw;
     protected GL? Gl;
 
     // Metrics
@@ -193,23 +193,36 @@ public unsafe abstract class AbstractWindowRenderer : IAttachableRenderer
         var host = CodeDrawHost.Instance;
         host.EnsureStarted();
 
-        Glfw.MakeContextCurrent(Window);
-        Gl = GL.GetApi(Glfw.GetProcAddress);
+        CodeDrawHost.Instance.WithGlfw(glfw => glfw.MakeContextCurrent(Window));
+        Gl = GL.GetApi(name => CodeDrawHost.Instance.WithGlfw(glfw => glfw.GetProcAddress(name)));
+
+        Gl.Enable(EnableCap.DebugOutput);
+        Gl.Enable(EnableCap.DebugOutputSynchronous);
+        Gl.DebugMessageCallback((_, type, id, sev, len, msg, _) =>
+        {
+            var s = System.Runtime.InteropServices.Marshal.PtrToStringAnsi(msg, len);
+            Console.WriteLine($"[GL] {sev} {type} {id}: {s}");
+        }, null);
 
         Gl2DResources.Install(Gl!, (nint)Window);
 
         StartUtc = DateTime.UtcNow;
 
-        // Announce ready
-        Callbacks?.OnLoaded(Gl!, Glfw, (nint)Window);
-
-        RunLoop(); // delegate to subclass
-
-        Running = false;
-
-        Gl2DResources.Uninstall(Gl!, (nint)Window);
-
-        Glfw.MakeContextCurrent(null);
+        try
+        {
+            Callbacks?.OnLoaded(Gl!, null, (nint)Window);
+            RunLoop();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[RENDER THREAD CRASH] {Title}\n{ex}");
+        }
+        finally
+        {
+            Running = false;
+            Gl2DResources.Uninstall(Gl!, (nint)Window);
+            CodeDrawHost.Instance.WithGlfw(glfw => glfw.MakeContextCurrent(null));
+        }
     }
 
     protected abstract void RunLoop();

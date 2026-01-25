@@ -11,8 +11,10 @@ internal sealed unsafe class CodeDrawHost : IDisposable, IWindowHost
 {
     public static CodeDrawHost Instance { get; } = new();
 
+    [Obsolete("Do not access GLFW directly. Use WithGlfw / EnqueueUi instead.", error: true)]
     public Glfw Glfw => _glfw!;
     public WindowHandle* ShareRoot => _shareRoot;
+    private readonly AutoResetEvent _uiWake = new(false);
 
     private readonly ConcurrentDictionary<nint, IWindowEventSink> _winMap = new();
     internal void RegisterWindow(WindowHandle* h, IWindowEventSink w) => _winMap[(nint)h] = w;
@@ -96,11 +98,15 @@ internal sealed unsafe class CodeDrawHost : IDisposable, IWindowHost
     private void Close()
     {
         if (!_running) return;
+
         _layerWorker?.Stop();
         _layerWorker = null;
 
         _running = false;
-        try { _glfw?.PostEmptyEvent(); } catch { }
+        _uiWake.Set(); // wake UI loop so it can exit
+
+        try { WithGlfw(glfw => glfw.PostEmptyEvent()); } catch { }
+
         _uiThread?.Join();
         _uiThread = null;
     }
@@ -111,7 +117,12 @@ internal sealed unsafe class CodeDrawHost : IDisposable, IWindowHost
     public void EnqueueUi(Action job)
     {
         _uiJobs.Enqueue(job);
-        try { _glfw?.PostEmptyEvent(); } catch { }
+
+        // Wake UI loop (no GLFW needed)
+        _uiWake.Set();
+
+        // Optional: keep PostEmptyEvent as "extra nudge", but DO NOT depend on it.
+        try { WithGlfw(glfw => glfw.PostEmptyEvent()); } catch { }
     }
 
     /// <summary>Execute a job on the UI/GLFW thread and wait for completion.
@@ -139,13 +150,15 @@ internal sealed unsafe class CodeDrawHost : IDisposable, IWindowHost
         WindowHandle* result = null;
         EnqueueUiSync(() =>
         {
-            ApplyCommonHints(_glfw!);
-            result = _glfw!.CreateWindow(w, h, title, null, _shareRoot);
-            if (result == null) throw new Exception("CreateWindow failed");
+            WithGlfw(glfw =>
+            {
+                ApplyCommonHints(glfw);
+                result = glfw.CreateWindow(w, h, title, null, _shareRoot);
+                if (result == null) throw new Exception("CreateWindow failed");
 
-            // Bind once for stability, then unbind (esp. on Windows)
-            _glfw.MakeContextCurrent(result);
-            _glfw.MakeContextCurrent(null);
+                glfw.MakeContextCurrent(result);
+                glfw.MakeContextCurrent(null);
+            });
 
             IncWindowRef();
         });
@@ -157,15 +170,31 @@ internal sealed unsafe class CodeDrawHost : IDisposable, IWindowHost
     {
         if (win == null) { TryStopIfUnused(); return; }
 
-        // Destroy on UI thread, then adjust counts on the caller thread so we can call Stop() safely
         EnqueueUiSync(() =>
         {
-            _glfw!.MakeContextCurrent(null);
-            _glfw.DestroyWindow(win);
+            WithGlfw(glfw =>
+            {
+                glfw.MakeContextCurrent(null);
+                glfw.DestroyWindow(win);
+            });
         });
 
         DecWindowRef();
         TryStopIfUnused();
+    }
+
+    private readonly object _glfwLock = new();
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public T WithGlfw<T>(Func<Glfw, T> f)
+    {
+        lock (_glfwLock) return f(_glfw!);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void WithGlfw(Action<Glfw> f)
+    {
+        lock (_glfwLock) f(_glfw!);
     }
 
     private void UiThreadMain()
@@ -173,24 +202,29 @@ internal sealed unsafe class CodeDrawHost : IDisposable, IWindowHost
         _glfw = Glfw.GetApi();
         if (!_glfw.Init()) throw new Exception("GLFW init failed");
 
-        // Shared hidden root
-        ApplyCommonHints(_glfw);
-        _shareRoot = _glfw.CreateWindow(1, 1, "share-root", null, null);
-        if (_shareRoot == null) throw new Exception("Failed to create share-root");
-        _glfw.HideWindow(_shareRoot);
-        // _glfw.MakeContextCurrent(_shareRoot); //TODO removed if not needed
-        AttachCallbacksFor(_shareRoot); // so global metrics also see root events
+        // NOTE: set callbacks under lock as well (consistency)
+        lock (_glfwLock)
+        {
+            _glfw.SetErrorCallback((error, description) =>
+            {
+                Console.WriteLine($"GLFW Error: {error} - {description}");
+            });
 
-        // Create a GL instance once here (optional). We don’t keep it; render threads get their own.
-        // var gl = GL.GetApi(_glfw.GetProcAddress); //TODO removed if not needed
-        // _glfw.MakeContextCurrent(null); //TODO removed if not needed
+            ApplyCommonHints(_glfw);
+
+            _shareRoot = _glfw.CreateWindow(1, 1, "share-root", null, null);
+            if (_shareRoot == null) throw new Exception("Failed to create share-root");
+            _glfw.HideWindow(_shareRoot);
+        }
+
+        AttachCallbacksFor(_shareRoot);
 
         StartTimeUtc = DateTime.UtcNow;
         _started.Set();
 
         while (_running)
         {
-            // 1) Drain UI jobs on UI thread; time & count them
+            // 1) Drain UI jobs
             while (_uiJobs.TryDequeue(out var j))
             {
                 try { using (_busy.Scope()) j(); }
@@ -201,14 +235,17 @@ internal sealed unsafe class CodeDrawHost : IDisposable, IWindowHost
             _busy.MaybeSample();
             _work.MaybeSample();
 
-            // 2) Block until OS or PostEmptyEvent wakes us (dispatches events internally)
-            _glfw.WaitEvents();
+            // 2) Pump GLFW events QUICKLY under lock (non-blocking)
+            WithGlfw(glfw => glfw.PollEvents());
 
-            // Coarse accounting: at least one batch occurred
+            // 3) Sleep until we have work or after a short timeout
+            // timeout keeps input responsive even if nobody posts events/jobs
+            _uiWake.WaitOne(8);
+
             _work.OnJob();
         }
 
-        // Drain pending jobs (e.g., destroys)
+        // Drain pending jobs
         while (_uiJobs.TryDequeue(out var j2))
         {
             try { j2(); } catch (Exception ex) { Console.WriteLine($"[UI drain error] {ex}"); }
@@ -216,15 +253,17 @@ internal sealed unsafe class CodeDrawHost : IDisposable, IWindowHost
 
         DetachCallbacksFor(_shareRoot);
 
-        // Cleanup share root & terminate
-        if (_shareRoot != null)
+        lock (_glfwLock)
         {
-            _glfw.MakeContextCurrent(null);
-            _glfw.DestroyWindow(_shareRoot);
-            _shareRoot = null;
+            if (_shareRoot != null)
+            {
+                _glfw.MakeContextCurrent(null);
+                _glfw.DestroyWindow(_shareRoot);
+                _shareRoot = null;
+            }
+            _glfw.Terminate();
+            _glfw = null;
         }
-        _glfw.Terminate();
-        _glfw = null;
     }
 
     private static void ApplyCommonHints(Glfw glfw)
@@ -261,21 +300,21 @@ internal sealed unsafe class CodeDrawHost : IDisposable, IWindowHost
         UnregisterWindow(win);
     }
 
-    unsafe void IWindowHost.OnWindowCreated(WindowHandle* win, IWindowEventSink sink)
+    void IWindowHost.OnWindowCreated(WindowHandle* win, IWindowEventSink sink)
     {
         OnWindowCreated(win, sink);
     }
 
-    unsafe void IWindowHost.OnWindowDestroyed(WindowHandle* win)
+    void IWindowHost.OnWindowDestroyed(WindowHandle* win)
     {
         OnWindowDestroyed(win);
     }
 
-    public unsafe void SetWindowShouldClose(WindowHandle* win, bool shouldClose)
+    public void SetWindowShouldClose(WindowHandle* win, bool shouldClose)
     {
         EnqueueUi(() =>
         {
-            Glfw.SetWindowShouldClose(win, shouldClose);
+            WithGlfw(glfw => glfw.SetWindowShouldClose(win, shouldClose));
         });
     }
 
@@ -287,17 +326,17 @@ internal sealed unsafe class CodeDrawHost : IDisposable, IWindowHost
             {
                 var winPtr = (WindowHandle*)kvp.Key;
                 var sink  = kvp.Value;
-                Glfw.SetWindowShouldClose(winPtr, true);
+                WithGlfw(glfw => glfw.SetWindowShouldClose(winPtr, true));
                 sink.OnNativeCloseRequestedFromUI(CloseReason.REQUESTED_BY_USER);
             }
         });
     }
 
-    public unsafe void RequestClose(WindowHandle* win, CloseReason reason)
+    public void RequestClose(WindowHandle* win, CloseReason reason)
     {
         EnqueueUi(() =>
         {
-            Glfw.SetWindowShouldClose(win, true);
+            WithGlfw(glfw => glfw.SetWindowShouldClose(win, true));
             ResolveWindow(win)?.OnNativeCloseRequestedFromUI(reason);
         });
     }
@@ -306,7 +345,7 @@ internal sealed unsafe class CodeDrawHost : IDisposable, IWindowHost
     {
         EnqueueUi(() =>
         {
-            Glfw.SetWindowSize(win, width, height);
+            WithGlfw(glfw => glfw.SetWindowSize(win, width, height));
         });
     }
 }

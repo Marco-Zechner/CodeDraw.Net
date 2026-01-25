@@ -12,13 +12,11 @@ internal sealed unsafe class DrawTriangles2DAction(
 {
     public void Execute(GL gl, Glfw glfw, WindowHandle* window, int fbW, int fbH)
     {
-        var res = Gl2DResources.Get((nint)window);
+        var windowKey = (nint)window;
+        var (vao, vbo, prog, locViewport) = Gl2DResources.Get(windowKey);
 
-        gl.UseProgram(res.Program2D);
-        gl.Uniform2(res.LocViewport, (float)fbW, (float)fbH);
-
-        uint vao = gl.GenVertexArray();
-        uint vbo = gl.GenBuffer();
+        gl.UseProgram(prog);
+        gl.Uniform2(locViewport, (float)fbW, (float)fbH);
 
         gl.BindVertexArray(vao);
         gl.BindBuffer(BufferTargetARB.ArrayBuffer, vbo);
@@ -31,21 +29,10 @@ internal sealed unsafe class DrawTriangles2DAction(
                 BufferUsageARB.StreamDraw);
         }
 
-        uint stride = (uint)((2 + 4) * sizeof(float));
-        gl.EnableVertexAttribArray(0);
-        gl.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, stride, (void*)0);
-
-        gl.EnableVertexAttribArray(1);
-        gl.VertexAttribPointer(1, 4, VertexAttribPointerType.Float, false, stride, (void*)(2 * sizeof(float)));
-
         gl.DrawArrays(PrimitiveType.Triangles, 0, (uint)vertexCount);
 
         gl.BindBuffer(BufferTargetARB.ArrayBuffer, 0);
         gl.BindVertexArray(0);
-
-        gl.DeleteBuffer(vbo);
-        gl.DeleteVertexArray(vao);
-
         gl.UseProgram(0);
     }
 }

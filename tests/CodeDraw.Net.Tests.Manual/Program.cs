@@ -50,7 +50,19 @@ public static class Program
 
     public static void Main(string[] args)
     {
-        Console.Clear();
+        AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+        {
+            Console.WriteLine("=== UNHANDLED EXCEPTION ===");
+            Console.WriteLine(e.ExceptionObject);
+        };
+
+        TaskScheduler.UnobservedTaskException += (_, e) =>
+        {
+            Console.WriteLine("=== UNOBSERVED TASK EXCEPTION ===");
+            Console.WriteLine(e.Exception);
+            e.SetObserved();
+        };
+
         var allTests = DiscoverTests();
         if (allTests.Count == 0)
         {

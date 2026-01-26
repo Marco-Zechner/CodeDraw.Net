@@ -122,7 +122,14 @@ public sealed unsafe class DefaultWindowRenderer : AbstractWindowRenderer
 
                 // Present once
                 PresentCanvas(gl, fbW, fbH);
+
+                // var swSwap = Stopwatch.StartNew();
+                // CodeDrawHost.Instance.GlfwUnsafe.SwapBuffers(Window);
                 CodeDrawHost.Instance.WithGlfw(glfw =>glfw.SwapBuffers(Window));
+                // swSwap.Stop();
+                // if (swSwap.ElapsedMilliseconds > 5)
+                    // Console.WriteLine($"{DateTime.UtcNow:HH:mm:ss.ffff} [SWAP] {Title} took {swSwap.ElapsedMilliseconds} ms ${(IsResizeInProgress() ? "(resizing)" : "")}");
+
                 Frames++;
                 _fps.Tick();
                 _fps.MaybeSample();
@@ -135,7 +142,14 @@ public sealed unsafe class DefaultWindowRenderer : AbstractWindowRenderer
             {
                 // No new work but we owe a present (fresh window / post-resize)
                 PresentCanvas(gl, fbW, fbH);
+
+                // var swSwap = Stopwatch.StartNew();
+                // CodeDrawHost.Instance.GlfwUnsafe.SwapBuffers(Window);
                 CodeDrawHost.Instance.WithGlfw(glfw =>glfw.SwapBuffers(Window));
+                // swSwap.Stop();
+                // if (swSwap.ElapsedMilliseconds > 5)
+                    // Console.WriteLine($"{DateTime.UtcNow:HH:mm:ss.ffff} [SWAP-dirty] {Title} took {swSwap.ElapsedMilliseconds} ms ${(IsResizeInProgress() ? "(resizing)" : "")}");
+
                 Frames++;
                 _fps.Tick();
                 _fps.MaybeSample();

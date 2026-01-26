@@ -73,6 +73,14 @@ public unsafe abstract class AbstractWindowRenderer : IAttachableRenderer
         return (w, h);
     }
 
+    private bool _resizeInProgress;
+
+    public void SetResizeInProgressFromUi(bool v)
+        => Volatile.Write(ref _resizeInProgress, v);
+
+    protected bool IsResizeInProgress()
+        => Volatile.Read(ref _resizeInProgress);
+
     protected AbstractWindowRenderer() {}
 
     internal void Attach(WindowHandle* window, string title)
@@ -210,14 +218,19 @@ public unsafe abstract class AbstractWindowRenderer : IAttachableRenderer
         host.EnsureStarted();
 
         CodeDrawHost.Instance.WithGlfw(glfw => glfw.MakeContextCurrent(Window));
-        CodeDrawHost.Instance.GlfwUnsafe.GetFramebufferSize(Window, out int w, out int h);
-        SetFramebufferSizeFromUi(w, h);
+        CodeDrawHost.Instance.WithGlfw(glfw =>
+        {
+            glfw.GetFramebufferSize(Window, out var w, out var h);
+            SetFramebufferSizeFromUi(w, h);
+        });
 
         Gl = GL.GetApi(name => CodeDrawHost.Instance.WithGlfw(glfw => glfw.GetProcAddress(name)));
 
         Gl.Enable(EnableCap.DebugOutput);
         Gl.DebugMessageCallback((_, type, id, sev, len, msg, _) =>
         {
+            if (sev == GLEnum.DebugSeverityNotification)
+                return; // ignore
             var s = System.Runtime.InteropServices.Marshal.PtrToStringAnsi(msg, len);
             Console.WriteLine($"[GL] {sev} {type} {id}: {s}");
         }, null);
@@ -228,7 +241,7 @@ public unsafe abstract class AbstractWindowRenderer : IAttachableRenderer
 
         try
         {
-            Callbacks?.OnLoaded(Gl!, null, (nint)Window);
+            Callbacks?.OnLoaded(Gl!, null, (nint)Window); //TODO:  pass glfw again?
             RunLoop();
         }
         catch (Exception ex)

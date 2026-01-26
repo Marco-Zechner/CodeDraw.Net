@@ -8,7 +8,7 @@ using Silk.NET.OpenGL;
 
 namespace MarcoZechner.CodeDrawDotNet.Renderers.Default;
 
-public unsafe sealed class DefaultWindowRenderer : AbstractWindowRenderer
+public sealed unsafe class DefaultWindowRenderer : AbstractWindowRenderer
 {
     static DefaultWindowRenderer()
     {
@@ -60,10 +60,30 @@ public unsafe sealed class DefaultWindowRenderer : AbstractWindowRenderer
             // Size & canvas
             var (fbW, fbH) = GetFramebufferSizeCached();
 
-            if (fbW != _canvasW || fbH != _canvasH)
+            if (fbW <= 0 || fbH <= 0)
             {
-                if (fbW <= 0 || fbH <= 0) { Thread.Sleep(8); continue; }
+                Thread.Sleep(8);
+                continue;
+            }
+
+            // First creation: must create no matter what
+            if (_canvasFbo == 0)
+            {
                 EnsureCanvas(gl, fbW, fbH);
+            }
+            else
+            {
+                // If we are in interactive resize: NEVER rebuild canvas.
+                if (!IsResizeInProgress())
+                {
+                    if (fbW != _canvasW || fbH != _canvasH)
+                        EnsureCanvas(gl, fbW, fbH);
+                }
+                else
+                {
+                    // keep presenting old canvas while dragging
+                    _presentDirty = true;
+                }
             }
 
             // 1) See if there is a sealed frame to execute
@@ -79,7 +99,7 @@ public unsafe sealed class DefaultWindowRenderer : AbstractWindowRenderer
                     switch (cmd)
                     {
                         case IRenderAction act:
-                            act.Execute(gl, null, Window, fbW, fbH); //TODO: pass glfw again
+                            act.Execute(gl, null, Window, _canvasW, _canvasH); //TODO: pass glfw again
                             break;
                         case DrawLayerCommand dla:
                             // var src = (SharedLayer)dla.Layer;
@@ -87,7 +107,7 @@ public unsafe sealed class DefaultWindowRenderer : AbstractWindowRenderer
                             // // If another window wrote this layer, wait until its latest write is complete
                             // ConsumerWaitBeforeSampling(gl, src);
                             //
-                            // RenderLayerTexture(src.Tex, fbW, fbH, dla.Premultiply);
+                            // RenderLayerTexture(src.Tex, _canvasW, _canvasH, dla.Premultiply);
                             break;
                         default:
                             throw new NotSupportedException($"Unknown render command: {cmd.GetType().Name}");
@@ -102,7 +122,7 @@ public unsafe sealed class DefaultWindowRenderer : AbstractWindowRenderer
 
                 // Present once
                 PresentCanvas(gl, fbW, fbH);
-                CodeDrawHost.Instance.GlfwUnsafe.SwapBuffers(Window);
+                CodeDrawHost.Instance.WithGlfw(glfw =>glfw.SwapBuffers(Window));
                 Frames++;
                 _fps.Tick();
                 _fps.MaybeSample();
@@ -115,7 +135,7 @@ public unsafe sealed class DefaultWindowRenderer : AbstractWindowRenderer
             {
                 // No new work but we owe a present (fresh window / post-resize)
                 PresentCanvas(gl, fbW, fbH);
-                CodeDrawHost.Instance.GlfwUnsafe.SwapBuffers(Window);
+                CodeDrawHost.Instance.WithGlfw(glfw =>glfw.SwapBuffers(Window));
                 Frames++;
                 _fps.Tick();
                 _fps.MaybeSample();
@@ -152,6 +172,8 @@ public unsafe sealed class DefaultWindowRenderer : AbstractWindowRenderer
 
     private void EnsureCanvas(GL gl, int w, int h)
     {
+        Console.WriteLine("EnsureCanvas: " + w + "x" + h);
+
         if (w == _canvasW && h == _canvasH && _canvasFbo != 0) return;
 
         // Create new

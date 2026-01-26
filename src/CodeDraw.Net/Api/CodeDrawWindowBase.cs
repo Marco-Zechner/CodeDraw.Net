@@ -255,6 +255,12 @@ public abstract unsafe partial class CodeDrawWindowBase(string title) : IDisposa
             awr.SetFramebufferSizeFromUi(fbW, fbH);
     }
 
+    public void OnResizeInProgressFromUi(bool v) //TODO make internal
+    {
+        if (_renderer is AbstractWindowRenderer awr)
+            awr.SetResizeInProgressFromUi(v);
+    }
+
     // --- UI-thread close entry from GlfwCallbackHub ---
     internal void OnNativeCloseRequestedFromUI(CloseReason reason = CloseReason.USER_CLOSED_WINDOW)
     {

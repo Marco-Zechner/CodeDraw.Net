@@ -19,4 +19,6 @@ public interface IWindowEventSink
 
     // close flow entry from UI thread
     void OnNativeCloseRequestedFromUI(CloseReason reason = CloseReason.USER_CLOSED_WINDOW);
+
+    void OnResizeInProgressFromUi(bool v);
 }

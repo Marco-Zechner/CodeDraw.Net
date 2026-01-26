@@ -36,7 +36,11 @@ internal unsafe sealed class GlfwCallbackHub
     private void Install()
     {
         _winSize = (w, x, y) => Dispatch(() => _host.ResolveWindow(w)?.RaiseWindowSize(x, y));
-        _fbSize  = (w, x, y) => Dispatch(() => _host.ResolveWindow(w)?.RaiseFramebufferSize(x, y));
+        _fbSize  = (w, x, y) => Dispatch(() =>
+        {
+            _host.NotifyResizeFromCallback(w, x, y);
+            _host.ResolveWindow(w)?.RaiseFramebufferSize(x, y);
+        });
         _key     = (w, k, sc, a, m) => Dispatch(() => _host.ResolveWindow(w)?.RaiseKey(k, sc, a, m));
         _mb      = (w, b, a, m) => Dispatch(() => _host.ResolveWindow(w)?.RaiseMouseButton(b, a, m));
         _cursor  = (w, x, y) => Dispatch(() => _host.ResolveWindow(w)?.RaiseCursorPos(x, y));

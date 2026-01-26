@@ -62,6 +62,41 @@ internal sealed unsafe class CodeDrawHost : IDisposable, IWindowHost
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void OnGlfwEvent() => _work.OnJob();
 
+    private nint _lastResizeWin;
+    private int _lastResizeW;
+    private int _lastResizeH;
+    private int _resizeActive; // 0/1
+
+    internal void NotifyResizeFromCallback(WindowHandle* win, int fbW, int fbH)
+    {
+        Volatile.Write(ref _lastResizeWin, (nint)win);
+        Volatile.Write(ref _lastResizeW, fbW);
+        Volatile.Write(ref _lastResizeH, fbH);
+        Volatile.Write(ref _resizeActive, 1);
+
+        // tell that window: resizing is active
+        ResolveWindow(win)?.OnResizeInProgressFromUi(true);
+    }
+
+    private void FlushResizeEndAfterPoll()
+    {
+        if (Volatile.Read(ref _resizeActive) == 0)
+            return;
+
+        // PollEvents returned => modal loop ended (best signal we have on Win)
+        Volatile.Write(ref _resizeActive, 0);
+
+        var winKey = Volatile.Read(ref _lastResizeWin);
+        if (winKey == 0) return;
+
+        var winPtr = (WindowHandle*)winKey;
+        var sink = ResolveWindow(winPtr);
+        sink?.OnResizeInProgressFromUi(false);
+
+        // optional: force a refresh/present hint
+        // WithGlfw(glfw => glfw.PostEmptyEvent());
+    }
+
     private readonly ConcurrentDictionary<nint, GlfwCallbackHub> _hubs = new();
 
     private void AttachCallbacksFor(WindowHandle* win)
@@ -154,6 +189,7 @@ internal sealed unsafe class CodeDrawHost : IDisposable, IWindowHost
                 ApplyCommonHints(glfw);
                 result = glfw.CreateWindow(w, h, title, null, _shareRoot);
                 if (result == null) throw new Exception("CreateWindow failed");
+                ResolveWindow(result)?.RaiseFramebufferSize(w, h);
 
                 glfw.MakeContextCurrent(result);
                 glfw.MakeContextCurrent(null);
@@ -213,6 +249,7 @@ internal sealed unsafe class CodeDrawHost : IDisposable, IWindowHost
 
             _shareRoot = _glfwUnsafe.CreateWindow(1, 1, "share-root", null, null);
             if (_shareRoot == null) throw new Exception("Failed to create share-root");
+            ResolveWindow(_shareRoot)?.RaiseFramebufferSize(1, 1);
             _glfwUnsafe.HideWindow(_shareRoot);
         }
 
@@ -236,6 +273,8 @@ internal sealed unsafe class CodeDrawHost : IDisposable, IWindowHost
 
             // 2) Pump GLFW events QUICKLY under lock (non-blocking)
             _glfwUnsafe.PollEvents();
+
+            FlushResizeEndAfterPoll();
 
             // 3) Sleep until we have work or after a short timeout
             // timeout keeps input responsive even if nobody posts events/jobs

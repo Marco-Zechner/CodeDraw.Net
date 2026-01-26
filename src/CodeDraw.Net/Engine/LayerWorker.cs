@@ -8,7 +8,6 @@ namespace MarcoZechner.CodeDrawDotNet.Engine;
 
 internal sealed unsafe class LayerWorker(Glfw glfw) : IDisposable, ILayerMetricsProvider
 {
-    private readonly Glfw _glfw = glfw;
     private WindowHandle* _hiddenWin;
     private Thread? _thread;
     private volatile bool _running;
@@ -26,7 +25,7 @@ internal sealed unsafe class LayerWorker(Glfw glfw) : IDisposable, ILayerMetrics
     public double BusyPercent => _busy.Duty * 100.0;
     public double JobsPerSec  => _work.JobsPerSec;
     public double IdleSec => _work.IdleSeconds;
-    
+
     public void Start()
     {
         if (_running) return;
@@ -55,15 +54,13 @@ internal sealed unsafe class LayerWorker(Glfw glfw) : IDisposable, ILayerMetrics
     private void Main()
     {
         // Create a hidden window that shares with the host’s share-root
-        _hiddenWin = _glfw.CreateWindow(1, 1, "layer-root", null, CodeDrawHost.Instance.ShareRoot);
+        _hiddenWin = glfw.CreateWindow(1, 1, "layer-root", null, CodeDrawHost.Instance.ShareRoot);
         if (_hiddenWin == null) throw new Exception("layer-root creation failed");
-        _glfw.HideWindow(_hiddenWin);
-        _glfw.MakeContextCurrent(_hiddenWin);
-        _gl = GL.GetApi(_glfw.GetProcAddress);
+        glfw.HideWindow(_hiddenWin);
+        glfw.MakeContextCurrent(_hiddenWin);
+        _gl = GL.GetApi(glfw.GetProcAddress);
         _gl.Enable(EnableCap.FramebufferSrgb);
-        _glfw.SwapInterval(0); // no vsync on an offscreen target
-
-        var sw = System.Diagnostics.Stopwatch.StartNew();
+        glfw.SwapInterval(0); // no vsync on an offscreen target
 
         // on-demand loop
         while (_running)
@@ -93,8 +90,8 @@ internal sealed unsafe class LayerWorker(Glfw glfw) : IDisposable, ILayerMetrics
             }
         }
 
-        _glfw.MakeContextCurrent(null);
-        _glfw.DestroyWindow(_hiddenWin);
+        glfw.MakeContextCurrent(null);
+        glfw.DestroyWindow(_hiddenWin);
         _hiddenWin = null;
         _gl = null;
     }

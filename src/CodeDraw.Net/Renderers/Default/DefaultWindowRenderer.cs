@@ -102,6 +102,7 @@ public sealed unsafe class DefaultWindowRenderer : AbstractWindowRenderer
                             act.Execute(gl, null, Window, _canvasW, _canvasH); //TODO: pass glfw again
                             break;
                         case DrawLayerCommand dla:
+                            //TODO: progress :) now it works for a short moment and then freezes. that was also an issue in legacy where i had a solution for it. so look there
                             // var src = (SharedLayer)dla.Layer;
                             //
                             // // If another window wrote this layer, wait until its latest write is complete

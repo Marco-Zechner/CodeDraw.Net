@@ -26,6 +26,18 @@ public sealed class OrderAttribute : Attribute
     }
 }
 
+[AttributeUsage(AttributeTargets.Class, Inherited = false, AllowMultiple = false)]
+public sealed class PrototypeAttribute : Attribute
+{
+    public int Id { get; }
+    public PrototypeAttribute(int id)
+    {
+        if (id <= 0)
+            throw new ArgumentOutOfRangeException(nameof(id), "Prototype id must be a positive integer.");
+        Id = id;
+    }
+}
+
 public enum TestOutcome
 {
     PASSED,
@@ -62,6 +74,34 @@ public static class Program
             Console.WriteLine(e.Exception);
             e.SetObserved();
         };
+
+        if (args.Any(s => s.Equals("-p", StringComparison.OrdinalIgnoreCase)))
+        {
+            var allPrototypes = DiscoverPrototypes();
+            if (allPrototypes.Count == 0)
+            {
+                Console.WriteLine("No prototypes found. Create classes that implement ITestable with a public parameterless constructor.");
+                return;
+            }
+
+            var selectedId = args.Where(s => int.TryParse(s, out _))
+                .Select(int.Parse)
+                .FirstOrDefault();
+
+            var target = selectedId != 0
+                ? allPrototypes.FirstOrDefault(t => t.id == selectedId).type
+                : allPrototypes.First().type;
+
+            if (target is null) return;
+
+            var instance = (ITestable?)Activator.CreateInstance(target);
+            if (instance is null)
+                throw new InvalidOperationException("Failed to construct prototype (null instance).");
+
+            instance.RunTest();
+            return;
+        }
+
 
         var allTests = DiscoverTests();
         if (allTests.Count == 0)
@@ -201,6 +241,70 @@ public static class Program
             if (assigned != id)
             {
                 Console.WriteLine($"[warning] Duplicate [Order({id})] detected. '{type.Name}' reassigned to id {assigned}.");
+            }
+
+            fixedWithAttr.Add((assigned, type));
+        }
+
+        // Assign IDs to tests without attribute, after the highest used id
+        int next = used.Count == 0 ? 1 : (used.Max() + 1);
+        foreach (var t in withoutAttr.OrderBy(t => t.Name))
+        {
+            while (!used.Add(next)) next++;
+            fixedWithAttr.Add((next, t));
+            next++;
+        }
+
+        // Return sorted by id
+        return fixedWithAttr.OrderBy(x => x.id).ToList();
+    }
+
+    private static List<(int id, Type type)> DiscoverPrototypes()
+    {
+        var asm = Assembly.GetExecutingAssembly();
+
+        var candidates = asm
+            .GetTypes()
+            .Where(t =>
+                t is { IsAbstract: false, IsInterface: false } &&
+                typeof(ITestable).IsAssignableFrom(t) &&
+                t.GetConstructor(Type.EmptyTypes) is not null)
+            .ToList();
+
+        // Partition: with [Order] and without
+        var withAttr = new List<(int id, Type type)>();
+        var withoutAttr = new List<Type>();
+
+        foreach (var t in candidates)
+        {
+            var attr = t.GetCustomAttribute<PrototypeAttribute>();
+            if (attr is not null)
+            {
+                withAttr.Add((attr.Id, t));
+            }
+            else
+            {
+                withoutAttr.Add(t);
+            }
+        }
+
+        // Resolve ID collisions for attributed tests: bump to next free id
+        var used = new HashSet<int>();
+        var fixedWithAttr = new List<(int id, Type type)>(withAttr.Count);
+
+        foreach (var (id, type) in withAttr.OrderBy(x => x.id).ThenBy(x => x.type.Name))
+        {
+            int assigned = id;
+            if (assigned <= 0) assigned = 1;
+
+            while (!used.Add(assigned))
+            {
+                assigned++;
+            }
+
+            if (assigned != id)
+            {
+                Console.WriteLine($"[warning] Duplicate [Prototype({id})] detected. '{type.Name}' reassigned to id {assigned}.");
             }
 
             fixedWithAttr.Add((assigned, type));

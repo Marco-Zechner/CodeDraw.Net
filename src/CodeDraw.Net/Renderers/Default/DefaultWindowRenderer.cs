@@ -41,6 +41,7 @@ public sealed unsafe class DefaultWindowRenderer : AbstractWindowRenderer
             throw new InvalidOperationException("Render thread lost current context!");
 
         var gl = Gl!;
+        Console.WriteLine($"[DBG] RunLoop started for {Title} on thread {Environment.CurrentManagedThreadId}");
         // Good default: enable sRGB when drawing into sRGB targets
         gl.Enable(EnableCap.FramebufferSrgb);
 
@@ -55,6 +56,10 @@ public sealed unsafe class DefaultWindowRenderer : AbstractWindowRenderer
         CodeDrawHost.Instance.WithGlfw(glfw => glfw.SwapInterval(PublicWindow!.VSync ? 1 : 0));
         while (Running)
         {
+            if ((Frames % 120) == 0)
+                Console.WriteLine($"[DBG] {Title} alive. Frames={Frames} presentDirty={_presentDirty} canvas={_canvasW}x{_canvasH}");
+            DebugCheckContext("loop-top");
+            DebugCheckGl(gl, "loop-top");
             frameTimer.Restart();
 
             // Size & canvas
@@ -91,8 +96,10 @@ public sealed unsafe class DefaultWindowRenderer : AbstractWindowRenderer
 
             if (hadFrame)
             {
+                DebugCheckGl(gl, "hadFrame-start");
                 // Render into the persistent canvas
                 BindCanvas(gl);
+                DebugCheckGl(gl, "after BindCanvas");
                 foreach (var cmd in batch!)
                 {
                     var sw = Stopwatch.StartNew();
@@ -103,12 +110,12 @@ public sealed unsafe class DefaultWindowRenderer : AbstractWindowRenderer
                             break;
                         case DrawLayerCommand dla:
                             //TODO: progress :) now it works for a short moment and then freezes. that was also an issue in legacy where i had a solution for it. so look there
-                            // var src = (SharedLayer)dla.Layer;
+                            var src = (SharedLayer)dla.Layer;
                             //
                             // // If another window wrote this layer, wait until its latest write is complete
-                            // ConsumerWaitBeforeSampling(gl, src);
-                            //
-                            // RenderLayerTexture(src.Tex, _canvasW, _canvasH, dla.Premultiply);
+                            ConsumerWaitBeforeSampling(gl, src);
+
+                            RenderLayerTexture(src.Tex, _canvasW, _canvasH, dla.Premultiply);
                             break;
                         default:
                             throw new NotSupportedException($"Unknown render command: {cmd.GetType().Name}");
@@ -116,20 +123,29 @@ public sealed unsafe class DefaultWindowRenderer : AbstractWindowRenderer
                     sw.Stop();
                     if (warnThresholdMs > 0 && sw.ElapsedMilliseconds > warnThresholdMs)
                         Console.WriteLine($"[Render Watchdog] {cmd.GetType().Name} took {sw.ElapsedMilliseconds} ms");
+
+                    DebugCheckGl(gl, $"after cmd {cmd.GetType().Name}");
                 }
                 Unbind(gl);
+                DebugCheckGl(gl, "after Unbind");
 
                 ProducerFenceAfterCanvasWrite(gl, _canvasLayer);
+                DebugCheckGl(gl, "after ProducerFence");
 
                 // Present once
                 PresentCanvas(gl, fbW, fbH);
+                DebugCheckGl(gl, "after PresentCanvas");
 
+                gl.Finish();
                 // var swSwap = Stopwatch.StartNew();
                 // CodeDrawHost.Instance.GlfwUnsafe.SwapBuffers(Window);
+                DebugCheckContext("before-swap");
+                DebugCheckGl(gl, "before-swap");
                 CodeDrawHost.Instance.WithGlfw(glfw =>glfw.SwapBuffers(Window));
                 // swSwap.Stop();
                 // if (swSwap.ElapsedMilliseconds > 5)
                     // Console.WriteLine($"{DateTime.UtcNow:HH:mm:ss.ffff} [SWAP] {Title} took {swSwap.ElapsedMilliseconds} ms ${(IsResizeInProgress() ? "(resizing)" : "")}");
+                DebugCheckGl(gl, "after SwapBuffers");
 
                 Frames++;
                 _fps.Tick();
@@ -143,13 +159,18 @@ public sealed unsafe class DefaultWindowRenderer : AbstractWindowRenderer
             {
                 // No new work but we owe a present (fresh window / post-resize)
                 PresentCanvas(gl, fbW, fbH);
+                DebugCheckGl(gl, "after PresentCanvas");
 
+                gl.Finish();
                 // var swSwap = Stopwatch.StartNew();
                 // CodeDrawHost.Instance.GlfwUnsafe.SwapBuffers(Window);
+                DebugCheckContext("before-swap");
+                DebugCheckGl(gl, "before-swap");
                 CodeDrawHost.Instance.WithGlfw(glfw =>glfw.SwapBuffers(Window));
                 // swSwap.Stop();
                 // if (swSwap.ElapsedMilliseconds > 5)
                     // Console.WriteLine($"{DateTime.UtcNow:HH:mm:ss.ffff} [SWAP-dirty] {Title} took {swSwap.ElapsedMilliseconds} ms ${(IsResizeInProgress() ? "(resizing)" : "")}");
+                DebugCheckGl(gl, "after SwapBuffers");
 
                 Frames++;
                 _fps.Tick();
@@ -496,15 +517,11 @@ public sealed unsafe class DefaultWindowRenderer : AbstractWindowRenderer
 
     private void ProducerFenceAfterCanvasWrite(GL gl, SharedLayer layer)
     {
-        // Insert fence marking "all previous GL writes are complete"
-        // Then flush to make the fence visible/submittable across contexts.
         nint newFence = gl.FenceSync(SyncCondition.SyncGpuCommandsComplete, SyncBehaviorFlags.None);
         gl.Flush();
 
-        // Retire an old fence (safe to delete; it's >= ring size frames old)
-        nint oldFence = layer.PushFence(newFence);
-        if (oldFence != 0)
-            gl.DeleteSync(oldFence);
+        // Publish newest fence (whatever PushFence does internally)
+        layer.PushFence(newFence);
     }
 
     private static void ConsumerWaitBeforeSampling(GL gl, SharedLayer layer)
@@ -512,8 +529,50 @@ public sealed unsafe class DefaultWindowRenderer : AbstractWindowRenderer
         nint fence = Volatile.Read(ref layer.LatestFence);
         if (fence == 0) return;
 
-        // GPU-side wait: ensures this context doesn't sample Tex before producer finished.
-        // Timeout ignored = wait as long as needed.
-        gl.WaitSync(fence, SyncBehaviorFlags.None, ulong.MaxValue);
+        // Non-blocking poll (0 timeout). If not ready, skip sampling this frame.
+        var res = gl.ClientWaitSync(fence, SyncObjectMask.Bit, 0);
+
+        if (res == GLEnum.TimeoutExpired)
+        {
+            // Not ready -> DON'T stall the renderer.
+            // We'll just draw the last available texture content.
+            return;
+        }
+    }
+
+    // [Conditional("DEBUG")]
+    private void DebugCheckContext(string where)
+    {
+        CodeDrawHost.Instance.WithGlfw(glfw =>
+        {
+            var cur = glfw.GetCurrentContext();
+            if (cur != Window)
+            {
+                Console.WriteLine($"[CTX LOST] {Title} @ {where}  cur=0x{(nint)cur:X} expected=0x{(nint)Window:X}");
+                // Attempt recovery so we can keep collecting evidence:
+                glfw.MakeContextCurrent(Window);
+                cur = glfw.GetCurrentContext();
+                Console.WriteLine($"[CTX REBIND] {Title} @ {where}  now=0x{(nint)cur:X}");
+            }
+        });
+    }
+
+    // [Conditional("DEBUG")]
+    private static void DebugCheckGl(GL gl, string where)
+    {
+        var e = gl.GetError();
+        if (e != GLEnum.NoError)
+            Console.WriteLine($"[GLERR] {where}: {e}");
+    }
+
+    // [Conditional("DEBUG")]
+    private static void DebugInjectMagentaClear(GL gl, int fbW, int fbH)
+    {
+        gl.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
+        gl.Viewport(0, 0, (uint)fbW, (uint)fbH);
+        gl.Disable(EnableCap.Blend);
+        gl.ColorMask(true, true, true, true);
+        gl.ClearColor(1f, 0f, 1f, 1f);
+        gl.Clear(ClearBufferMask.ColorBufferBit);
     }
 }

@@ -1,8 +1,8 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
 
-namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Helpers;
+namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes;
 
 public sealed unsafe class SharedGlfwHost : IDisposable
 {
@@ -28,7 +28,7 @@ public sealed unsafe class SharedGlfwHost : IDisposable
         _running = true;
         _uiThread = new Thread(UiThreadMain) { IsBackground = true, Name = "GLFW-UI" };
         _uiThread.Start();
-        _started.WaitOne(); // wait until GLFW + share root created
+        _started.WaitOne();
     }
 
     public void Dispose() => Stop();
@@ -36,42 +36,30 @@ public sealed unsafe class SharedGlfwHost : IDisposable
     public void Stop()
     {
         if (!_running) return;
-        // enqueue stop on UI thread
         EnqueueUi(() => _running = false);
         _uiThread?.Join();
         _uiThread = null;
     }
 
-    /// Enqueue a job to be executed on the UI thread (GLFW thread).
     public void EnqueueUi(Action job)
     {
         _uiJobs.Enqueue(job);
         _work.Set();
     }
 
-    /// Create a visible window in the share group (runs on UI thread).
     public WindowHandle* CreateWindow(int w, int h, string title)
     {
         WindowHandle* result = null;
-        var done = new AutoResetEvent(false);
+        using var done = new AutoResetEvent(false);
 
         EnqueueUi(() =>
         {
-            // All hints should match share root’s pixel format & version
             ApplyCommonHints(_glfw!);
             result = _glfw!.CreateWindow(w, h, title, null, _shareRoot);
             if (result == null) throw new Exception("CreateWindow failed");
 
-            // Bind once for Windows stability, then unbind
             _glfw.MakeContextCurrent(result);
             _glfw.MakeContextCurrent(null);
-
-            // Track close events independently
-            _glfw.SetWindowCloseCallback(result, (win) =>
-            {
-                // Mark should-close; GLFW will also set its internal flag.
-                // We do nothing else here; the render thread will see it.
-            });
 
             done.Set();
         });
@@ -80,13 +68,39 @@ public sealed unsafe class SharedGlfwHost : IDisposable
         return result;
     }
 
-    /// Request to destroy a window on the UI thread.
+    /// Creates a hidden window with its own context, in the share-group.
+    public WindowHandle* CreateHiddenWindow(int w, int h, string title = "hidden")
+    {
+        WindowHandle* result = null;
+        using var done = new AutoResetEvent(false);
+
+        EnqueueUi(() =>
+        {
+            ApplyCommonHints(_glfw!);
+            // Hidden by default
+            _glfw!.WindowHint(WindowHintBool.Visible, false);
+
+            result = _glfw.CreateWindow(w, h, title, null, _shareRoot);
+            if (result == null) throw new Exception("CreateHiddenWindow failed");
+
+            _glfw.HideWindow(result);
+
+            // Bind once for stability
+            _glfw.MakeContextCurrent(result);
+            _glfw.MakeContextCurrent(null);
+
+            done.Set();
+        });
+
+        done.WaitOne();
+        return result;
+    }
+
     public void DestroyWindow(WindowHandle* win)
     {
         if (win == null) return;
         EnqueueUi(() =>
         {
-            // Ensure its context is not current on any thread
             _glfw!.MakeContextCurrent(null);
             _glfw.DestroyWindow(win);
         });
@@ -97,45 +111,42 @@ public sealed unsafe class SharedGlfwHost : IDisposable
         _glfw = Glfw.GetApi();
         if (!_glfw.Init()) throw new Exception("GLFW init failed");
 
-        // Shared hidden root
         ApplyCommonHints(_glfw);
         _shareRoot = _glfw.CreateWindow(1, 1, "share-root", null, null);
         if (_shareRoot == null) throw new Exception("Failed to create share root");
         _glfw.HideWindow(_shareRoot);
+
         _glfw.MakeContextCurrent(_shareRoot);
-        var gl = GL.GetApi(_glfw.GetProcAddress);
+        _ = GL.GetApi(_glfw.GetProcAddress);
         _glfw.MakeContextCurrent(null);
 
         _started.Set();
 
-        // UI loop
         while (_running)
         {
-            // process enqueued jobs
             while (_uiJobs.TryDequeue(out var j))
             {
-                try { j(); } catch (Exception ex) { Console.WriteLine($"[UI job error] {ex}"); }
+                try { j(); }
+                catch (Exception ex) { Console.WriteLine($"[UI job error] {ex}"); }
             }
 
             _glfw.PollEvents();
-
-            // Wait a bit or until work arrives
             _work.WaitOne(1);
         }
 
-        // Drain pending jobs (e.g., destroys)
         while (_uiJobs.TryDequeue(out var j))
         {
-            try { j(); } catch (Exception ex) { Console.WriteLine($"[UI drain error] {ex}"); }
+            try { j(); }
+            catch (Exception ex) { Console.WriteLine($"[UI drain error] {ex}"); }
         }
 
-        // Cleanup share root & terminate
         if (_shareRoot != null)
         {
             _glfw.MakeContextCurrent(null);
             _glfw.DestroyWindow(_shareRoot);
             _shareRoot = null;
         }
+
         _glfw.Terminate();
         _glfw = null;
     }
@@ -146,7 +157,6 @@ public sealed unsafe class SharedGlfwHost : IDisposable
         glfw.WindowHint(WindowHintInt.ContextVersionMinor, 3);
         glfw.WindowHint(WindowHintOpenGlProfile.OpenGlProfile, OpenGlProfile.Core);
 
-        // Pixel format: match across share group
         glfw.WindowHint(WindowHintInt.RedBits, 8);
         glfw.WindowHint(WindowHintInt.GreenBits, 8);
         glfw.WindowHint(WindowHintInt.BlueBits, 8);
@@ -154,10 +164,12 @@ public sealed unsafe class SharedGlfwHost : IDisposable
         glfw.WindowHint(WindowHintInt.DepthBits, 24);
         glfw.WindowHint(WindowHintInt.StencilBits, 8);
 
-        // QoL
         glfw.WindowHint(WindowHintBool.Resizable, true);
         glfw.WindowHint(WindowHintBool.Decorated, true);
         glfw.WindowHint(WindowHintBool.DoubleBuffer, true);
         glfw.WindowHint(WindowHintBool.TransparentFramebuffer, true);
+
+        // keep default visible=true unless caller overrides
+        glfw.WindowHint(WindowHintBool.Visible, true);
     }
 }

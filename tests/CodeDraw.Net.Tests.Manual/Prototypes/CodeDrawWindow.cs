@@ -53,12 +53,11 @@ public sealed unsafe class CodeDrawWindow
         uint progBlit = GlShader.CreateProgram(gl, GlShader.LayerShader.VS, GlShader.LayerShader.FS);
         int uTex = gl.GetUniformLocation(progBlit, "uTex");
 
-        gl.Enable(GLEnum.Blend);
-        gl.BlendFunc(GLEnum.SrcAlpha, GLEnum.OneMinusSrcAlpha);
+        // IMPORTANT: presenter is a pure copy
+        gl.Disable(GLEnum.Blend);
 
         uint lastTex = 0;
         long lastSeq = 0;
-        nint lastFence = 0;
 
         while (!ShouldClose)
         {
@@ -67,7 +66,9 @@ public sealed unsafe class CodeDrawWindow
 
             gl.BindFramebuffer(GLEnum.Framebuffer, 0);
             gl.Viewport(0, 0, (uint)fbW, (uint)fbH);
-            gl.ClearColor(0.10f, 0.11f, 0.13f, 1f);
+
+            // Optional clear (doesn't matter once you draw full-screen)
+            gl.ClearColor(0f, 0f, 0f, 1f);
             gl.Clear((uint)ClearBufferMask.ColorBufferBit);
 
             var layer = _layer;
@@ -75,8 +76,7 @@ public sealed unsafe class CodeDrawWindow
             {
                 if (layer.TryGetLatest(out uint tex, out _, out _, out nint fence, out long seq))
                 {
-                    bool ready = (fence == 0);
-
+                    bool ready = fence == 0;
                     if (!ready)
                     {
                         var s = gl.ClientWaitSync(fence, SyncObjectMask.Bit, 0);
@@ -88,7 +88,6 @@ public sealed unsafe class CodeDrawWindow
                     {
                         lastTex = tex;
                         lastSeq = seq;
-                        lastFence = fence;
                     }
                 }
             }

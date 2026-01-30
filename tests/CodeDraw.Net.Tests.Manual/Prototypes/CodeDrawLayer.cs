@@ -14,6 +14,95 @@ namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes;
 /// - Presenter only polls fences; fence deletion happens in the layer's own context (safe).
 public sealed unsafe class CodeDrawLayer : IDisposable
 {
+    public enum BlendMode
+    {
+        ALPHA,      // SrcAlpha, OneMinusSrcAlpha
+        ADD,        // One, One
+        MULTIPLY,   // DstColor, Zero  (common quick multiply)
+        NONE,        // Disable blending
+        BLEND_RBG_SOURCEOVER_ALPHA
+    }
+
+    private void ApplyBlendMode()
+    {
+        switch (_blendMode)
+        {
+            case BlendMode.NONE:
+                _gl.Disable(GLEnum.Blend);
+                break;
+
+            case BlendMode.ALPHA:
+                _gl.Enable(GLEnum.Blend);
+                _gl.BlendEquationSeparate(GLEnum.FuncAdd, GLEnum.FuncAdd);
+                _gl.BlendFunc(GLEnum.SrcAlpha, GLEnum.OneMinusSrcAlpha);
+                break;
+
+            case BlendMode.ADD:
+                _gl.Enable(GLEnum.Blend);
+                _gl.BlendEquationSeparate(GLEnum.FuncAdd, GLEnum.FuncAdd);
+                _gl.BlendFunc(GLEnum.One, GLEnum.One);
+                break;
+
+            case BlendMode.MULTIPLY:
+                _gl.Enable(GLEnum.Blend);
+                _gl.BlendEquationSeparate(GLEnum.FuncAdd, GLEnum.FuncAdd);
+                _gl.BlendFunc(GLEnum.DstColor, GLEnum.Zero);
+                break;
+
+            case BlendMode.BLEND_RBG_SOURCEOVER_ALPHA:
+                _gl.Enable(GLEnum.Blend);
+                _gl.BlendEquationSeparate(GLEnum.FuncAdd, GLEnum.FuncAdd);
+                _gl.BlendFuncSeparate(
+                    GLEnum.SrcAlpha, GLEnum.OneMinusSrcAlpha,   // RGB
+                    GLEnum.One,      GLEnum.OneMinusSrcAlpha    // A
+                );
+                break;
+        }
+    }
+
+    public sealed class CodeDrawShader : IDisposable
+    {
+        private readonly SharedGlfwHost _host;
+        private readonly WindowHandle* _ctxWin;
+        private readonly GL _gl;
+
+        public uint Program { get; private set; }
+        public bool IsDisposed { get; private set; }
+
+        public CodeDrawShader(SharedGlfwHost host, string vs, string fs)
+        {
+            _host = host;
+            _ctxWin = host.CreateHiddenWindow(1, 1, "shader-ctx");
+            var glfw = host.Glfw;
+
+            glfw.MakeContextCurrent(_ctxWin);
+            glfw.SwapInterval(0);
+            _gl = GL.GetApi(glfw.GetProcAddress);
+
+            Program = GlShader.CreateProgram(_gl, vs, fs);
+
+            glfw.MakeContextCurrent(null);
+        }
+
+        public void Dispose()
+        {
+            if (IsDisposed) return;
+            IsDisposed = true;
+
+            var glfw = _host.Glfw;
+            glfw.MakeContextCurrent(_ctxWin);
+
+            if (Program != 0)
+            {
+                _gl.DeleteProgram(Program);
+                Program = 0;
+            }
+
+            glfw.MakeContextCurrent(null);
+            _host.DestroyWindow(_ctxWin);
+        }
+    }
+
     private struct Buffer
     {
         public uint Tex;
@@ -32,9 +121,33 @@ public sealed unsafe class CodeDrawLayer : IDisposable
 
     private interface ICmd { void Exec(GL gl, CodeDrawLayer self); }
 
-    private sealed class CmdClear : ICmd
+    private sealed class CmdSetBlendMode : ICmd
     {
-        public void Exec(GL gl, CodeDrawLayer self) => self._clearRequested = true;
+        public BlendMode Mode;
+        public void Exec(GL gl, CodeDrawLayer self)
+        {
+            self._blendMode = Mode;
+            self.ApplyBlendMode();
+        }
+    }
+
+    private sealed class CmdSetBlitShader : ICmd
+    {
+        public CodeDrawShader? Shader;
+        public void Exec(GL gl, CodeDrawLayer self)
+        {
+            // null => default layer shader
+            self._customBlitShader = (Shader != null && !Shader.IsDisposed) ? Shader : null;
+        }
+    }
+
+    private sealed class CmdClear(float r, float g, float b, float a) : ICmd
+    {
+        public void Exec(GL gl, CodeDrawLayer self)
+        {
+            self._clearColor = (r, g, b, a);
+            self._clearRequested = true;
+        }
     }
 
     private sealed class CmdRect : ICmd
@@ -61,6 +174,9 @@ public sealed unsafe class CodeDrawLayer : IDisposable
         public CmdResize(int w, int h) { W = w; H = h; }
         public void Exec(GL gl, CodeDrawLayer self) => self.ResizeInternal(W, H);
     }
+
+    private BlendMode _blendMode = BlendMode.ALPHA;
+    private CodeDrawShader? _customBlitShader;
 
     private readonly SharedGlfwHost _host;
     private readonly WindowHandle* _ctxWin;
@@ -90,6 +206,7 @@ public sealed unsafe class CodeDrawLayer : IDisposable
 
     // Layer semantics
     private bool _clearRequested = true;
+    private (float r, float g, float b, float a) _clearColor = (0f, 0f, 0f, 0f);
 
     // GL resources
     private bool _inited;
@@ -149,7 +266,11 @@ public sealed unsafe class CodeDrawLayer : IDisposable
 
     // --------- Public API ---------
 
-    public void Clear() => Enqueue(new CmdClear());
+    public void SetBlendMode(BlendMode mode) => Enqueue(new CmdSetBlendMode { Mode = mode });
+
+    public void SetLayerBlitShader(CodeDrawShader? shader) => Enqueue(new CmdSetBlitShader { Shader = shader });
+
+    public void Clear(float r = 0f, float g = 0, float b = 0f, float a = 0f) => Enqueue(new CmdClear(r,g,b,a));
 
     public void DrawRect(float x, float y, float w, float h, float r, float g, float b, float a)
         => Enqueue(new CmdRect { X = x, Y = y, W = w, H = h, R = r, G = g, B = b, A = a });
@@ -282,8 +403,7 @@ public sealed unsafe class CodeDrawLayer : IDisposable
         _gl.BindFramebuffer(GLEnum.Framebuffer, _buf[Back].Fbo);
         _gl.Viewport(0, 0, (uint)_w, (uint)_h);
         _gl.Disable(GLEnum.DepthTest);
-        _gl.Enable(GLEnum.Blend);
-        _gl.BlendFunc(GLEnum.SrcAlpha, GLEnum.OneMinusSrcAlpha);
+        ApplyBlendMode();
 
         // Phase 1: process semantic commands (like Clear/Resize) BEFORE preparing the frame
         foreach (var (_, cmd) in local)
@@ -299,7 +419,7 @@ public sealed unsafe class CodeDrawLayer : IDisposable
         // Prepare frame
         if (_clearRequested)
         {
-            _gl.ClearColor(0, 0, 0, 0);
+            _gl.ClearColor(_clearColor.r, _clearColor.g, _clearColor.b, _clearColor.a);
             _gl.Clear((uint)ClearBufferMask.ColorBufferBit);
             _clearRequested = false;
         }
@@ -333,6 +453,8 @@ public sealed unsafe class CodeDrawLayer : IDisposable
         glfw.MakeContextCurrent(null);
     }
 
+
+
     private void RetireRequestedFences()
     {
         while (_retireFences.TryDequeue(out var f))
@@ -356,10 +478,11 @@ public sealed unsafe class CodeDrawLayer : IDisposable
         _gl.BindTexture(GLEnum.Texture2D, _buf[_front].Tex);
         if (_uBlitTex >= 0) _gl.Uniform1(_uBlitTex, 0);
 
-        // pure copy, no blending
         _gl.Disable(GLEnum.Blend);
         _gl.DrawElements(GLEnum.Triangles, 6, GLEnum.UnsignedInt, null);
-        _gl.Enable(GLEnum.Blend);
+
+        // restore whatever blend mode is currently selected
+        ApplyBlendMode();
 
         _gl.BindTexture(GLEnum.Texture2D, 0);
         _gl.BindVertexArray(0);
@@ -439,11 +562,15 @@ public sealed unsafe class CodeDrawLayer : IDisposable
     {
         if (!src.TryGetLatest(out uint tex, out _, out _, out _, out _)) return;
 
-        gl.UseProgram(_progBlit);
+        uint prog = _customBlitShader?.Program ?? _progBlit;
+
+        gl.UseProgram(prog);
         gl.BindVertexArray(_vao);
         gl.ActiveTexture(GLEnum.Texture0);
         gl.BindTexture(GLEnum.Texture2D, tex);
-        if (_uBlitTex >= 0) gl.Uniform1(_uBlitTex, 0);
+
+        int uTexLoc = (prog == _progBlit) ? _uBlitTex : gl.GetUniformLocation(prog, "uTex");
+        if (uTexLoc >= 0) gl.Uniform1(uTexLoc, 0);
 
         gl.DrawElements(GLEnum.Triangles, 6, GLEnum.UnsignedInt, null);
 

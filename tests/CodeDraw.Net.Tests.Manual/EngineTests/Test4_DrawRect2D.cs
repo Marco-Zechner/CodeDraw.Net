@@ -30,8 +30,8 @@ public class Test4DrawRect2D : ITestable
             w.FillRect(20, 20, 200, 80, new Color(0.2f, 0.8f, 0.3f, 1f));
 
             // Moving rect
-            float x = 260 + (float)Math.Sin(t * 1.5f) * 200;
-            float y = 220 + (float)Math.Cos(t * 1.2f) * 120;
+            var x = 260 + (float)Math.Sin(t * 1.5f) * 200;
+            var y = 220 + (float)Math.Cos(t * 1.2f) * 120;
 
             w.FillRect(x, y, 160, 100, new Color(0.95f, 0.25f, 0.2f, 0.9f));
 

@@ -31,10 +31,10 @@ public class Test5BlendModesAndAlpha : ITestable
             w.Clear(w.ClearColor);
 
             // Split into 4 quads (window space)
-            int width = w.Size.X;
-            int height = w.Size.Y;
-            float hw = width * 0.5f;
-            float hh = height * 0.5f;
+            var width = w.Size.X;
+            var height = w.Size.Y;
+            var hw = width * 0.5f;
+            var hh = height * 0.5f;
 
             // ─────────────────────────────────────────────────────────────
             // A) BlendMode: REPLACE
@@ -60,9 +60,9 @@ public class Test5BlendModesAndAlpha : ITestable
             // ─────────────────────────────────────────────────────────────
             w.SetBlendMode2D(BlendMode2D.RGB_BLEND_KEEP_DST_ALPHA);
 
-            float cx = hw;
-            float cy = hh;
-            float rGreen = MathF.Min(hw, hh) * 0.35f;
+            var cx = hw;
+            var cy = hh;
+            var rGreen = MathF.Min(hw, hh) * 0.35f;
 
             // NOTE: This needs FillCircle(...) implemented.
             // If you don't have it yet, replace with a bunch of triangles or a rect for now.
@@ -74,8 +74,8 @@ public class Test5BlendModesAndAlpha : ITestable
             // ─────────────────────────────────────────────────────────────
             w.SetBlendMode2D(BlendMode2D.WRITE_ALPHA_REPLACE);
 
-            float inner = rGreen * 0.45f;
-            float a = 0.5f + 0.5f * MathF.Sin(t * 2.0f); // 0..1
+            var inner = rGreen * 0.45f;
+            var a = 0.5f + 0.5f * MathF.Sin(t * 2.0f); // 0..1
             // RGB ignored due to ColorMask in WRITE_ALPHA_REPLACE
             w.FillCircle(cx, cy, inner, new Color(0, 0, 0, a));
 
@@ -85,39 +85,39 @@ public class Test5BlendModesAndAlpha : ITestable
             // ─────────────────────────────────────────────────────────────
 
             // Square path: move along a loop inside the full window
-            float pad = MathF.Min(hw, hh) * 0.15f;
-            float x0 = pad;
-            float y0 = pad;
-            float x1 = width - pad;
-            float y1 = height - pad;
+            var pad = MathF.Min(hw, hh) * 0.15f;
+            var x0 = pad;
+            var y0 = pad;
+            var x1 = width - pad;
+            var y1 = height - pad;
 
             // Param 0..4 for 4 edges
-            float speed = 0.25f; // loops per second-ish
-            float p = (t * speed) % 4.0f;
+            var speed = 0.25f; // loops per second-ish
+            var p = (t * speed) % 4.0f;
 
             float px, py;
             if (p < 1.0f)
             {
-                float u = p;
+                var u = p;
                 px = Lerp(x0, x1, u); py = y0;
             }
             else if (p < 2.0f)
             {
-                float u = p - 1.0f;
+                var u = p - 1.0f;
                 px = x1; py = Lerp(y0, y1, u);
             }
             else if (p < 3.0f)
             {
-                float u = p - 2.0f;
+                var u = p - 2.0f;
                 px = Lerp(x1, x0, u); py = y1;
             }
             else
             {
-                float u = p - 3.0f;
+                var u = p - 3.0f;
                 px = x0; py = Lerp(y1, y0, u);
             }
 
-            float rYellow = MathF.Min(hw, hh) * 0.10f;
+            var rYellow = MathF.Min(hw, hh) * 0.10f;
             w.SetBlendMode2D(BlendMode2D.RGB_BLEND_KEEP_DST_ALPHA);
             w.FillCircle(px, py, rYellow, new Color(0.98f, 0.92f, 0.20f, 0.75f));
 

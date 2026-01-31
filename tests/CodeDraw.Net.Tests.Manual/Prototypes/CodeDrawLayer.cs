@@ -20,7 +20,6 @@ public sealed unsafe class CodeDrawLayer : IDisposable
         ADD,        // One, One
         MULTIPLY,   // DstColor, Zero  (common quick multiply)
         NONE,        // Disable blending
-        BLEND_RBG_SOURCEOVER_ALPHA
     }
 
     private void ApplyBlendMode()
@@ -47,15 +46,6 @@ public sealed unsafe class CodeDrawLayer : IDisposable
                 _gl.Enable(GLEnum.Blend);
                 _gl.BlendEquationSeparate(GLEnum.FuncAdd, GLEnum.FuncAdd);
                 _gl.BlendFunc(GLEnum.DstColor, GLEnum.Zero);
-                break;
-
-            case BlendMode.BLEND_RBG_SOURCEOVER_ALPHA:
-                _gl.Enable(GLEnum.Blend);
-                _gl.BlendEquationSeparate(GLEnum.FuncAdd, GLEnum.FuncAdd);
-                _gl.BlendFuncSeparate(
-                    GLEnum.SrcAlpha, GLEnum.OneMinusSrcAlpha,   // RGB
-                    GLEnum.One,      GLEnum.OneMinusSrcAlpha    // A
-                );
                 break;
         }
     }
@@ -137,7 +127,7 @@ public sealed unsafe class CodeDrawLayer : IDisposable
         public void Exec(GL gl, CodeDrawLayer self)
         {
             // null => default layer shader
-            self._customBlitShader = (Shader != null && !Shader.IsDisposed) ? Shader : null;
+            self._customBlitShader = Shader is { IsDisposed: false } ? Shader : null;
         }
     }
 
@@ -246,7 +236,7 @@ public sealed unsafe class CodeDrawLayer : IDisposable
         glfw.MakeContextCurrent(_ctxWin);
 
         // delete fences/textures/fbos
-        for (int i = 0; i < 2; i++)
+        for (var i = 0; i < 2; i++)
         {
             if (_buf[i].Fence != 0) _gl.DeleteSync(_buf[i].Fence);
             if (_buf[i].Fbo != 0) _gl.DeleteFramebuffer(_buf[i].Fbo);
@@ -292,13 +282,13 @@ public sealed unsafe class CodeDrawLayer : IDisposable
     {
         if (_disposed) return;
 
-        long targetSeq = Volatile.Read(ref _lastEnqueuedSeq);
+        var targetSeq = Volatile.Read(ref _lastEnqueuedSeq);
 
         while (true)
         {
             if (Volatile.Read(ref _lastRenderedCmdSeq) >= targetSeq) return;
 
-            bool iAmRenderer = false;
+            var iAmRenderer = false;
             lock (_renderLock)
             {
                 if (!_rendering)
@@ -341,7 +331,7 @@ public sealed unsafe class CodeDrawLayer : IDisposable
             return false;
         }
 
-        int fi = p.FrontIndex;
+        var fi = p.FrontIndex;
         tex = (fi == 0 || fi == 1) ? _buf[fi].Tex : 0;
         w = p.W; h = p.H;
         fence = p.Fence;
@@ -436,7 +426,7 @@ public sealed unsafe class CodeDrawLayer : IDisposable
         }
 
         // Publish: insert fence on back, then swap front/back
-        nint fence = _gl.FenceSync(SyncCondition.SyncGpuCommandsComplete, SyncBehaviorFlags.None);
+        var fence = _gl.FenceSync(SyncCondition.SyncGpuCommandsComplete, SyncBehaviorFlags.None);
         _gl.Flush();
 
         _buf[Back].Fence = fence;
@@ -446,7 +436,7 @@ public sealed unsafe class CodeDrawLayer : IDisposable
         _pub.Fence = fence;
         _pub.W = _w;
         _pub.H = _h;
-        long next = Interlocked.Increment(ref _frameSeq);
+        var next = Interlocked.Increment(ref _frameSeq);
         Volatile.Write(ref _pub.Seq, next);
 
         _gl.BindFramebuffer(GLEnum.Framebuffer, 0);
@@ -463,7 +453,7 @@ public sealed unsafe class CodeDrawLayer : IDisposable
             if (_pub.Fence == f) _pub.Fence = 0;
 
             // Also clear any buffer fence pointer that matches, then delete
-            for (int i = 0; i < 2; i++)
+            for (var i = 0; i < 2; i++)
                 if (_buf[i].Fence == f) _buf[i].Fence = 0;
 
             _gl.DeleteSync(f);
@@ -512,14 +502,14 @@ public sealed unsafe class CodeDrawLayer : IDisposable
         _w = w; _h = h;
         _clearRequested = true;
 
-        for (int i = 0; i < 2; i++)
+        for (var i = 0; i < 2; i++)
         {
             if (_buf[i].Fence != 0) { _gl.DeleteSync(_buf[i].Fence); _buf[i].Fence = 0; }
             if (_buf[i].Fbo != 0) _gl.DeleteFramebuffer(_buf[i].Fbo);
             if (_buf[i].Tex != 0) _gl.DeleteTexture(_buf[i].Tex);
             _buf[i] = default;
 
-            uint tex = _gl.GenTexture();
+            var tex = _gl.GenTexture();
             _gl.BindTexture(GLEnum.Texture2D, tex);
             _gl.TexImage2D(GLEnum.Texture2D, 0, (int)GLEnum.Rgba8, (uint)w, (uint)h, 0, GLEnum.Rgba, GLEnum.UnsignedByte, null);
             _gl.TexParameter(GLEnum.Texture2D, GLEnum.TextureMinFilter, (int)GLEnum.Linear);
@@ -528,7 +518,7 @@ public sealed unsafe class CodeDrawLayer : IDisposable
             _gl.TexParameter(GLEnum.Texture2D, GLEnum.TextureWrapT, (int)GLEnum.ClampToEdge);
             _gl.BindTexture(GLEnum.Texture2D, 0);
 
-            uint fbo = _gl.GenFramebuffer();
+            var fbo = _gl.GenFramebuffer();
             _gl.BindFramebuffer(GLEnum.Framebuffer, fbo);
             _gl.FramebufferTexture2D(GLEnum.Framebuffer, GLEnum.ColorAttachment0, GLEnum.Texture2D, tex, 0);
             _gl.BindFramebuffer(GLEnum.Framebuffer, 0);
@@ -560,16 +550,16 @@ public sealed unsafe class CodeDrawLayer : IDisposable
 
     private void ExecLayer(GL gl, CodeDrawLayer src)
     {
-        if (!src.TryGetLatest(out uint tex, out _, out _, out _, out _)) return;
+        if (!src.TryGetLatest(out var tex, out _, out _, out _, out _)) return;
 
-        uint prog = _customBlitShader?.Program ?? _progBlit;
+        var prog = _customBlitShader?.Program ?? _progBlit;
 
         gl.UseProgram(prog);
         gl.BindVertexArray(_vao);
         gl.ActiveTexture(GLEnum.Texture0);
         gl.BindTexture(GLEnum.Texture2D, tex);
 
-        int uTexLoc = (prog == _progBlit) ? _uBlitTex : gl.GetUniformLocation(prog, "uTex");
+        var uTexLoc = (prog == _progBlit) ? _uBlitTex : gl.GetUniformLocation(prog, "uTex");
         if (uTexLoc >= 0) gl.Uniform1(uTexLoc, 0);
 
         gl.DrawElements(GLEnum.Triangles, 6, GLEnum.UnsignedInt, null);

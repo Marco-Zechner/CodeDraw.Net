@@ -6,6 +6,112 @@ namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes;
 
 public sealed unsafe class SharedGlfwHost : IDisposable
 {
+    public readonly record struct MouseMoveEvent(int WindowId, double X, double Y)
+    {
+        public override string ToString() => $"MouseMoveEvent(WindowId={WindowId}, X={X:0.0}, Y={Y:0.0})";
+    }
+
+    public readonly record struct MouseButtonEvent(
+        int WindowId,
+        MouseButton Button,
+        InputAction Action,
+        KeyModifiers Mods)
+    {
+        public override string ToString() => $"MouseButtonEvent(WindowId={WindowId}, Button={Button}, Action={Action}, Mods={Mods})";
+    }
+
+    public readonly record struct MouseWheelEvent(int WindowId, double Dx, double Dy)
+    {
+        public override string ToString() => $"MouseWheelEvent(WindowId={WindowId}, Dx={Dx:0.00}, Dy={Dy:0.00})";
+    }
+
+    public readonly record struct KeyEvent(int WindowId, Keys Key, int Scancode, InputAction Action, KeyModifiers Mods)
+    {
+        public override string ToString() => $"KeyEvent(WindowId={WindowId}, Key={Key}, Scancode={Scancode}, Action={Action}, Mods={Mods})";
+    }
+
+    public readonly record struct CharEvent(int WindowId, uint Codepoint)
+    {
+        public override string ToString()
+        {
+            var c = char.ConvertFromUtf32((int)Codepoint);
+            return $"CharEvent(WindowId={WindowId}, Codepoint=U+{Codepoint:X4} ('{c}'))";
+        }
+    }
+
+    public sealed class InputHub
+    {
+        private readonly ConcurrentQueue<object> _q = new();
+
+        public event Action<MouseMoveEvent>? MouseMove;
+        public event Action<MouseButtonEvent>? MouseButtonDown;
+        public event Action<MouseButtonEvent>? MouseButtonUp;
+        public event Action<MouseButtonEvent>? MouseButton;
+        public event Action<MouseWheelEvent>? MouseWheel;
+        public event Action<KeyEvent>? KeyDown;
+        public event Action<KeyEvent>? KeyUp;
+        public event Action<KeyEvent>? Key;
+        public event Action<CharEvent>? Char;
+
+        internal void Enqueue(object evt) => _q.Enqueue(evt);
+
+        /// Call this from your main loop / any thread you want to “own” input dispatch.
+        public void Pump(int max = 10_000)
+        {
+            var n = 0;
+            while (n++ < max && _q.TryDequeue(out var e))
+            {
+                switch (e)
+                {
+                    case MouseMoveEvent mm: MouseMove?.Invoke(mm); break;
+                    case MouseButtonEvent mb:
+                        switch (mb.Action)
+                        {
+                            case InputAction.Press: MouseButtonDown?.Invoke(mb); break;
+                            case InputAction.Release: MouseButtonUp?.Invoke(mb); break;
+                            case InputAction.Repeat: // does not happen for mouse buttons
+                            default: MouseButton?.Invoke(mb); break;
+                        }
+                        break;
+                    case MouseWheelEvent mw: MouseWheel?.Invoke(mw); break;
+                    case KeyEvent ke:
+                        switch (ke.Action)
+                        {
+                            case InputAction.Press: KeyDown?.Invoke(ke); break;
+                            case InputAction.Release: KeyUp?.Invoke(ke); break;
+                            case InputAction.Repeat:
+                            default: Key?.Invoke(ke); break;
+                        }
+                        break;
+                    case CharEvent ce: Char?.Invoke(ce); break;
+                }
+            }
+        }
+    }
+
+    public InputHub Input { get; } = new();
+
+    private int _nextWindowId;
+    private readonly ConcurrentDictionary<nint, int> _winToId = new(); // key: (nint)WindowHandle*
+
+
+    public readonly record struct MonitorInfo(
+        nint GlfwHandle,         // monitor*
+        string Name,
+        int X, int Y,            // virtual desktop coords
+        int Width, int Height,   // work area or video mode
+        float ContentScaleX,
+        float ContentScaleY,
+        int RefreshRate
+    );
+
+    public readonly record struct WindowPlacement(
+        int X, int Y,
+        int Width, int Height,
+        bool BorderlessFullscreen,
+        int MonitorIndex // for fullscreen
+    );
+
     public static SharedGlfwHost Instance { get; } = new();
 
     public Glfw Glfw => _glfw!;
@@ -58,6 +164,91 @@ public sealed unsafe class SharedGlfwHost : IDisposable
             result = _glfw!.CreateWindow(w, h, title, null, _shareRoot);
             if (result == null) throw new Exception("CreateWindow failed");
 
+            var id = Interlocked.Increment(ref _nextWindowId);
+            _winToId[(nint)result] = id;
+
+            RegisterInputCallbacks(result, id);
+
+            _glfw.MakeContextCurrent(result);
+            _glfw.MakeContextCurrent(null);
+
+            done.Set();
+        });
+
+        done.WaitOne();
+        return result;
+    }
+
+    public WindowHandle* CreateWindow(int x, int y, int w, int h, string title)
+    {
+        WindowHandle* result = null;
+        using var done = new AutoResetEvent(false);
+
+        EnqueueUi(() =>
+        {
+            ApplyCommonHints(_glfw!);
+            result = _glfw!.CreateWindow(w, h, title, null, _shareRoot);
+            if (result == null) throw new Exception("CreateWindow failed");
+
+            _glfw.SetWindowPos(result, x, y);
+
+            var id = Interlocked.Increment(ref _nextWindowId);
+            _winToId[(nint)result] = id;
+
+            RegisterInputCallbacks(result, id);
+
+
+            _glfw.MakeContextCurrent(result);
+            _glfw.MakeContextCurrent(null);
+
+            done.Set();
+        });
+
+        done.WaitOne();
+        return result;
+    }
+
+    public WindowHandle* CreateWindow(WindowPlacement placement, string title)
+    {
+        WindowHandle* result = null;
+        using var done = new AutoResetEvent(false);
+
+        EnqueueUi(() =>
+        {
+            ApplyCommonHints(_glfw!);
+
+            if (placement.BorderlessFullscreen)
+            {
+                var mons = GetMonitorsSafe();
+                var mi = mons[placement.MonitorIndex];
+
+                _glfw!.WindowHint(WindowHintBool.Decorated, false);
+                _glfw.WindowHint(WindowHintBool.Resizable, false);
+
+                // Use monitor resolution if width/height are <=0
+                var w = placement.Width  > 0 ? placement.Width  : mi.Width;
+                var h = placement.Height > 0 ? placement.Height : mi.Height;
+
+                result = _glfw.CreateWindow(w, h, title, null, _shareRoot);
+                if (result == null) throw new Exception("CreateWindow failed");
+
+                _glfw.SetWindowPos(result, mi.X, mi.Y);
+            }
+            else
+            {
+                result = _glfw!.CreateWindow(placement.Width, placement.Height, title, null, _shareRoot);
+                if (result != null)
+                {
+                    _glfw.SetWindowPos(result, placement.X, placement.Y);
+                }
+            }
+
+            if (result == null) throw new Exception("CreateWindow failed");
+            var id = Interlocked.Increment(ref _nextWindowId);
+            _winToId[(nint)result] = id;
+
+            RegisterInputCallbacks(result, id);
+
             _glfw.MakeContextCurrent(result);
             _glfw.MakeContextCurrent(null);
 
@@ -95,6 +286,7 @@ public sealed unsafe class SharedGlfwHost : IDisposable
         done.WaitOne();
         return result;
     }
+
 
     public void DestroyWindow(WindowHandle* win)
     {
@@ -171,5 +363,77 @@ public sealed unsafe class SharedGlfwHost : IDisposable
 
         // keep default visible=true unless caller overrides
         glfw.WindowHint(WindowHintBool.Visible, true);
+    }
+
+    public IReadOnlyList<MonitorInfo> GetMonitorsSafe()
+    {
+        IReadOnlyList<MonitorInfo>? result = null;
+        using var done = new AutoResetEvent(false);
+        EnqueueUi(() => { result = GetMonitorsInternal(); done.Set(); });
+        done.WaitOne();
+        return result!;
+    }
+
+    private IReadOnlyList<MonitorInfo> GetMonitorsInternal()
+    {
+        var monitors = new List<MonitorInfo>();
+        var monitorPtrs = _glfw!.GetMonitors(out var count);
+        for (var i = 0; i < count; i++)
+        {
+            var mPtr = monitorPtrs[i];
+            var name = _glfw.GetMonitorName(mPtr) ?? "unknown";
+
+            _glfw.GetMonitorPos(mPtr, out var mx, out var my);
+
+            var modePtr = _glfw.GetVideoMode(mPtr);
+            var width = modePtr->Width;
+            var height = modePtr->Height;
+            var refreshRate = modePtr->RefreshRate;
+
+            _glfw.GetMonitorContentScale(mPtr, out var scaleX, out var scaleY);
+
+            monitors.Add(new MonitorInfo(
+                (nint)mPtr,
+                name,
+                mx, my,
+                width, height,
+                scaleX, scaleY,
+                refreshRate
+            ));
+        }
+        return monitors;
+    }
+
+    private void RegisterInputCallbacks(WindowHandle* win, int id)
+    {
+        // Mouse move
+        _glfw!.SetCursorPosCallback(win, (w, x, y) =>
+        {
+            Input.Enqueue(new MouseMoveEvent(id, x, y));
+        });
+
+        // Mouse buttons
+        _glfw.SetMouseButtonCallback(win, (w, button, action, mods) =>
+        {
+            Input.Enqueue(new MouseButtonEvent(id, button, action, mods));
+        });
+
+        // Scroll
+        _glfw.SetScrollCallback(win, (w, dx, dy) =>
+        {
+            Input.Enqueue(new MouseWheelEvent(id, dx, dy));
+        });
+
+        // Keys
+        _glfw.SetKeyCallback(win, (w, key, scancode, action, mods) =>
+        {
+            Input.Enqueue(new KeyEvent(id, key, scancode, action, mods));
+        });
+
+        // Text input
+        _glfw.SetCharCallback(win, (w, codepoint) =>
+        {
+            Input.Enqueue(new CharEvent(id, codepoint));
+        });
     }
 }

@@ -15,7 +15,15 @@ public sealed unsafe class CodeDrawWindow
     private volatile bool _closing;
 
     private CodeDrawLayer? _layer;
-    public CodeDrawLayer? Layer { get => _layer; set => _layer = value; }
+    public CodeDrawLayer? Layer { get => _layer; }
+
+    private volatile bool _keepLastFrameUntilReady = true;
+
+    public void SetPresentedLayer(CodeDrawLayer? layer, bool keepLastFrameUntilReady = true)
+    {
+        _layer = layer;
+        _keepLastFrameUntilReady = keepLastFrameUntilReady;
+    }
 
     public bool ShouldClose => _closing || _host.Glfw.WindowShouldClose(_win);
 
@@ -50,37 +58,49 @@ public sealed unsafe class CodeDrawWindow
         var gl = GL.GetApi(glfw.GetProcAddress);
 
         var (vao, vbo, ebo) = GlShader.CreateFullScreenQuad(gl);
-        uint progBlit = GlShader.CreateProgram(gl, GlShader.LayerShader.VS, GlShader.LayerShader.FS);
-        int uTex = gl.GetUniformLocation(progBlit, "uTex");
+        var progBlit = GlShader.CreateProgram(gl, GlShader.LayerShader.VS, GlShader.LayerShader.FS);
+        var uTex = gl.GetUniformLocation(progBlit, "uTex");
 
-        // IMPORTANT: presenter is a pure copy
         gl.Disable(GLEnum.Blend);
 
         uint lastTex = 0;
         long lastSeq = 0;
 
+        CodeDrawLayer? lastLayerRef = null;
+
         while (!ShouldClose)
         {
-            glfw.GetFramebufferSize(_win, out int fbW, out int fbH);
+            glfw.GetFramebufferSize(_win, out var fbW, out var fbH);
             if (fbW == 0 || fbH == 0) { glfw.SwapBuffers(_win); Thread.Sleep(12); continue; }
 
             gl.BindFramebuffer(GLEnum.Framebuffer, 0);
             gl.Viewport(0, 0, (uint)fbW, (uint)fbH);
 
-            // Optional clear (doesn't matter once you draw full-screen)
-            gl.ClearColor(0f, 0f, 0f, 1f);
+            gl.ClearColor(0f, 0f, 0f, 0f);
             gl.Clear((uint)ClearBufferMask.ColorBufferBit);
 
             var layer = _layer;
-            if (layer != null && !layer.IsDisposed)
+            var keepLast = _keepLastFrameUntilReady;
+
+            if (!ReferenceEquals(layer, lastLayerRef))
             {
-                if (layer.TryGetLatest(out uint tex, out _, out _, out nint fence, out long seq))
+                lastLayerRef = layer;
+
+                lastSeq = 0;
+
+                if (!keepLast)
+                    lastTex = 0;
+            }
+
+            if (layer is { IsDisposed: false })
+            {
+                if (layer.TryGetLatest(out var tex, out _, out _, out var fence, out var seq))
                 {
                     bool ready = fence == 0;
                     if (!ready)
                     {
                         var s = gl.ClientWaitSync(fence, SyncObjectMask.Bit, 0);
-                        ready = (s == GLEnum.AlreadySignaled || s == GLEnum.ConditionSatisfied);
+                        ready = s is GLEnum.AlreadySignaled or GLEnum.ConditionSatisfied;
                         if (ready) layer.RequestRetireFence(fence);
                     }
 

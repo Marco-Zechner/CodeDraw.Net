@@ -119,7 +119,7 @@ public static class Program
 
         foreach (var (id, type) in runList)
         {
-            int consoleTopBefore = Console.CursorTop;
+            var consoleTopBefore = Console.CursorTop;
 
             var name = PrettyName(type);
             Console.WriteLine($"\n[{id}] {name}");
@@ -178,9 +178,9 @@ public static class Program
                 Console.WriteLine("Result: FAILED due to exception.");
             }
 
-            int consoleTopAfter = Console.CursorTop;
+            var consoleTopAfter = Console.CursorTop;
             Console.SetCursorPosition(0, consoleTopBefore);
-            for (int i = 0; i < consoleTopAfter - consoleTopBefore; i++)
+            for (var i = 0; i < consoleTopAfter - consoleTopBefore; i++)
             {
                 Console.WriteLine(new string(' ', Console.WindowWidth-1));
             }
@@ -230,7 +230,7 @@ public static class Program
 
         foreach (var (id, type) in withAttr.OrderBy(x => x.id).ThenBy(x => x.type.Name))
         {
-            int assigned = id;
+            var assigned = id;
             if (assigned <= 0) assigned = 1;
 
             while (!used.Add(assigned))
@@ -247,7 +247,7 @@ public static class Program
         }
 
         // Assign IDs to tests without attribute, after the highest used id
-        int next = used.Count == 0 ? 1 : (used.Max() + 1);
+        var next = used.Count == 0 ? 1 : (used.Max() + 1);
         foreach (var t in withoutAttr.OrderBy(t => t.Name))
         {
             while (!used.Add(next)) next++;
@@ -294,7 +294,7 @@ public static class Program
 
         foreach (var (id, type) in withAttr.OrderBy(x => x.id).ThenBy(x => x.type.Name))
         {
-            int assigned = id;
+            var assigned = id;
             if (assigned <= 0) assigned = 1;
 
             while (!used.Add(assigned))
@@ -311,7 +311,7 @@ public static class Program
         }
 
         // Assign IDs to tests without attribute, after the highest used id
-        int next = used.Count == 0 ? 1 : (used.Max() + 1);
+        var next = used.Count == 0 ? 1 : (used.Max() + 1);
         foreach (var t in withoutAttr.OrderBy(t => t.Name))
         {
             while (!used.Add(next)) next++;
@@ -412,8 +412,8 @@ public static class Program
     private static void PrintSummary(List<TestResult> results)
     {
         Console.WriteLine("\n======================== SUMMARY ========================");
-        int nameWidth = (int)MathF.Max(10, results.Max(r => r.Name.Length));
-        int outcomeWidth = 7;
+        var nameWidth = (int)MathF.Max(10, results.Max(r => r.Name.Length));
+        var outcomeWidth = 7;
 
         string Header(string title, int width) =>
             title + new string(' ', (int)MathF.Max(1, width - title.Length));
@@ -464,7 +464,7 @@ public static class Program
     private static string FlattenException(Exception ex)
     {
         var sb = new StringBuilder();
-        int depth = 0;
+        var depth = 0;
         for (var e = ex; e is not null; e = e.InnerException)
         {
             if (depth++ > 0) sb.AppendLine("----- Inner Exception -----");

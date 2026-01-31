@@ -6,10 +6,10 @@ public static class GlShader
 {
     public static uint CreateShader(GL gl, GLEnum type, string src)
     {
-        uint s = gl.CreateShader(type);
+        var s = gl.CreateShader(type);
         gl.ShaderSource(s, src);
         gl.CompileShader(s);
-        gl.GetShader(s, GLEnum.CompileStatus, out int ok);
+        gl.GetShader(s, GLEnum.CompileStatus, out var ok);
         if (ok == 0)
         {
             var log = gl.GetShaderInfoLog(s);
@@ -20,14 +20,14 @@ public static class GlShader
 
     public static uint CreateProgram(GL gl, string vs, string fs)
     {
-        uint v = CreateShader(gl, GLEnum.VertexShader, vs);
-        uint f = CreateShader(gl, GLEnum.FragmentShader, fs);
+        var v = CreateShader(gl, GLEnum.VertexShader, vs);
+        var f = CreateShader(gl, GLEnum.FragmentShader, fs);
 
-        uint p = gl.CreateProgram();
+        var p = gl.CreateProgram();
         gl.AttachShader(p, v);
         gl.AttachShader(p, f);
         gl.LinkProgram(p);
-        gl.GetProgram(p, GLEnum.LinkStatus, out int ok);
+        gl.GetProgram(p, GLEnum.LinkStatus, out var ok);
 
         gl.DeleteShader(v);
         gl.DeleteShader(f);
@@ -53,9 +53,9 @@ public static class GlShader
         ];
         uint[] idx = [0, 1, 2, 0, 2, 3];
 
-        uint vao = gl.GenVertexArray();
-        uint vbo = gl.GenBuffer();
-        uint ebo = gl.GenBuffer();
+        var vao = gl.GenVertexArray();
+        var vbo = gl.GenBuffer();
+        var ebo = gl.GenBuffer();
 
         gl.BindVertexArray(vao);
 

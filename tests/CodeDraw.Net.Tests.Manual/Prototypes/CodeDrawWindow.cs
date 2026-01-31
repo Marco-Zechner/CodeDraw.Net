@@ -134,6 +134,8 @@ public sealed unsafe class CodeDrawWindow : IDisposable
     private volatile bool _closing;
     private int _disposed;
     public bool IsDisposed => Volatile.Read(ref _disposed) != 0;
+    private int _windowDestroyed; // 0 = not yet, 1 = done
+    public bool ShouldClose => _closing || IsDisposed;
 
     private CodeDrawLayer? _layer;
     public CodeDrawLayer? Layer => _layer;
@@ -191,7 +193,6 @@ public sealed unsafe class CodeDrawWindow : IDisposable
         _keepLastFrameUntilReady = keepLastFrameUntilReady;
     }
 
-    public bool ShouldClose => _closing || IsDisposed;
 
     public CodeDrawWindow(SharedGlfwHost host, int w, int h, string title)
     {
@@ -209,9 +210,17 @@ public sealed unsafe class CodeDrawWindow : IDisposable
         _updateThread.Start();
     }
 
+    private void DestroyWindowOnce()
+    {
+        if (Interlocked.Exchange(ref _windowDestroyed, 1) != 0) return;
+
+        var win = _win;
+        _host.DestroyWindow(win); // host invokes this safely on UI thread
+    }
+
     public void Close()
     {
-        if (_closing || IsDisposed) return;
+        if (_closing) return;
         _closing = true;
 
         var win = _win;
@@ -235,18 +244,10 @@ public sealed unsafe class CodeDrawWindow : IDisposable
     {
         if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
 
-        _closing = true;
-        var win = _win;
-
-        _host.EnqueueUi(() =>
-        {
-            if (!_host.IsWindowAlive(win)) return;
-            _host.Glfw.SetWindowShouldClose(win, true);
-        });
-
+        Close();
         WaitForClose();
 
-        _host.DestroyWindow(win);
+        DestroyWindowOnce();
 
         _layer?.Dispose();
         _layer = null;
@@ -257,6 +258,13 @@ public sealed unsafe class CodeDrawWindow : IDisposable
         if (evt is SharedGlfwHost.WindowCloseRequestedEvent cl && cl.WindowId == WindowId)
         {
             _closing = true;
+
+            var win = _win;
+            _host.EnqueueUi(() =>
+            {
+                if (!_host.IsWindowAlive(win)) return;
+                _host.Glfw.SetWindowShouldClose(win, true);
+            });
             return;
         }
 
@@ -307,94 +315,99 @@ public sealed unsafe class CodeDrawWindow : IDisposable
             else Thread.Yield();
         }
 
-        var onClose = OnClose;
-        if (onClose == null) return;
-
-        try { onClose(this); }
+        if (OnClose == null) return;
+        try { OnClose(this); }
         catch (Exception ex) { Console.WriteLine($"[OnClose error] {ex}"); }
     }
 
     private void PresentLoop()
     {
-        var glfw = _host.Glfw;
-        glfw.MakeContextCurrent(_win);
-        glfw.SwapInterval(0);
-        var gl = GL.GetApi(glfw.GetProcAddress);
-
-        var (vao, vbo, ebo) = GlShader.CreateFullScreenQuad(gl);
-        var progBlit = GlShader.CreateProgram(gl, GlShader.LayerShader.VS, GlShader.LayerShader.FS);
-        var uTex = gl.GetUniformLocation(progBlit, "uTex");
-
-        gl.Disable(GLEnum.Blend);
-
-        uint lastTex = 0;
-        long lastSeq = 0;
-        CodeDrawLayer? lastLayerRef = null;
-
-        while (!ShouldClose)
+        try
         {
-            glfw.GetFramebufferSize(_win, out var fbW, out var fbH);
-            if (fbW == 0 || fbH == 0) { glfw.SwapBuffers(_win); Thread.Sleep(16); continue; }
+            var glfw = _host.Glfw;
+            glfw.MakeContextCurrent(_win);
+            glfw.SwapInterval(0);
+            var gl = GL.GetApi(glfw.GetProcAddress);
 
-            gl.BindFramebuffer(GLEnum.Framebuffer, 0);
-            gl.Viewport(0, 0, (uint)fbW, (uint)fbH);
+            var (vao, vbo, ebo) = GlShader.CreateFullScreenQuad(gl);
+            var progBlit = GlShader.CreateProgram(gl, GlShader.LayerShader.VS, GlShader.LayerShader.FS);
+            var uTex = gl.GetUniformLocation(progBlit, "uTex");
 
-            gl.ClearColor(0f, 0f, 0f, 0f);
-            gl.Clear((uint)ClearBufferMask.ColorBufferBit);
+            gl.Disable(GLEnum.Blend);
 
-            var layer = _layer;
-            var keepLast = _keepLastFrameUntilReady;
+            uint lastTex = 0;
+            long lastSeq = 0;
+            CodeDrawLayer? lastLayerRef = null;
 
-            if (!ReferenceEquals(layer, lastLayerRef))
+            while (!ShouldClose)
             {
-                lastLayerRef = layer;
-                lastSeq = 0;
-                if (!keepLast) lastTex = 0;
-            }
+                glfw.GetFramebufferSize(_win, out var fbW, out var fbH);
+                if (fbW == 0 || fbH == 0) { glfw.SwapBuffers(_win); Thread.Sleep(16); continue; }
 
-            if (layer is { IsDisposed: false })
-            {
-                layer.WaitForPublish(PresentWaitTimeoutMs);
+                gl.BindFramebuffer(GLEnum.Framebuffer, 0);
+                gl.Viewport(0, 0, (uint)fbW, (uint)fbH);
 
-                if (layer.TryGetLatest(out var tex, out _, out _, out var fence, out var seq))
+                gl.ClearColor(0f, 0f, 0f, 0f);
+                gl.Clear((uint)ClearBufferMask.ColorBufferBit);
+
+                var layer = _layer;
+                var keepLast = _keepLastFrameUntilReady;
+
+                if (!ReferenceEquals(layer, lastLayerRef))
                 {
-                    var ready = fence == 0;
-                    if (!ready)
-                    {
-                        var s = gl.ClientWaitSync(fence, SyncObjectMask.Bit, 0);
-                        ready = s is GLEnum.AlreadySignaled or GLEnum.ConditionSatisfied;
-                        if (ready) layer.RequestRetireFence(fence);
-                    }
+                    lastLayerRef = layer;
+                    lastSeq = 0;
+                    if (!keepLast) lastTex = 0;
+                }
 
-                    if (ready && tex != 0 && seq >= lastSeq)
+                if (layer is { IsDisposed: false })
+                {
+                    layer.WaitForPublish(PresentWaitTimeoutMs);
+
+                    if (layer.TryGetLatest(out var tex, out _, out _, out var fence, out var seq))
                     {
-                        lastTex = tex;
-                        lastSeq = seq;
+                        var ready = fence == 0;
+                        if (!ready)
+                        {
+                            var s = gl.ClientWaitSync(fence, SyncObjectMask.Bit, 0);
+                            ready = s is GLEnum.AlreadySignaled or GLEnum.ConditionSatisfied;
+                            if (ready) layer.RequestRetireFence(fence);
+                        }
+
+                        if (ready && tex != 0 && seq >= lastSeq)
+                        {
+                            lastTex = tex;
+                            lastSeq = seq;
+                        }
                     }
                 }
+
+                if (lastTex != 0)
+                {
+                    gl.UseProgram(progBlit);
+                    gl.BindVertexArray(vao);
+                    gl.ActiveTexture(GLEnum.Texture0);
+                    gl.BindTexture(GLEnum.Texture2D, lastTex);
+                    if (uTex >= 0) gl.Uniform1(uTex, 0);
+                    gl.DrawElements(GLEnum.Triangles, 6, GLEnum.UnsignedInt, null);
+                    gl.BindTexture(GLEnum.Texture2D, 0);
+                    gl.BindVertexArray(0);
+                    gl.UseProgram(0);
+                }
+
+                glfw.SwapBuffers(_win);
             }
 
-            if (lastTex != 0)
-            {
-                gl.UseProgram(progBlit);
-                gl.BindVertexArray(vao);
-                gl.ActiveTexture(GLEnum.Texture0);
-                gl.BindTexture(GLEnum.Texture2D, lastTex);
-                if (uTex >= 0) gl.Uniform1(uTex, 0);
-                gl.DrawElements(GLEnum.Triangles, 6, GLEnum.UnsignedInt, null);
-                gl.BindTexture(GLEnum.Texture2D, 0);
-                gl.BindVertexArray(0);
-                gl.UseProgram(0);
-            }
+            gl.DeleteProgram(progBlit);
+            gl.DeleteVertexArray(vao);
+            gl.DeleteBuffer(vbo);
+            gl.DeleteBuffer(ebo);
 
-            glfw.SwapBuffers(_win);
+            glfw.MakeContextCurrent(null);
         }
-
-        gl.DeleteProgram(progBlit);
-        gl.DeleteVertexArray(vao);
-        gl.DeleteBuffer(vbo);
-        gl.DeleteBuffer(ebo);
-
-        glfw.MakeContextCurrent(null);
+        finally
+        {
+            DestroyWindowOnce();
+        }
     }
 }

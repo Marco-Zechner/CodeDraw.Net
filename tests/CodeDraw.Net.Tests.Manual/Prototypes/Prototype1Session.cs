@@ -1,4 +1,6 @@
-﻿namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes;
+﻿using Silk.NET.GLFW;
+
+namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes;
 
 public sealed class Prototype1Session : IDisposable
 {
@@ -35,16 +37,15 @@ public sealed class Prototype1Session : IDisposable
             layer.DrawRect(60 + 120 * MathF.Sin(_tA), 80, 220, 140, 0.2f, 1.0f, 0.6f, 1f);
             layer.DrawRect(90, 260, 140, 80, 1.0f, 0.3f, 0.2f, 0.9f);
 
-            layer.SetBlendMode(CodeDrawLayer.BlendMode.ALPHA);
             layer.DrawLayer(_overlay);
 
             layer.Render();
 
-            // if (ctx.Win.Input.GetKeyDown(Keys.F))  // DON'T use this. its bugged
-            // {
-                // ctx.Win.BorderlessFullscreen = !ctx.Win.BorderlessFullscreen;
-                // Console.WriteLine($"Borderless Fullscreen: {ctx.Win.BorderlessFullscreen}");
-            // }
+            if (ctx.Win.Input.GetKeyDown(Keys.F))
+            {
+                ctx.Win.MaximizeBorderless = !ctx.Win.MaximizeBorderless;
+                Console.WriteLine($"A MaximizeBorderless: {ctx.Win.MaximizeBorderless}");
+            }
         };
 
         _winB.UpdateDelayMs = 33;
@@ -54,9 +55,14 @@ public sealed class Prototype1Session : IDisposable
 
             _overlay.EnsureCanvas(800, 450);
             _overlay.Clear();
-            _overlay.SetBlendMode(CodeDrawLayer.BlendMode.ALPHA);
             _overlay.DrawRect(10, 10, 260, 40, 0.2f, 0.4f, 1.0f, 0.5f + 0.5f * MathF.Sin(_tOverlay * 2f));
             _overlay.Render();
+
+            if (ctx.Win.Input.GetKeyDown(Keys.F))
+            {
+                ctx.Win.MaximizeBorderless = !ctx.Win.MaximizeBorderless;
+                Console.WriteLine($"B MaximizeBorderless: {ctx.Win.MaximizeBorderless}");
+            }
         };
 
     }

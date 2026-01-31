@@ -8,17 +8,14 @@ public sealed unsafe class CodeDrawWindow : IDisposable
 {
     public sealed class WindowInput
     {
-        // held state
         private readonly HashSet<Keys> _keysHeld = [];
         private readonly HashSet<MouseButton> _mouseHeld = [];
 
-        // edge state (per update tick)
         private readonly HashSet<Keys> _keysDown = [];
         private readonly HashSet<Keys> _keysUp = [];
         private readonly HashSet<MouseButton> _mouseDown = [];
         private readonly HashSet<MouseButton> _mouseUp = [];
 
-        // last modifiers seen per key/button (best-effort, because modifiers are "event context")
         private readonly Dictionary<Keys, KeyModifiers> _keyMods = [];
         private readonly Dictionary<MouseButton, KeyModifiers> _mouseMods = [];
 
@@ -39,12 +36,10 @@ public sealed unsafe class CodeDrawWindow : IDisposable
         public KeyModifiers GetKeyMods(Keys k) => _keyMods.TryGetValue(k, out var m) ? m : 0;
         public KeyModifiers GetMouseMods(MouseButton b) => _mouseMods.TryGetValue(b, out var m) ? m : 0;
 
-
         internal void BeginUpdateFrame()
         {
             WheelDx = 0;
             WheelDy = 0;
-
             _keysDown.Clear();
             _keysUp.Clear();
             _mouseDown.Clear();
@@ -56,34 +51,23 @@ public sealed unsafe class CodeDrawWindow : IDisposable
             switch (evt)
             {
                 case SharedGlfwHost.MouseMoveEvent mm:
-                    MouseX = mm.X;
-                    MouseY = mm.Y;
-                    break;
+                    MouseX = mm.X; MouseY = mm.Y; break;
 
                 case SharedGlfwHost.MouseWheelEvent mw:
-                    WheelDx += mw.Dx;
-                    WheelDy += mw.Dy;
-                    break;
+                    WheelDx += mw.Dx; WheelDy += mw.Dy; break;
 
                 case SharedGlfwHost.MouseButtonEvent mb:
                 {
                     _mouseMods[mb.Button] = mb.Mods;
-
-                    switch (mb.Action)
+                    if (mb.Action == InputAction.Press)
                     {
-                        case InputAction.Press:
-                            if (_mouseHeld.Add(mb.Button))
-                                _mouseDown.Add(mb.Button);
-                            else
-                                _mouseDown.Add(mb.Button);
-                            break;
-
-                        case InputAction.Release:
-                            if (_mouseHeld.Remove(mb.Button))
-                                _mouseUp.Add(mb.Button);
-                            else
-                                _mouseUp.Add(mb.Button);
-                            break;
+                        _mouseHeld.Add(mb.Button);
+                        _mouseDown.Add(mb.Button);
+                    }
+                    else if (mb.Action == InputAction.Release)
+                    {
+                        _mouseHeld.Remove(mb.Button);
+                        _mouseUp.Add(mb.Button);
                     }
                     break;
                 }
@@ -91,26 +75,19 @@ public sealed unsafe class CodeDrawWindow : IDisposable
                 case SharedGlfwHost.KeyEvent ke:
                 {
                     _keyMods[ke.Key] = ke.Mods;
-
-                    switch (ke.Action)
+                    if (ke.Action == InputAction.Press)
                     {
-                        case InputAction.Press:
-                            if (_keysHeld.Add(ke.Key))
-                                _keysDown.Add(ke.Key);
-                            else
-                                _keysDown.Add(ke.Key);
-                            break;
-
-                        case InputAction.Release:
-                            if (_keysHeld.Remove(ke.Key))
-                                _keysUp.Add(ke.Key);
-                            else
-                                _keysUp.Add(ke.Key);
-                            break;
-
-                        case InputAction.Repeat:
-                            _keysHeld.Add(ke.Key);
-                            break;
+                        _keysHeld.Add(ke.Key);
+                        _keysDown.Add(ke.Key);
+                    }
+                    else if (ke.Action == InputAction.Release)
+                    {
+                        _keysHeld.Remove(ke.Key);
+                        _keysUp.Add(ke.Key);
+                    }
+                    else if (ke.Action == InputAction.Repeat)
+                    {
+                        _keysHeld.Add(ke.Key);
                     }
                     break;
                 }
@@ -121,7 +98,7 @@ public sealed unsafe class CodeDrawWindow : IDisposable
     public readonly record struct UpdateContext(
         CodeDrawWindow Win,
         WindowInput Input,
-        float DeltaSeconds,      // time since last update tick
+        float DeltaSeconds,
         long Tick
     );
 
@@ -135,7 +112,6 @@ public sealed unsafe class CodeDrawWindow : IDisposable
     private int _disposed;
     public bool IsDisposed => Volatile.Read(ref _disposed) != 0;
     private int _windowDestroyed; // 0 = not yet, 1 = done
-    public bool ShouldClose => _closing || IsDisposed;
 
     private CodeDrawLayer? _layer;
     public CodeDrawLayer? Layer => _layer;
@@ -153,34 +129,24 @@ public sealed unsafe class CodeDrawWindow : IDisposable
         }
     }
 
-    private bool _borderlessFullscreen;
-    public void SetBorderlessFullscreen(bool enabled)
+    private bool _maximizeBorderless;
+    public bool MaximizeBorderless
     {
-        _borderlessFullscreen = enabled;
-        _host.SetBorderlessFullscreenSafe(_win, enabled);
-    }
-
-    public void SetBorderlessFullscreen(bool enabled, int monitorIndex)
-    {
-        _borderlessFullscreen = enabled;
-        _host.SetBorderlessFullscreenSafe(_win, enabled, monitorIndex);
-    }
-
-    public bool BorderlessFullscreen
-    {
-        get => _borderlessFullscreen;
-        set => SetBorderlessFullscreen(value);
+        get => _maximizeBorderless;
+        set
+        {
+            _maximizeBorderless = value;
+            _host.SetMaximizeBorderlessSafe(_win, value);
+        }
     }
 
     public WindowInput Input { get; } = new();
 
-    // knobs (ms as requested)
     public int UpdateDelayMs { get; set; } = 16;
     public int PresentWaitTimeoutMs { get; set; } = 16;
 
     private volatile bool _keepLastFrameUntilReady = true;
 
-    // Single-subscriber hooks (properties overwrite previous)
     public Action<CodeDrawWindow>? OnStart { get; set; }
     public Action<UpdateContext>? OnUpdate { get; set; }
     public Action<CodeDrawWindow>? OnClose { get; set; }
@@ -193,6 +159,7 @@ public sealed unsafe class CodeDrawWindow : IDisposable
         _keepLastFrameUntilReady = keepLastFrameUntilReady;
     }
 
+    public bool ShouldClose => _closing || IsDisposed;
 
     public CodeDrawWindow(SharedGlfwHost host, int w, int h, string title)
     {
@@ -213,9 +180,7 @@ public sealed unsafe class CodeDrawWindow : IDisposable
     private void DestroyWindowOnce()
     {
         if (Interlocked.Exchange(ref _windowDestroyed, 1) != 0) return;
-
-        var win = _win;
-        _host.DestroyWindow(win); // host invokes this safely on UI thread
+        _host.DestroyWindow(_win);
     }
 
     public void Close()
@@ -296,21 +261,14 @@ public sealed unsafe class CodeDrawWindow : IDisposable
             var cb = OnUpdate;
             if (cb != null)
             {
-                try
-                {
-                    cb(new UpdateContext(this, Input, deltaSec, tick));
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"[OnUpdate error] {ex}");
-                }
+                try { cb(new UpdateContext(this, Input, deltaSec, tick)); }
+                catch (Exception ex) { Console.WriteLine($"[OnUpdate error] {ex}"); }
             }
 
             tick++;
 
             var elapsedMs = (int)((sw.ElapsedTicks - loopStartTicks) * 1000.0 / Stopwatch.Frequency);
-            var delay = UpdateDelayMs;
-            var sleepMs = delay - elapsedMs;
+            var sleepMs = UpdateDelayMs - elapsedMs;
             if (sleepMs > 0) Thread.Sleep(sleepMs);
             else Thread.Yield();
         }
@@ -342,7 +300,13 @@ public sealed unsafe class CodeDrawWindow : IDisposable
             while (!ShouldClose)
             {
                 glfw.GetFramebufferSize(_win, out var fbW, out var fbH);
-                if (fbW == 0 || fbH == 0) { glfw.SwapBuffers(_win); Thread.Sleep(16); continue; }
+
+                if (fbW == 0 || fbH == 0)
+                {
+                    glfw.SwapBuffers(_win);
+                    Thread.Sleep(16);
+                    continue;
+                }
 
                 gl.BindFramebuffer(GLEnum.Framebuffer, 0);
                 gl.Viewport(0, 0, (uint)fbW, (uint)fbH);

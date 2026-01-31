@@ -19,7 +19,6 @@ public sealed unsafe class SharedGlfwHost : IDisposable
     private readonly ConcurrentDictionary<nint, WindowCallbacks> _callbacks = new();
 
     public readonly record struct MouseMoveEvent(int WindowId, double X, double Y);
-
     public readonly record struct MouseButtonEvent(int WindowId, MouseButton Button, InputAction Action, KeyModifiers Mods);
     public readonly record struct MouseWheelEvent(int WindowId, double Dx, double Dy);
     public readonly record struct KeyEvent(int WindowId, Keys Key, int Scancode, InputAction Action, KeyModifiers Mods);
@@ -29,18 +28,11 @@ public sealed unsafe class SharedGlfwHost : IDisposable
     public readonly record struct MonitorInfo(
         nint GlfwHandle,
         string Name,
-        int X, int Y,
-        int Width, int Height,
+        int WorkX, int WorkY,
+        int WorkWidth, int WorkHeight,
         float ContentScaleX,
         float ContentScaleY,
         int RefreshRate
-    );
-
-    public readonly record struct WindowPlacement(
-        int X, int Y,
-        int Width, int Height,
-        bool BorderlessFullscreen,
-        int MonitorIndex
     );
 
     public static SharedGlfwHost Instance { get; } = new();
@@ -59,10 +51,10 @@ public sealed unsafe class SharedGlfwHost : IDisposable
 
     private int _nextWindowId;
     private readonly ConcurrentDictionary<nint, int> _winToId = new();
-
-    private readonly ConcurrentDictionary<int, (int x, int y, int w, int h, bool valid)> _restoreRects = new();
-
     private readonly ConcurrentDictionary<int, ConcurrentQueue<object>> _inputQueues = new();
+
+    // stores original rect while a window is "maximized borderless"
+    private readonly ConcurrentDictionary<int, (int x, int y, int w, int h, bool valid)> _restoreRects = new();
 
     private SharedGlfwHost() { }
 
@@ -157,49 +149,6 @@ public sealed unsafe class SharedGlfwHost : IDisposable
         return result;
     }
 
-    public WindowHandle* CreateWindow(WindowPlacement placement, string title)
-    {
-        WindowHandle* result = null;
-        InvokeUi(() =>
-        {
-            ApplyCommonHints(_glfw!);
-
-            if (placement.BorderlessFullscreen)
-            {
-                var mons = GetMonitorsInternal();
-                var mi = mons[placement.MonitorIndex];
-
-                _glfw!.WindowHint(WindowHintBool.Decorated, false);
-                _glfw.WindowHint(WindowHintBool.Resizable, false);
-
-                var w = placement.Width > 0 ? placement.Width : mi.Width;
-                var h = placement.Height > 0 ? placement.Height : mi.Height;
-
-                result = _glfw.CreateWindow(w, h, title, null, _shareRoot);
-                if (result == null) throw new Exception("CreateWindow failed");
-
-                _glfw.SetWindowPos(result, mi.X, mi.Y);
-            }
-            else
-            {
-                result = _glfw!.CreateWindow(placement.Width, placement.Height, title, null, _shareRoot);
-                if (result != null) _glfw.SetWindowPos(result, placement.X, placement.Y);
-            }
-
-            if (result == null) throw new Exception("CreateWindow failed");
-
-            var id = Interlocked.Increment(ref _nextWindowId);
-            _winToId[(nint)result] = id;
-            _inputQueues[id] = new ConcurrentQueue<object>();
-
-            RegisterInputCallbacks(result, id);
-
-            _glfw.MakeContextCurrent(result);
-            _glfw.MakeContextCurrent(null);
-        });
-        return result;
-    }
-
     public WindowHandle* CreateHiddenWindow(int w, int h, string title = "hidden")
     {
         WindowHandle* result = null;
@@ -236,6 +185,143 @@ public sealed unsafe class SharedGlfwHost : IDisposable
             _glfw.DestroyWindow(win);
         });
     }
+
+    // --------------------------
+    // MaximizeBorderless API
+    // --------------------------
+
+    public void SetMaximizeBorderlessSafe(WindowHandle* win, bool enabled)
+    {
+        InvokeUi(() =>
+        {
+            if (!IsWindowAlive(win)) return;
+            var mi = FindBestMonitorIndexForWindow_UIThreadUnsafe(win);
+            SetMaximizeBorderlessInternal_UIThreadUnsafe(win, enabled, mi);
+        });
+    }
+
+    public void SetMaximizeBorderlessSafe(WindowHandle* win, bool enabled, int monitorIndex)
+    {
+        InvokeUi(() =>
+        {
+            if (!IsWindowAlive(win)) return;
+            SetMaximizeBorderlessInternal_UIThreadUnsafe(win, enabled, monitorIndex);
+        });
+    }
+
+    private void SetMaximizeBorderlessInternal_UIThreadUnsafe(WindowHandle* win, bool enabled, int monitorIndex)
+    {
+        var glfw = _glfw!;
+        var mons = GetMonitorsInternal_UIThreadUnsafe(glfw);
+        if (mons.Count == 0) return;
+        if (monitorIndex < 0 || monitorIndex >= mons.Count) monitorIndex = 0;
+
+        var m = mons[monitorIndex];
+        var id = GetWindowId(win);
+
+        if (enabled)
+        {
+            if (!_restoreRects.TryGetValue(id, out var rr) || !rr.valid)
+            {
+                glfw.GetWindowPos(win, out var x, out var y);
+                glfw.GetWindowSize(win, out var w, out var h);
+                _restoreRects[id] = (x, y, w, h, true);
+            }
+
+            glfw.SetWindowAttrib(win, WindowAttributeSetter.Decorated, false);
+
+            // Stable: use WORKAREA
+            glfw.SetWindowPos(win, m.WorkX, m.WorkY);
+            glfw.SetWindowSize(win, m.WorkWidth, m.WorkHeight);
+            glfw.FocusWindow(win);
+        }
+        else
+        {
+            glfw.SetWindowAttrib(win, WindowAttributeSetter.Decorated, true);
+
+            if (_restoreRects.TryGetValue(id, out var rr) && rr.valid)
+            {
+                glfw.SetWindowPos(win, rr.x, rr.y);
+                glfw.SetWindowSize(win, rr.w, rr.h);
+            }
+
+            _restoreRects.TryRemove(id, out _);
+            glfw.FocusWindow(win);
+        }
+    }
+
+    private IReadOnlyList<MonitorInfo> GetMonitorsInternal_UIThreadUnsafe(Glfw glfw)
+    {
+        var monitors = new List<MonitorInfo>();
+        var monitorPointers = glfw.GetMonitors(out var count);
+        for (var i = 0; i < count; i++)
+        {
+            var mPtr = monitorPointers[i];
+            var name = glfw.GetMonitorName(mPtr) ?? "unknown";
+
+            var modePtr = glfw.GetVideoMode(mPtr);
+            var refreshRate = modePtr->RefreshRate;
+
+            // work area = stable
+            glfw.GetMonitorWorkarea(mPtr, out var wx, out var wy, out var ww, out var wh);
+
+            glfw.GetMonitorContentScale(mPtr, out var scaleX, out var scaleY);
+
+            monitors.Add(new MonitorInfo((nint)mPtr, name, wx, wy, ww, wh, scaleX, scaleY, refreshRate));
+        }
+        return monitors;
+    }
+
+    private int FindBestMonitorIndexForWindow_UIThreadUnsafe(WindowHandle* win)
+    {
+        // use window center against monitor workareas
+        _glfw!.GetWindowPos(win, out var wx, out var wy);
+        _glfw.GetWindowSize(win, out var ww, out var wh);
+
+        var cx = wx + ww / 2;
+        var cy = wy + wh / 2;
+
+        var mons = GetMonitorsInternal_UIThreadUnsafe(_glfw!);
+        if (mons.Count == 0) return 0;
+
+        for (int i = 0; i < mons.Count; i++)
+        {
+            var m = mons[i];
+            if (cx >= m.WorkX && cx < m.WorkX + m.WorkWidth &&
+                cy >= m.WorkY && cy < m.WorkY + m.WorkHeight)
+                return i;
+        }
+
+        long bestArea = -1;
+        int best = 0;
+
+        int x1 = wx, y1 = wy, x2 = wx + ww, y2 = wy + wh;
+
+        for (int i = 0; i < mons.Count; i++)
+        {
+            var m = mons[i];
+            int mx1 = m.WorkX, my1 = m.WorkY, mx2 = m.WorkX + m.WorkWidth, my2 = m.WorkY + m.WorkHeight;
+
+            int ix1 = Math.Max(x1, mx1);
+            int iy1 = Math.Max(y1, my1);
+            int ix2 = Math.Min(x2, mx2);
+            int iy2 = Math.Min(y2, my2);
+
+            int iw = Math.Max(0, ix2 - ix1);
+            int ih = Math.Max(0, iy2 - iy1);
+
+            long area = (long)iw * ih;
+            if (area > bestArea)
+            {
+                bestArea = area;
+                best = i;
+            }
+        }
+
+        return best;
+    }
+
+    // --------------------------
 
     private void UiThreadMain()
     {
@@ -302,36 +388,6 @@ public sealed unsafe class SharedGlfwHost : IDisposable
         glfw.WindowHint(WindowHintBool.Visible, true);
     }
 
-    public IReadOnlyList<MonitorInfo> GetMonitorsSafe()
-    {
-        IReadOnlyList<MonitorInfo>? result = null;
-        InvokeUi(() => { result = GetMonitorsInternal(); });
-        return result!;
-    }
-
-    private IReadOnlyList<MonitorInfo> GetMonitorsInternal()
-    {
-        var monitors = new List<MonitorInfo>();
-        var monitorPointers = _glfw!.GetMonitors(out var count);
-        for (var i = 0; i < count; i++)
-        {
-            var mPtr = monitorPointers[i];
-            var name = _glfw.GetMonitorName(mPtr) ?? "unknown";
-
-            _glfw.GetMonitorPos(mPtr, out var mx, out var my);
-
-            var modePtr = _glfw.GetVideoMode(mPtr);
-            var width = modePtr->Width;
-            var height = modePtr->Height;
-            var refreshRate = modePtr->RefreshRate;
-
-            _glfw.GetMonitorContentScale(mPtr, out var scaleX, out var scaleY);
-
-            monitors.Add(new MonitorInfo((nint)mPtr, name, mx, my, width, height, scaleX, scaleY, refreshRate));
-        }
-        return monitors;
-    }
-
     private void RegisterInputCallbacks(WindowHandle* win, int id)
     {
         var cbs = new WindowCallbacks
@@ -357,79 +413,12 @@ public sealed unsafe class SharedGlfwHost : IDisposable
         _glfw.SetCharCallback(win, cbs.Char);
         _glfw.SetWindowCloseCallback(win, cbs.Close);
 
-        return;
-
         void Enq(object e)
         {
             if (_inputQueues.TryGetValue(id, out var q))
                 q.Enqueue(e);
         }
     }
-
-    public void SetBorderlessFullscreenSafe(WindowHandle* win, bool enabled)
-    {
-        InvokeUi(() =>
-        {
-            var mi = FindBestMonitorIndexForWindow(win);
-            SetBorderlessFullscreenInternal(win, enabled, mi);
-        });
-    }
-
-    public void SetBorderlessFullscreenSafe(WindowHandle* win, bool enabled, int monitorIndex)
-    {
-        InvokeUi(() =>
-        {
-            var mons = GetMonitorsInternal();
-            if (mons.Count == 0) return;
-            if (monitorIndex < 0 || monitorIndex >= mons.Count) monitorIndex = 0;
-
-            SetBorderlessFullscreenInternal(win, enabled, monitorIndex);
-        });
-    }
-
-    private void SetBorderlessFullscreenInternal(WindowHandle* win, bool enabled, int monitorIndex)
-    {
-        var glfw = _glfw!;
-        var mons = GetMonitorsInternal();
-        var m = mons[monitorIndex];
-
-        var id = GetWindowId(win);
-
-        if (enabled)
-        {
-            if (!_restoreRects.TryGetValue(id, out var rr) || !rr.valid)
-            {
-                glfw.GetWindowPos(win, out var x, out var y);
-                glfw.GetWindowSize(win, out var w, out var h);
-                _restoreRects[id] = (x, y, w, h, true);
-            }
-
-            glfw.SetWindowAttrib(win, WindowAttributeSetter.Decorated, false);
-            glfw.SetWindowAttrib(win, WindowAttributeSetter.Resizable, false);
-
-            glfw.SetWindowPos(win, m.X, m.Y);
-            glfw.SetWindowSize(win, m.Width, m.Height);
-        }
-        else
-        {
-            glfw.SetWindowAttrib(win, WindowAttributeSetter.Decorated, true);
-            glfw.SetWindowAttrib(win, WindowAttributeSetter.Resizable, true);
-
-            if (_restoreRects.TryGetValue(id, out var rr) && rr.valid)
-            {
-                glfw.SetWindowPos(win, rr.x, rr.y);
-                glfw.SetWindowSize(win, rr.w, rr.h);
-            }
-            else
-            {
-                glfw.SetWindowSize(win, 800, 450);
-                glfw.SetWindowPos(win, 100, 100);
-            }
-
-            _restoreRects.TryRemove(id, out _);
-        }
-    }
-
 
     private void InvokeUi(Action action)
     {
@@ -445,57 +434,5 @@ public sealed unsafe class SharedGlfwHost : IDisposable
         });
 
         tcs.Task.GetAwaiter().GetResult();
-    }
-
-    private int FindBestMonitorIndexForWindow(WindowHandle* win)
-    {
-        // Must be called on UI thread (we call it inside InvokeUi)
-        _glfw!.GetWindowPos(win, out var wx, out var wy);
-        _glfw.GetWindowSize(win, out var ww, out var wh);
-
-        // use center point
-        var cx = wx + ww / 2;
-        var cy = wy + wh / 2;
-
-        var mons = GetMonitorsInternal();
-        if (mons.Count == 0) return 0;
-
-        // 1) if center inside a monitor => pick it
-        for (int i = 0; i < mons.Count; i++)
-        {
-            var m = mons[i];
-            if (cx >= m.X && cx < m.X + m.Width &&
-                cy >= m.Y && cy < m.Y + m.Height)
-                return i;
-        }
-
-        // 2) else pick monitor with max intersection area
-        long bestArea = -1;
-        int best = 0;
-
-        int x1 = wx, y1 = wy, x2 = wx + ww, y2 = wy + wh;
-
-        for (int i = 0; i < mons.Count; i++)
-        {
-            var m = mons[i];
-            int mx1 = m.X, my1 = m.Y, mx2 = m.X + m.Width, my2 = m.Y + m.Height;
-
-            int ix1 = Math.Max(x1, mx1);
-            int iy1 = Math.Max(y1, my1);
-            int ix2 = Math.Min(x2, mx2);
-            int iy2 = Math.Min(y2, my2);
-
-            int iw = Math.Max(0, ix2 - ix1);
-            int ih = Math.Max(0, iy2 - iy1);
-
-            long area = (long)iw * ih;
-            if (area > bestArea)
-            {
-                bestArea = area;
-                best = i;
-            }
-        }
-
-        return best;
     }
 }

@@ -39,6 +39,12 @@ public sealed class Prototype1Session : IDisposable
             layer.DrawLayer(_overlay);
 
             layer.Render();
+
+            // if (ctx.Win.Input.GetKeyDown(Keys.F))  // DON'T use this. its bugged
+            // {
+                // ctx.Win.BorderlessFullscreen = !ctx.Win.BorderlessFullscreen;
+                // Console.WriteLine($"Borderless Fullscreen: {ctx.Win.BorderlessFullscreen}");
+            // }
         };
 
         _winB.UpdateDelayMs = 33;
@@ -53,6 +59,10 @@ public sealed class Prototype1Session : IDisposable
             _overlay.Render();
         };
 
+    }
+
+    public void WaitForClose()
+    {
         _winA.WaitForClose();
         _winB.WaitForClose();
     }

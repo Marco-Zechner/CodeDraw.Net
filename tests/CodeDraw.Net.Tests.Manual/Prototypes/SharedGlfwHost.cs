@@ -6,11 +6,25 @@ namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes;
 
 public sealed unsafe class SharedGlfwHost : IDisposable
 {
+    private sealed class WindowCallbacks
+    {
+        public GlfwCallbacks.CursorPosCallback? CursorPos;
+        public GlfwCallbacks.MouseButtonCallback? MouseButton;
+        public GlfwCallbacks.ScrollCallback? Scroll;
+        public GlfwCallbacks.KeyCallback? Key;
+        public GlfwCallbacks.CharCallback? Char;
+        public GlfwCallbacks.WindowCloseCallback? Close;
+    }
+
+    private readonly ConcurrentDictionary<nint, WindowCallbacks> _callbacks = new();
+
     public readonly record struct MouseMoveEvent(int WindowId, double X, double Y);
+
     public readonly record struct MouseButtonEvent(int WindowId, MouseButton Button, InputAction Action, KeyModifiers Mods);
     public readonly record struct MouseWheelEvent(int WindowId, double Dx, double Dy);
     public readonly record struct KeyEvent(int WindowId, Keys Key, int Scancode, InputAction Action, KeyModifiers Mods);
     public readonly record struct CharEvent(int WindowId, uint Codepoint);
+    public readonly record struct WindowCloseRequestedEvent(int WindowId);
 
     public readonly record struct MonitorInfo(
         nint GlfwHandle,
@@ -46,10 +60,14 @@ public sealed unsafe class SharedGlfwHost : IDisposable
     private int _nextWindowId;
     private readonly ConcurrentDictionary<nint, int> _winToId = new();
 
-    // NEW: per-window input queues (windowId -> queue)
+    private readonly ConcurrentDictionary<int, (int x, int y, int w, int h, bool valid)> _restoreRects = new();
+
     private readonly ConcurrentDictionary<int, ConcurrentQueue<object>> _inputQueues = new();
 
     private SharedGlfwHost() { }
+
+    internal bool IsWindowAlive(WindowHandle* win)
+        => win != null && _winToId.ContainsKey((nint)win);
 
     public void Start()
     {
@@ -65,6 +83,10 @@ public sealed unsafe class SharedGlfwHost : IDisposable
     public void Stop()
     {
         if (!_running) return;
+
+        if (!_winToId.IsEmpty)
+            Console.WriteLine($"[Host] Stop called with {_winToId.Count} windows still alive.");
+
         EnqueueUi(() => _running = false);
         _uiThread?.Join();
         _uiThread = null;
@@ -94,9 +116,7 @@ public sealed unsafe class SharedGlfwHost : IDisposable
     public WindowHandle* CreateWindow(int w, int h, string title)
     {
         WindowHandle* result = null;
-        using var done = new AutoResetEvent(false);
-
-        EnqueueUi(() =>
+        InvokeUi(() =>
         {
             ApplyCommonHints(_glfw!);
             result = _glfw!.CreateWindow(w, h, title, null, _shareRoot);
@@ -110,20 +130,14 @@ public sealed unsafe class SharedGlfwHost : IDisposable
 
             _glfw.MakeContextCurrent(result);
             _glfw.MakeContextCurrent(null);
-
-            done.Set();
         });
-
-        done.WaitOne();
         return result;
     }
 
     public WindowHandle* CreateWindow(int x, int y, int w, int h, string title)
     {
         WindowHandle* result = null;
-        using var done = new AutoResetEvent(false);
-
-        EnqueueUi(() =>
+        InvokeUi(() =>
         {
             ApplyCommonHints(_glfw!);
             result = _glfw!.CreateWindow(w, h, title, null, _shareRoot);
@@ -139,20 +153,14 @@ public sealed unsafe class SharedGlfwHost : IDisposable
 
             _glfw.MakeContextCurrent(result);
             _glfw.MakeContextCurrent(null);
-
-            done.Set();
         });
-
-        done.WaitOne();
         return result;
     }
 
     public WindowHandle* CreateWindow(WindowPlacement placement, string title)
     {
         WindowHandle* result = null;
-        using var done = new AutoResetEvent(false);
-
-        EnqueueUi(() =>
+        InvokeUi(() =>
         {
             ApplyCommonHints(_glfw!);
 
@@ -188,20 +196,14 @@ public sealed unsafe class SharedGlfwHost : IDisposable
 
             _glfw.MakeContextCurrent(result);
             _glfw.MakeContextCurrent(null);
-
-            done.Set();
         });
-
-        done.WaitOne();
         return result;
     }
 
     public WindowHandle* CreateHiddenWindow(int w, int h, string title = "hidden")
     {
         WindowHandle* result = null;
-        using var done = new AutoResetEvent(false);
-
-        EnqueueUi(() =>
+        InvokeUi(() =>
         {
             ApplyCommonHints(_glfw!);
             _glfw!.WindowHint(WindowHintBool.Visible, false);
@@ -213,21 +215,22 @@ public sealed unsafe class SharedGlfwHost : IDisposable
 
             _glfw.MakeContextCurrent(result);
             _glfw.MakeContextCurrent(null);
-
-            done.Set();
         });
-
-        done.WaitOne();
         return result;
     }
 
     public void DestroyWindow(WindowHandle* win)
     {
         if (win == null) return;
-        EnqueueUi(() =>
+        InvokeUi(() =>
         {
+            _callbacks.TryRemove((nint)win, out _);
+
             if (_winToId.TryRemove((nint)win, out var id))
+            {
                 _inputQueues.TryRemove(id, out _);
+                _restoreRects.TryRemove(id, out _);
+            }
 
             _glfw!.MakeContextCurrent(null);
             _glfw.DestroyWindow(win);
@@ -302,19 +305,17 @@ public sealed unsafe class SharedGlfwHost : IDisposable
     public IReadOnlyList<MonitorInfo> GetMonitorsSafe()
     {
         IReadOnlyList<MonitorInfo>? result = null;
-        using var done = new AutoResetEvent(false);
-        EnqueueUi(() => { result = GetMonitorsInternal(); done.Set(); });
-        done.WaitOne();
+        InvokeUi(() => { result = GetMonitorsInternal(); });
         return result!;
     }
 
     private IReadOnlyList<MonitorInfo> GetMonitorsInternal()
     {
         var monitors = new List<MonitorInfo>();
-        var monitorPtrs = _glfw!.GetMonitors(out var count);
+        var monitorPointers = _glfw!.GetMonitors(out var count);
         for (var i = 0; i < count; i++)
         {
-            var mPtr = monitorPtrs[i];
+            var mPtr = monitorPointers[i];
             var name = _glfw.GetMonitorName(mPtr) ?? "unknown";
 
             _glfw.GetMonitorPos(mPtr, out var mx, out var my);
@@ -333,11 +334,29 @@ public sealed unsafe class SharedGlfwHost : IDisposable
 
     private void RegisterInputCallbacks(WindowHandle* win, int id)
     {
-        _glfw!.SetCursorPosCallback(win, (w, x, y) => Enq(new MouseMoveEvent(id, x, y)));
-        _glfw.SetMouseButtonCallback(win, (w, button, action, mods) => Enq(new MouseButtonEvent(id, button, action, mods)));
-        _glfw.SetScrollCallback(win, (w, dx, dy) => Enq(new MouseWheelEvent(id, dx, dy)));
-        _glfw.SetKeyCallback(win, (w, key, scancode, action, mods) => Enq(new KeyEvent(id, key, scancode, action, mods)));
-        _glfw.SetCharCallback(win, (w, codepoint) => Enq(new CharEvent(id, codepoint)));
+        var cbs = new WindowCallbacks
+        {
+            CursorPos = (w, x, y) => Enq(new MouseMoveEvent(id, x, y)),
+            MouseButton = (w, button, action, mods) => Enq(new MouseButtonEvent(id, button, action, mods)),
+            Scroll = (w, dx, dy) => Enq(new MouseWheelEvent(id, dx, dy)),
+            Key = (w, key, scancode, action, mods) => Enq(new KeyEvent(id, key, scancode, action, mods)),
+            Char = (w, codepoint) => Enq(new CharEvent(id, codepoint)),
+            Close = (w) =>
+            {
+                if (_winToId.TryGetValue((nint)w, out var wid))
+                    Enq(new WindowCloseRequestedEvent(wid));
+            }
+        };
+
+        _callbacks[(nint)win] = cbs;
+
+        _glfw!.SetCursorPosCallback(win, cbs.CursorPos);
+        _glfw.SetMouseButtonCallback(win, cbs.MouseButton);
+        _glfw.SetScrollCallback(win, cbs.Scroll);
+        _glfw.SetKeyCallback(win, cbs.Key);
+        _glfw.SetCharCallback(win, cbs.Char);
+        _glfw.SetWindowCloseCallback(win, cbs.Close);
+
         return;
 
         void Enq(object e)
@@ -345,5 +364,138 @@ public sealed unsafe class SharedGlfwHost : IDisposable
             if (_inputQueues.TryGetValue(id, out var q))
                 q.Enqueue(e);
         }
+    }
+
+    public void SetBorderlessFullscreenSafe(WindowHandle* win, bool enabled)
+    {
+        InvokeUi(() =>
+        {
+            var mi = FindBestMonitorIndexForWindow(win);
+            SetBorderlessFullscreenInternal(win, enabled, mi);
+        });
+    }
+
+    public void SetBorderlessFullscreenSafe(WindowHandle* win, bool enabled, int monitorIndex)
+    {
+        InvokeUi(() =>
+        {
+            var mons = GetMonitorsInternal();
+            if (mons.Count == 0) return;
+            if (monitorIndex < 0 || monitorIndex >= mons.Count) monitorIndex = 0;
+
+            SetBorderlessFullscreenInternal(win, enabled, monitorIndex);
+        });
+    }
+
+    private void SetBorderlessFullscreenInternal(WindowHandle* win, bool enabled, int monitorIndex)
+    {
+        var glfw = _glfw!;
+        var mons = GetMonitorsInternal();
+        var m = mons[monitorIndex];
+
+        var id = GetWindowId(win);
+
+        if (enabled)
+        {
+            if (!_restoreRects.TryGetValue(id, out var rr) || !rr.valid)
+            {
+                glfw.GetWindowPos(win, out var x, out var y);
+                glfw.GetWindowSize(win, out var w, out var h);
+                _restoreRects[id] = (x, y, w, h, true);
+            }
+
+            glfw.SetWindowAttrib(win, WindowAttributeSetter.Decorated, false);
+            glfw.SetWindowAttrib(win, WindowAttributeSetter.Resizable, false);
+
+            glfw.SetWindowPos(win, m.X, m.Y);
+            glfw.SetWindowSize(win, m.Width, m.Height);
+        }
+        else
+        {
+            glfw.SetWindowAttrib(win, WindowAttributeSetter.Decorated, true);
+            glfw.SetWindowAttrib(win, WindowAttributeSetter.Resizable, true);
+
+            if (_restoreRects.TryGetValue(id, out var rr) && rr.valid)
+            {
+                glfw.SetWindowPos(win, rr.x, rr.y);
+                glfw.SetWindowSize(win, rr.w, rr.h);
+            }
+            else
+            {
+                glfw.SetWindowSize(win, 800, 450);
+                glfw.SetWindowPos(win, 100, 100);
+            }
+
+            _restoreRects.TryRemove(id, out _);
+        }
+    }
+
+
+    private void InvokeUi(Action action)
+    {
+        if (!_running) throw new InvalidOperationException("Host is not running.");
+
+        var tcs = new TaskCompletionSource<object?>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        EnqueueUi(() =>
+        {
+            try { action(); tcs.TrySetResult(null); }
+            catch (Exception ex) { tcs.TrySetException(ex); }
+        });
+
+        tcs.Task.GetAwaiter().GetResult();
+    }
+
+    private int FindBestMonitorIndexForWindow(WindowHandle* win)
+    {
+        // Must be called on UI thread (we call it inside InvokeUi)
+        _glfw!.GetWindowPos(win, out var wx, out var wy);
+        _glfw.GetWindowSize(win, out var ww, out var wh);
+
+        // use center point
+        var cx = wx + ww / 2;
+        var cy = wy + wh / 2;
+
+        var mons = GetMonitorsInternal();
+        if (mons.Count == 0) return 0;
+
+        // 1) if center inside a monitor => pick it
+        for (int i = 0; i < mons.Count; i++)
+        {
+            var m = mons[i];
+            if (cx >= m.X && cx < m.X + m.Width &&
+                cy >= m.Y && cy < m.Y + m.Height)
+                return i;
+        }
+
+        // 2) else pick monitor with max intersection area
+        long bestArea = -1;
+        int best = 0;
+
+        int x1 = wx, y1 = wy, x2 = wx + ww, y2 = wy + wh;
+
+        for (int i = 0; i < mons.Count; i++)
+        {
+            var m = mons[i];
+            int mx1 = m.X, my1 = m.Y, mx2 = m.X + m.Width, my2 = m.Y + m.Height;
+
+            int ix1 = Math.Max(x1, mx1);
+            int iy1 = Math.Max(y1, my1);
+            int ix2 = Math.Min(x2, mx2);
+            int iy2 = Math.Min(y2, my2);
+
+            int iw = Math.Max(0, ix2 - ix1);
+            int ih = Math.Max(0, iy2 - iy1);
+
+            long area = (long)iw * ih;
+            if (area > bestArea)
+            {
+                bestArea = area;
+                best = i;
+            }
+        }
+
+        return best;
     }
 }

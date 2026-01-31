@@ -205,11 +205,9 @@ public sealed unsafe class CodeDrawLayer : IDisposable
     public void Dispose()
     {
         if (_disposed) return;
-        _disposed = true;
-
         _published.Set();
-
         Render();
+        _disposed = true;
 
         var glfw = _host.Glfw;
         glfw.MakeContextCurrent(_ctxWin);
@@ -411,7 +409,6 @@ public sealed unsafe class CodeDrawLayer : IDisposable
         var next = Interlocked.Increment(ref _frameSeq);
         Volatile.Write(ref _pub.Seq, next);
 
-        // NEW: wake presenters waiting for a new publish
         _published.Set();
 
         _gl.BindFramebuffer(GLEnum.Framebuffer, 0);

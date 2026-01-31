@@ -28,7 +28,6 @@ public sealed unsafe class CodeDrawWindow : IDisposable
         public double WheelDx { get; private set; }
         public double WheelDy { get; private set; }
 
-        // Renamed to match your preference (Unity-ish, but not identical naming)
         public bool GetKey(Keys k) => _keysHeld.Contains(k);
         public bool GetKeyDown(Keys k) => _keysDown.Contains(k);
         public bool GetKeyUp(Keys k) => _keysUp.Contains(k);
@@ -46,7 +45,6 @@ public sealed unsafe class CodeDrawWindow : IDisposable
             WheelDx = 0;
             WheelDy = 0;
 
-            // clear edges for this tick
             _keysDown.Clear();
             _keysUp.Clear();
             _mouseDown.Clear();
@@ -77,17 +75,15 @@ public sealed unsafe class CodeDrawWindow : IDisposable
                             if (_mouseHeld.Add(mb.Button))
                                 _mouseDown.Add(mb.Button);
                             else
-                                _mouseDown.Add(mb.Button); // still treat as down-edge if repeated press arrives
+                                _mouseDown.Add(mb.Button);
                             break;
 
                         case InputAction.Release:
                             if (_mouseHeld.Remove(mb.Button))
                                 _mouseUp.Add(mb.Button);
                             else
-                                _mouseUp.Add(mb.Button); // release even if we missed the press (best effort)
+                                _mouseUp.Add(mb.Button);
                             break;
-
-                        // Repeat does not happen for mouse buttons in GLFW
                     }
                     break;
                 }
@@ -102,26 +98,22 @@ public sealed unsafe class CodeDrawWindow : IDisposable
                             if (_keysHeld.Add(ke.Key))
                                 _keysDown.Add(ke.Key);
                             else
-                                _keysDown.Add(ke.Key); // if GLFW sends a duplicate press, still surface it
+                                _keysDown.Add(ke.Key);
                             break;
 
                         case InputAction.Release:
                             if (_keysHeld.Remove(ke.Key))
                                 _keysUp.Add(ke.Key);
                             else
-                                _keysUp.Add(ke.Key); // key-up even if state was desynced
+                                _keysUp.Add(ke.Key);
                             break;
 
                         case InputAction.Repeat:
-                            // Unity-style: repeat is "still held" but not a down-edge.
-                            // If you ever want it: add _keysRepeat HashSet and expose GetKeyRepeat().
                             _keysHeld.Add(ke.Key);
                             break;
                     }
                     break;
                 }
-
-                // CharEvent: consider buffering a per-frame string builder later (text input)
             }
         }
     }
@@ -136,12 +128,12 @@ public sealed unsafe class CodeDrawWindow : IDisposable
     private readonly SharedGlfwHost _host;
     private readonly WindowHandle* _win;
 
-    private readonly Thread _presentThread;
-    private readonly Thread _updateThread;
+    private Thread? _presentThread;
+    private Thread? _updateThread;
 
     private volatile bool _closing;
-    private volatile bool _disposed;
-    public bool IsDisposed => _disposed;
+    private int _disposed;
+    public bool IsDisposed => Volatile.Read(ref _disposed) != 0;
 
     private CodeDrawLayer? _layer;
     public CodeDrawLayer? Layer => _layer;
@@ -157,6 +149,25 @@ public sealed unsafe class CodeDrawWindow : IDisposable
             _title = value;
             _host.EnqueueUi(() => _host.Glfw.SetWindowTitle(_win, _title));
         }
+    }
+
+    private bool _borderlessFullscreen;
+    public void SetBorderlessFullscreen(bool enabled)
+    {
+        _borderlessFullscreen = enabled;
+        _host.SetBorderlessFullscreenSafe(_win, enabled);
+    }
+
+    public void SetBorderlessFullscreen(bool enabled, int monitorIndex)
+    {
+        _borderlessFullscreen = enabled;
+        _host.SetBorderlessFullscreenSafe(_win, enabled, monitorIndex);
+    }
+
+    public bool BorderlessFullscreen
+    {
+        get => _borderlessFullscreen;
+        set => SetBorderlessFullscreen(value);
     }
 
     public WindowInput Input { get; } = new();
@@ -180,7 +191,7 @@ public sealed unsafe class CodeDrawWindow : IDisposable
         _keepLastFrameUntilReady = keepLastFrameUntilReady;
     }
 
-    public bool ShouldClose => _closing || _host.Glfw.WindowShouldClose(_win);
+    public bool ShouldClose => _closing || IsDisposed;
 
     public CodeDrawWindow(SharedGlfwHost host, int w, int h, string title)
     {
@@ -192,7 +203,7 @@ public sealed unsafe class CodeDrawWindow : IDisposable
         _layer = new CodeDrawLayer(host, w, h);
 
         _presentThread = new Thread(PresentLoop) { IsBackground = true, Name = $"Presenter:{_title}" };
-        _updateThread = new Thread(UpdateLoop) { IsBackground = true, Name = $"Update:{_title}" };
+        _updateThread  = new Thread(UpdateLoop)  { IsBackground = true, Name = $"Update:{_title}" };
 
         _presentThread.Start();
         _updateThread.Start();
@@ -200,37 +211,62 @@ public sealed unsafe class CodeDrawWindow : IDisposable
 
     public void Close()
     {
-        if (_closing) return;
+        if (_closing || IsDisposed) return;
         _closing = true;
+
+        var win = _win;
         _host.EnqueueUi(() =>
         {
-            if (!_host.Glfw.WindowShouldClose(_win))
-                _host.Glfw.SetWindowShouldClose(_win, true);
+            if (!_host.IsWindowAlive(win)) return;
+            _host.Glfw.SetWindowShouldClose(win, true);
         });
     }
 
     public void WaitForClose()
     {
-        _presentThread.Join();
-        _updateThread.Join();
+        var p = Interlocked.Exchange(ref _presentThread, null);
+        var u = Interlocked.Exchange(ref _updateThread, null);
+
+        if (p is { IsAlive: true }) p.Join();
+        if (u is { IsAlive: true }) u.Join();
     }
 
     public void Dispose()
     {
-        if (_disposed) return;
-        _disposed = true;
+        if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
 
-        Close();
+        _closing = true;
+        var win = _win;
+
+        _host.EnqueueUi(() =>
+        {
+            if (!_host.IsWindowAlive(win)) return;
+            _host.Glfw.SetWindowShouldClose(win, true);
+        });
+
         WaitForClose();
+
+        _host.DestroyWindow(win);
 
         _layer?.Dispose();
         _layer = null;
     }
 
+    private void HandleEvent(object evt)
+    {
+        if (evt is SharedGlfwHost.WindowCloseRequestedEvent cl && cl.WindowId == WindowId)
+        {
+            _closing = true;
+            return;
+        }
+
+        Input.Apply(evt);
+    }
+
     private void UpdateLoop()
     {
         var sw = Stopwatch.StartNew();
-        long lastTicks = sw.ElapsedTicks;
+        var lastTicks = sw.ElapsedTicks;
         long tick = 0;
 
         while (!ShouldClose)
@@ -239,11 +275,9 @@ public sealed unsafe class CodeDrawWindow : IDisposable
             var deltaSec = (float)((loopStartTicks - lastTicks) / (double)Stopwatch.Frequency);
             lastTicks = loopStartTicks;
 
-            // Drain input belonging to THIS window only
             Input.BeginUpdateFrame();
-            _host.DrainWindowInput(WindowId, Input.Apply);
+            _host.DrainWindowInput(WindowId, HandleEvent);
 
-            // Fire OnStart once, but lazily (so you can assign after ctor)
             if (!_startFired && OnStart != null)
             {
                 _startFired = true;
@@ -318,7 +352,6 @@ public sealed unsafe class CodeDrawWindow : IDisposable
                 if (!keepLast) lastTex = 0;
             }
 
-            // NEW: wait for publish instead of spinning
             if (layer is { IsDisposed: false })
             {
                 layer.WaitForPublish(PresentWaitTimeoutMs);
@@ -362,7 +395,6 @@ public sealed unsafe class CodeDrawWindow : IDisposable
         gl.DeleteBuffer(vbo);
         gl.DeleteBuffer(ebo);
 
-        _host.DestroyWindow(_win);
         glfw.MakeContextCurrent(null);
     }
 }

@@ -5,21 +5,14 @@ using Monitor = System.Threading.Monitor;
 
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes;
 
-/// Minimal layer with the semantics:
-/// - Clear() affects the NEXT Render() (explicit).
-/// - Render() blocks until the CPU has submitted the frame AND inserted a fence.
-/// - If you don't Clear(), the next Render draws on top of the previous published image (front->back copy).
-/// Backend:
-/// - Double buffer (front/back).
-/// - Presenter only polls fences; fence deletion happens in the layer's own context (safe).
 public sealed unsafe class CodeDrawLayer : IDisposable
 {
     public enum BlendMode
     {
         ALPHA,      // SrcAlpha, OneMinusSrcAlpha
         ADD,        // One, One
-        MULTIPLY,   // DstColor, Zero  (common quick multiply)
-        NONE,        // Disable blending
+        MULTIPLY,   // DstColor, Zero
+        NONE,       // Disable blending
     }
 
     private void ApplyBlendMode()
@@ -97,16 +90,16 @@ public sealed unsafe class CodeDrawLayer : IDisposable
     {
         public uint Tex;
         public uint Fbo;
-        public nint Fence; // GLsync for when this buffer was published as front
+        public nint Fence;
         public int W, H;
     }
 
     private struct Publication
     {
-        public int FrontIndex; // 0/1
-        public nint Fence;     // fence for current front (may be 0 if already retired)
+        public int FrontIndex;
+        public nint Fence;
         public int W, H;
-        public long Seq;       // written last
+        public long Seq;
     }
 
     private interface ICmd { void Exec(GL gl, CodeDrawLayer self); }
@@ -114,30 +107,18 @@ public sealed unsafe class CodeDrawLayer : IDisposable
     private sealed class CmdSetBlendMode : ICmd
     {
         public BlendMode Mode;
-        public void Exec(GL gl, CodeDrawLayer self)
-        {
-            self._blendMode = Mode;
-            self.ApplyBlendMode();
-        }
+        public void Exec(GL gl, CodeDrawLayer self) { self._blendMode = Mode; self.ApplyBlendMode(); }
     }
 
     private sealed class CmdSetBlitShader : ICmd
     {
         public CodeDrawShader? Shader;
-        public void Exec(GL gl, CodeDrawLayer self)
-        {
-            // null => default layer shader
-            self._customBlitShader = Shader is { IsDisposed: false } ? Shader : null;
-        }
+        public void Exec(GL gl, CodeDrawLayer self) => self._customBlitShader = Shader is { IsDisposed: false } ? Shader : null;
     }
 
     private sealed class CmdClear(float r, float g, float b, float a) : ICmd
     {
-        public void Exec(GL gl, CodeDrawLayer self)
-        {
-            self._clearColor = (r, g, b, a);
-            self._clearRequested = true;
-        }
+        public void Exec(GL gl, CodeDrawLayer self) { self._clearColor = (r, g, b, a); self._clearRequested = true; }
     }
 
     private sealed class CmdRect : ICmd
@@ -158,10 +139,9 @@ public sealed unsafe class CodeDrawLayer : IDisposable
         }
     }
 
-    private sealed class CmdResize : ICmd
+    private sealed class CmdResize(int w, int h) : ICmd
     {
-        public readonly int W, H;
-        public CmdResize(int w, int h) { W = w; H = h; }
+        public readonly int W = w, H = h;
         public void Exec(GL gl, CodeDrawLayer self) => self.ResizeInternal(W, H);
     }
 
@@ -173,7 +153,7 @@ public sealed unsafe class CodeDrawLayer : IDisposable
     private readonly GL _gl;
 
     private readonly Buffer[] _buf = new Buffer[2];
-    private int _front = 0;
+    private int _front;
     private int Back => 1 - _front;
 
     private Publication _pub;
@@ -181,24 +161,19 @@ public sealed unsafe class CodeDrawLayer : IDisposable
 
     private volatile bool _disposed;
 
-    // Commands + cut-line
     private readonly ConcurrentQueue<(long seq, ICmd cmd)> _q = new();
     private long _nextCmdSeq;
     private long _lastEnqueuedSeq;
     private long _lastRenderedCmdSeq;
 
-    // Render exclusion
     private readonly object _renderLock = new();
     private bool _rendering;
 
-    // Fence retirement requests from presenters
     private readonly ConcurrentQueue<nint> _retireFences = new();
 
-    // Layer semantics
     private bool _clearRequested = true;
     private (float r, float g, float b, float a) _clearColor = (0f, 0f, 0f, 0f);
 
-    // GL resources
     private bool _inited;
     private uint _vao, _vbo, _ebo;
     private uint _progRect, _progBlit;
@@ -206,6 +181,8 @@ public sealed unsafe class CodeDrawLayer : IDisposable
     private int _uBlitTex;
 
     private int _w, _h;
+
+    private readonly AutoResetEvent _published = new(false);
 
     public bool IsDisposed => _disposed;
 
@@ -230,12 +207,13 @@ public sealed unsafe class CodeDrawLayer : IDisposable
         if (_disposed) return;
         _disposed = true;
 
-        Render(); // finish any work
+        _published.Set();
+
+        Render();
 
         var glfw = _host.Glfw;
         glfw.MakeContextCurrent(_ctxWin);
 
-        // delete fences/textures/fbos
         for (var i = 0; i < 2; i++)
         {
             if (_buf[i].Fence != 0) _gl.DeleteSync(_buf[i].Fence);
@@ -257,16 +235,13 @@ public sealed unsafe class CodeDrawLayer : IDisposable
     // --------- Public API ---------
 
     public void SetBlendMode(BlendMode mode) => Enqueue(new CmdSetBlendMode { Mode = mode });
-
     public void SetLayerBlitShader(CodeDrawShader? shader) => Enqueue(new CmdSetBlitShader { Shader = shader });
-
-    public void Clear(float r = 0f, float g = 0, float b = 0f, float a = 0f) => Enqueue(new CmdClear(r,g,b,a));
+    public void Clear(float r = 0f, float g = 0, float b = 0f, float a = 0f) => Enqueue(new CmdClear(r, g, b, a));
 
     public void DrawRect(float x, float y, float w, float h, float r, float g, float b, float a)
         => Enqueue(new CmdRect { X = x, Y = y, W = w, H = h, R = r, G = g, B = b, A = a });
 
-    public void DrawLayer(CodeDrawLayer src)
-        => Enqueue(new CmdLayer { Src = src });
+    public void DrawLayer(CodeDrawLayer src) => Enqueue(new CmdLayer { Src = src });
 
     public void EnsureCanvas(int w, int h)
     {
@@ -320,7 +295,13 @@ public sealed unsafe class CodeDrawLayer : IDisposable
         }
     }
 
-    /// Presenter reads latest front texture and fence.
+    public void WaitForPublish(int timeoutMs)
+    {
+        if (_disposed) return;
+        if (timeoutMs < 0) timeoutMs = Timeout.Infinite;
+        _published.WaitOne(timeoutMs);
+    }
+
     public bool TryGetLatest(out uint tex, out int w, out int h, out nint fence, out long seq)
     {
         var p = _pub;
@@ -338,8 +319,6 @@ public sealed unsafe class CodeDrawLayer : IDisposable
         return tex != 0;
     }
 
-    /// Called by presenter once it observed the fence is signaled.
-    /// We do NOT delete the fence there; we delete it here in the layer context.
     public void RequestRetireFence(nint fence)
     {
         if (fence == 0) return;
@@ -364,7 +343,6 @@ public sealed unsafe class CodeDrawLayer : IDisposable
         EnsureInit();
         RetireRequestedFences();
 
-        // Collect commands up to cut-line into a local list (so ordering is bulletproof)
         var local = new List<(long seq, ICmd cmd)>(256);
         while (Volatile.Read(ref _lastRenderedCmdSeq) < targetSeq)
         {
@@ -377,36 +355,31 @@ public sealed unsafe class CodeDrawLayer : IDisposable
             Volatile.Write(ref _lastRenderedCmdSeq, item.seq);
         }
 
-        // Back buffer must be safe to overwrite. If it still has a fence, wait + delete here.
         if (_buf[Back].Fence != 0)
         {
             while (true)
             {
-                var s = _gl.ClientWaitSync(_buf[Back].Fence, SyncObjectMask.Bit, 1_000_000); // 1ms
+                var s = _gl.ClientWaitSync(_buf[Back].Fence, SyncObjectMask.Bit, 1_000_000);
                 if (s == GLEnum.AlreadySignaled || s == GLEnum.ConditionSatisfied) break;
             }
             _gl.DeleteSync(_buf[Back].Fence);
             _buf[Back].Fence = 0;
         }
 
-        // Bind back FBO
         _gl.BindFramebuffer(GLEnum.Framebuffer, _buf[Back].Fbo);
         _gl.Viewport(0, 0, (uint)_w, (uint)_h);
         _gl.Disable(GLEnum.DepthTest);
         ApplyBlendMode();
 
-        // Phase 1: process semantic commands (like Clear/Resize) BEFORE preparing the frame
         foreach (var (_, cmd) in local)
         {
             if (cmd is CmdClear) cmd.Exec(_gl, this);
-            if (cmd is CmdResize) cmd.Exec(_gl, this); // may rebuild buffers
+            if (cmd is CmdResize) cmd.Exec(_gl, this);
         }
 
-        // If resize happened, we must rebind back FBO after it
         _gl.BindFramebuffer(GLEnum.Framebuffer, _buf[Back].Fbo);
         _gl.Viewport(0, 0, (uint)_w, (uint)_h);
 
-        // Prepare frame
         if (_clearRequested)
         {
             _gl.ClearColor(_clearColor.r, _clearColor.g, _clearColor.b, _clearColor.a);
@@ -418,14 +391,12 @@ public sealed unsafe class CodeDrawLayer : IDisposable
             CopyFrontToBack();
         }
 
-        // Phase 2: execute draw commands in order (skip Clear/Resize now)
         foreach (var (_, cmd) in local)
         {
             if (cmd is CmdClear || cmd is CmdResize) continue;
             cmd.Exec(_gl, this);
         }
 
-        // Publish: insert fence on back, then swap front/back
         var fence = _gl.FenceSync(SyncCondition.SyncGpuCommandsComplete, SyncBehaviorFlags.None);
         _gl.Flush();
 
@@ -436,23 +407,22 @@ public sealed unsafe class CodeDrawLayer : IDisposable
         _pub.Fence = fence;
         _pub.W = _w;
         _pub.H = _h;
+
         var next = Interlocked.Increment(ref _frameSeq);
         Volatile.Write(ref _pub.Seq, next);
+
+        // NEW: wake presenters waiting for a new publish
+        _published.Set();
 
         _gl.BindFramebuffer(GLEnum.Framebuffer, 0);
         glfw.MakeContextCurrent(null);
     }
 
-
-
     private void RetireRequestedFences()
     {
         while (_retireFences.TryDequeue(out var f))
         {
-            // clear publication pointer if it matches
             if (_pub.Fence == f) _pub.Fence = 0;
-
-            // Also clear any buffer fence pointer that matches, then delete
             for (var i = 0; i < 2; i++)
                 if (_buf[i].Fence == f) _buf[i].Fence = 0;
 
@@ -471,7 +441,6 @@ public sealed unsafe class CodeDrawLayer : IDisposable
         _gl.Disable(GLEnum.Blend);
         _gl.DrawElements(GLEnum.Triangles, 6, GLEnum.UnsignedInt, null);
 
-        // restore whatever blend mode is currently selected
         ApplyBlendMode();
 
         _gl.BindTexture(GLEnum.Texture2D, 0);
@@ -531,6 +500,8 @@ public sealed unsafe class CodeDrawLayer : IDisposable
 
         _front = 0;
         _pub = new Publication { FrontIndex = _front, Fence = 0, W = w, H = h, Seq = 0 };
+
+        _published.Set();
     }
 
     private void ExecRect(GL gl, float x, float y, float w, float h, float r, float g, float b, float a)

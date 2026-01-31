@@ -6,100 +6,17 @@ namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes;
 
 public sealed unsafe class SharedGlfwHost : IDisposable
 {
-    public readonly record struct MouseMoveEvent(int WindowId, double X, double Y)
-    {
-        public override string ToString() => $"MouseMoveEvent(WindowId={WindowId}, X={X:0.0}, Y={Y:0.0})";
-    }
-
-    public readonly record struct MouseButtonEvent(
-        int WindowId,
-        MouseButton Button,
-        InputAction Action,
-        KeyModifiers Mods)
-    {
-        public override string ToString() => $"MouseButtonEvent(WindowId={WindowId}, Button={Button}, Action={Action}, Mods={Mods})";
-    }
-
-    public readonly record struct MouseWheelEvent(int WindowId, double Dx, double Dy)
-    {
-        public override string ToString() => $"MouseWheelEvent(WindowId={WindowId}, Dx={Dx:0.00}, Dy={Dy:0.00})";
-    }
-
-    public readonly record struct KeyEvent(int WindowId, Keys Key, int Scancode, InputAction Action, KeyModifiers Mods)
-    {
-        public override string ToString() => $"KeyEvent(WindowId={WindowId}, Key={Key}, Scancode={Scancode}, Action={Action}, Mods={Mods})";
-    }
-
-    public readonly record struct CharEvent(int WindowId, uint Codepoint)
-    {
-        public override string ToString()
-        {
-            var c = char.ConvertFromUtf32((int)Codepoint);
-            return $"CharEvent(WindowId={WindowId}, Codepoint=U+{Codepoint:X4} ('{c}'))";
-        }
-    }
-
-    public sealed class InputHub
-    {
-        private readonly ConcurrentQueue<object> _q = new();
-
-        public event Action<MouseMoveEvent>? MouseMove;
-        public event Action<MouseButtonEvent>? MouseButtonDown;
-        public event Action<MouseButtonEvent>? MouseButtonUp;
-        public event Action<MouseButtonEvent>? MouseButton;
-        public event Action<MouseWheelEvent>? MouseWheel;
-        public event Action<KeyEvent>? KeyDown;
-        public event Action<KeyEvent>? KeyUp;
-        public event Action<KeyEvent>? Key;
-        public event Action<CharEvent>? Char;
-
-        internal void Enqueue(object evt) => _q.Enqueue(evt);
-
-        /// Call this from your main loop / any thread you want to “own” input dispatch.
-        public void Pump(int max = 10_000)
-        {
-            var n = 0;
-            while (n++ < max && _q.TryDequeue(out var e))
-            {
-                switch (e)
-                {
-                    case MouseMoveEvent mm: MouseMove?.Invoke(mm); break;
-                    case MouseButtonEvent mb:
-                        switch (mb.Action)
-                        {
-                            case InputAction.Press: MouseButtonDown?.Invoke(mb); break;
-                            case InputAction.Release: MouseButtonUp?.Invoke(mb); break;
-                            case InputAction.Repeat: // does not happen for mouse buttons
-                            default: MouseButton?.Invoke(mb); break;
-                        }
-                        break;
-                    case MouseWheelEvent mw: MouseWheel?.Invoke(mw); break;
-                    case KeyEvent ke:
-                        switch (ke.Action)
-                        {
-                            case InputAction.Press: KeyDown?.Invoke(ke); break;
-                            case InputAction.Release: KeyUp?.Invoke(ke); break;
-                            case InputAction.Repeat:
-                            default: Key?.Invoke(ke); break;
-                        }
-                        break;
-                    case CharEvent ce: Char?.Invoke(ce); break;
-                }
-            }
-        }
-    }
-
-    public InputHub Input { get; } = new();
-
-    private int _nextWindowId;
-    private readonly ConcurrentDictionary<nint, int> _winToId = new(); // key: (nint)WindowHandle*
-
+    public readonly record struct MouseMoveEvent(int WindowId, double X, double Y);
+    public readonly record struct MouseButtonEvent(int WindowId, MouseButton Button, InputAction Action, KeyModifiers Mods);
+    public readonly record struct MouseWheelEvent(int WindowId, double Dx, double Dy);
+    public readonly record struct KeyEvent(int WindowId, Keys Key, int Scancode, InputAction Action, KeyModifiers Mods);
+    public readonly record struct CharEvent(int WindowId, uint Codepoint);
 
     public readonly record struct MonitorInfo(
-        nint GlfwHandle,         // monitor*
+        nint GlfwHandle,
         string Name,
-        int X, int Y,            // virtual desktop coords
-        int Width, int Height,   // work area or video mode
+        int X, int Y,
+        int Width, int Height,
         float ContentScaleX,
         float ContentScaleY,
         int RefreshRate
@@ -109,7 +26,7 @@ public sealed unsafe class SharedGlfwHost : IDisposable
         int X, int Y,
         int Width, int Height,
         bool BorderlessFullscreen,
-        int MonitorIndex // for fullscreen
+        int MonitorIndex
     );
 
     public static SharedGlfwHost Instance { get; } = new();
@@ -125,6 +42,12 @@ public sealed unsafe class SharedGlfwHost : IDisposable
     private readonly ConcurrentQueue<Action> _uiJobs = new();
 
     private WindowHandle* _shareRoot = null;
+
+    private int _nextWindowId;
+    private readonly ConcurrentDictionary<nint, int> _winToId = new();
+
+    // NEW: per-window input queues (windowId -> queue)
+    private readonly ConcurrentDictionary<int, ConcurrentQueue<object>> _inputQueues = new();
 
     private SharedGlfwHost() { }
 
@@ -153,6 +76,21 @@ public sealed unsafe class SharedGlfwHost : IDisposable
         _work.Set();
     }
 
+    internal void DrainWindowInput(int windowId, Action<object> handle, int max = 50_000)
+    {
+        if (!_inputQueues.TryGetValue(windowId, out var q)) return;
+
+        var n = 0;
+        while (n++ < max && q.TryDequeue(out var evt))
+            handle(evt);
+    }
+
+    internal int GetWindowId(WindowHandle* win)
+    {
+        if (win == null) return 0;
+        return _winToId.TryGetValue((nint)win, out var id) ? id : 0;
+    }
+
     public WindowHandle* CreateWindow(int w, int h, string title)
     {
         WindowHandle* result = null;
@@ -166,6 +104,7 @@ public sealed unsafe class SharedGlfwHost : IDisposable
 
             var id = Interlocked.Increment(ref _nextWindowId);
             _winToId[(nint)result] = id;
+            _inputQueues[id] = new ConcurrentQueue<object>();
 
             RegisterInputCallbacks(result, id);
 
@@ -194,9 +133,9 @@ public sealed unsafe class SharedGlfwHost : IDisposable
 
             var id = Interlocked.Increment(ref _nextWindowId);
             _winToId[(nint)result] = id;
+            _inputQueues[id] = new ConcurrentQueue<object>();
 
             RegisterInputCallbacks(result, id);
-
 
             _glfw.MakeContextCurrent(result);
             _glfw.MakeContextCurrent(null);
@@ -219,14 +158,13 @@ public sealed unsafe class SharedGlfwHost : IDisposable
 
             if (placement.BorderlessFullscreen)
             {
-                var mons = GetMonitorsSafe();
+                var mons = GetMonitorsInternal();
                 var mi = mons[placement.MonitorIndex];
 
                 _glfw!.WindowHint(WindowHintBool.Decorated, false);
                 _glfw.WindowHint(WindowHintBool.Resizable, false);
 
-                // Use monitor resolution if width/height are <=0
-                var w = placement.Width  > 0 ? placement.Width  : mi.Width;
+                var w = placement.Width > 0 ? placement.Width : mi.Width;
                 var h = placement.Height > 0 ? placement.Height : mi.Height;
 
                 result = _glfw.CreateWindow(w, h, title, null, _shareRoot);
@@ -237,15 +175,14 @@ public sealed unsafe class SharedGlfwHost : IDisposable
             else
             {
                 result = _glfw!.CreateWindow(placement.Width, placement.Height, title, null, _shareRoot);
-                if (result != null)
-                {
-                    _glfw.SetWindowPos(result, placement.X, placement.Y);
-                }
+                if (result != null) _glfw.SetWindowPos(result, placement.X, placement.Y);
             }
 
             if (result == null) throw new Exception("CreateWindow failed");
+
             var id = Interlocked.Increment(ref _nextWindowId);
             _winToId[(nint)result] = id;
+            _inputQueues[id] = new ConcurrentQueue<object>();
 
             RegisterInputCallbacks(result, id);
 
@@ -259,7 +196,6 @@ public sealed unsafe class SharedGlfwHost : IDisposable
         return result;
     }
 
-    /// Creates a hidden window with its own context, in the share-group.
     public WindowHandle* CreateHiddenWindow(int w, int h, string title = "hidden")
     {
         WindowHandle* result = null;
@@ -268,7 +204,6 @@ public sealed unsafe class SharedGlfwHost : IDisposable
         EnqueueUi(() =>
         {
             ApplyCommonHints(_glfw!);
-            // Hidden by default
             _glfw!.WindowHint(WindowHintBool.Visible, false);
 
             result = _glfw.CreateWindow(w, h, title, null, _shareRoot);
@@ -276,7 +211,6 @@ public sealed unsafe class SharedGlfwHost : IDisposable
 
             _glfw.HideWindow(result);
 
-            // Bind once for stability
             _glfw.MakeContextCurrent(result);
             _glfw.MakeContextCurrent(null);
 
@@ -287,12 +221,14 @@ public sealed unsafe class SharedGlfwHost : IDisposable
         return result;
     }
 
-
     public void DestroyWindow(WindowHandle* win)
     {
         if (win == null) return;
         EnqueueUi(() =>
         {
+            if (_winToId.TryRemove((nint)win, out var id))
+                _inputQueues.TryRemove(id, out _);
+
             _glfw!.MakeContextCurrent(null);
             _glfw.DestroyWindow(win);
         });
@@ -360,8 +296,6 @@ public sealed unsafe class SharedGlfwHost : IDisposable
         glfw.WindowHint(WindowHintBool.Decorated, true);
         glfw.WindowHint(WindowHintBool.DoubleBuffer, true);
         glfw.WindowHint(WindowHintBool.TransparentFramebuffer, true);
-
-        // keep default visible=true unless caller overrides
         glfw.WindowHint(WindowHintBool.Visible, true);
     }
 
@@ -392,48 +326,24 @@ public sealed unsafe class SharedGlfwHost : IDisposable
 
             _glfw.GetMonitorContentScale(mPtr, out var scaleX, out var scaleY);
 
-            monitors.Add(new MonitorInfo(
-                (nint)mPtr,
-                name,
-                mx, my,
-                width, height,
-                scaleX, scaleY,
-                refreshRate
-            ));
+            monitors.Add(new MonitorInfo((nint)mPtr, name, mx, my, width, height, scaleX, scaleY, refreshRate));
         }
         return monitors;
     }
 
     private void RegisterInputCallbacks(WindowHandle* win, int id)
     {
-        // Mouse move
-        _glfw!.SetCursorPosCallback(win, (w, x, y) =>
-        {
-            Input.Enqueue(new MouseMoveEvent(id, x, y));
-        });
+        _glfw!.SetCursorPosCallback(win, (w, x, y) => Enq(new MouseMoveEvent(id, x, y)));
+        _glfw.SetMouseButtonCallback(win, (w, button, action, mods) => Enq(new MouseButtonEvent(id, button, action, mods)));
+        _glfw.SetScrollCallback(win, (w, dx, dy) => Enq(new MouseWheelEvent(id, dx, dy)));
+        _glfw.SetKeyCallback(win, (w, key, scancode, action, mods) => Enq(new KeyEvent(id, key, scancode, action, mods)));
+        _glfw.SetCharCallback(win, (w, codepoint) => Enq(new CharEvent(id, codepoint)));
+        return;
 
-        // Mouse buttons
-        _glfw.SetMouseButtonCallback(win, (w, button, action, mods) =>
+        void Enq(object e)
         {
-            Input.Enqueue(new MouseButtonEvent(id, button, action, mods));
-        });
-
-        // Scroll
-        _glfw.SetScrollCallback(win, (w, dx, dy) =>
-        {
-            Input.Enqueue(new MouseWheelEvent(id, dx, dy));
-        });
-
-        // Keys
-        _glfw.SetKeyCallback(win, (w, key, scancode, action, mods) =>
-        {
-            Input.Enqueue(new KeyEvent(id, key, scancode, action, mods));
-        });
-
-        // Text input
-        _glfw.SetCharCallback(win, (w, codepoint) =>
-        {
-            Input.Enqueue(new CharEvent(id, codepoint));
-        });
+            if (_inputQueues.TryGetValue(id, out var q))
+                q.Enqueue(e);
+        }
     }
 }

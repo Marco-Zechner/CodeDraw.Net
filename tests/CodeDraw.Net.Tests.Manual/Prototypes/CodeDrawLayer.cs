@@ -1,5 +1,6 @@
 ﻿using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
+using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.Shaders;
 using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
 using Monitor = System.Threading.Monitor;
@@ -81,7 +82,7 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable
             glfw.SwapInterval(0);
             _gl = GL.GetApi(glfw.GetProcAddress);
 
-            Program = GlShader.CreateProgram(_gl, vs, fs);
+            Program = ShaderCompiler.CreateProgram(_gl, vs, fs);
 
             glfw.MakeContextCurrent(null);
         }
@@ -495,17 +496,17 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable
         if (_inited) return;
         _inited = true;
 
-        (_vao, _vbo, _ebo) = GlShader.CreateFullScreenQuad(_gl);
+        (_vao, _vbo, _ebo) = ShaderCompiler.CreateFullScreenQuad(_gl);
 
-        _progRect = GlShader.CreateProgram(_gl, GlShader.RectShader.VS, GlShader.RectShader.FS);
+        _progRect = ShaderCompiler.CreateProgram(_gl, ShaderCompiler.RectShader.VS, ShaderCompiler.RectShader.FS);
         _uRectPosSize = _gl.GetUniformLocation(_progRect, "uPosSize");
         _uRectColor = _gl.GetUniformLocation(_progRect, "uColor");
         _uRectRes = _gl.GetUniformLocation(_progRect, "uRes");
 
-        _progBlit = GlShader.CreateProgram(_gl, GlShader.LayerShader.VS, GlShader.LayerShader.FS);
+        _progBlit = ShaderCompiler.CreateProgram(_gl, ShaderCompiler.LayerShader.VS, ShaderCompiler.LayerShader.FS);
         _uBlitTex = _gl.GetUniformLocation(_progBlit, "uTex");
 
-        _progLayerRect = GlShader.CreateProgram(_gl, GlShader.LayerRectShader.VS, GlShader.LayerRectShader.FS);
+        _progLayerRect = ShaderCompiler.CreateProgram(_gl, ShaderCompiler.LayerRectShader.VS, ShaderCompiler.LayerRectShader.FS);
         _uLayerRectDstRectPx = _gl.GetUniformLocation(_progLayerRect, "uDstRectPx");
         _uLayerRectDstResPx  = _gl.GetUniformLocation(_progLayerRect, "uDstResPx");
         _uLayerRectSrcUvRect = _gl.GetUniformLocation(_progLayerRect, "uSrcUvRect");

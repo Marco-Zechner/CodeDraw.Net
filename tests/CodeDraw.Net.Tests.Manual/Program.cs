@@ -110,7 +110,15 @@ public static class Program
 
             if (target.Type is null) return;
 
-            RunPrototype(target);
+            try
+            {
+                RunPrototype(target);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Prototype execution FAILED due to exception:");
+                Console.WriteLine(FlattenException(ex));
+            }
             return;
         }
 
@@ -501,7 +509,7 @@ public static class Program
         var depth = 0;
         for (var e = ex; e is not null; e = e.InnerException)
         {
-            if (depth++ > 0) sb.AppendLine("----- Inner Exception -----");
+            if (depth++ > 0) sb.AppendLine("\n----- Inner Exception -----");
             sb.AppendLine(e.GetType().FullName);
             sb.AppendLine(e.Message);
             sb.AppendLine(e.StackTrace);

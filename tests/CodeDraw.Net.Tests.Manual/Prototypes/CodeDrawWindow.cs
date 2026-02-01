@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.Shaders;
 using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
 
@@ -311,8 +312,8 @@ public sealed unsafe class CodeDrawWindow : IDisposable
             gl.DebugMessageControl(GLEnum.DontCare, GLEnum.DontCare, GLEnum.DebugSeverityNotification, 0, null, false);
 
 
-            var (vao, vbo, ebo) = GlShader.CreateFullScreenQuad(gl);
-            var progBlit = GlShader.CreateProgram(gl, GlShader.LayerShader.VS, GlShader.LayerShader.FS);
+            var (vao, vbo, ebo) = ShaderCompiler.CreateFullScreenQuad(gl);
+            var progBlit = ShaderCompiler.CreateProgram(gl, ShaderCompiler.LayerShader.VS, ShaderCompiler.LayerShader.FS);
             var uTex = gl.GetUniformLocation(progBlit, "uTex");
 
             gl.Disable(GLEnum.Blend);

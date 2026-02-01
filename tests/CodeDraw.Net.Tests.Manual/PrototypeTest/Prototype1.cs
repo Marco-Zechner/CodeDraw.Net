@@ -4,7 +4,7 @@ using Silk.NET.GLFW;
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.PrototypeTest;
 
 [Prototype(1)]
-public sealed class Prototype1Test1 : IDisposable
+public sealed class Prototype1 : IDisposable
 {
     [StaticPrototype]
     public static void RunTest()
@@ -12,7 +12,7 @@ public sealed class Prototype1Test1 : IDisposable
         var host = SharedGlfwHost.Instance;
         host.Start();
 
-        using (var session = new Prototype1Test1(host))
+        using (var session = new Prototype1(host))
         {
             session.WaitForClose();
         }
@@ -27,7 +27,7 @@ public sealed class Prototype1Test1 : IDisposable
     private float _tA;
     private float _tOverlay;
 
-    public Prototype1Test1(SharedGlfwHost host)
+    public Prototype1(SharedGlfwHost host)
     {
         _winLayerA = new CodeDrawWindow(host, 800, 500, "LayerA");
         _winCombined = new CodeDrawWindow(host, 800, 500, "Combined");

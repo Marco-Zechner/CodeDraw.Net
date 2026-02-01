@@ -1,12 +1,21 @@
 ﻿using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
 using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
 using Monitor = System.Threading.Monitor;
 
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes;
 
-public sealed unsafe class CodeDrawLayer : IDisposable
+public sealed unsafe partial class CodeDrawLayer : IDisposable
 {
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void Uniform2f(GL gl, int loc, float x, float y)
+        => gl.Uniform2(loc, x, y);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void Uniform4f(GL gl, int loc, float x, float y, float z, float w)
+        => gl.Uniform4(loc, x, y, z, w);
+
     public enum BlendMode
     {
         SOURCE_OVER_ALPHA,      // SrcAlpha, OneMinusSrcAlpha
@@ -190,6 +199,9 @@ public sealed unsafe class CodeDrawLayer : IDisposable
     private int _uRectPosSize, _uRectColor, _uRectRes;
     private int _uBlitTex;
 
+    private uint _progLayerRect;
+    private int _uLayerRectDstRectPx, _uLayerRectDstResPx, _uLayerRectSrcUvRect, _uLayerRectTex;
+
     private int _w, _h;
 
     private readonly AutoResetEvent _published = new(false);
@@ -230,6 +242,7 @@ public sealed unsafe class CodeDrawLayer : IDisposable
             _buf[i] = default;
         }
 
+        if (_progLayerRect != 0) _gl.DeleteProgram(_progLayerRect);
         if (_progRect != 0) _gl.DeleteProgram(_progRect);
         if (_progBlit != 0) _gl.DeleteProgram(_progBlit);
         if (_vao != 0) _gl.DeleteVertexArray(_vao);
@@ -252,8 +265,6 @@ public sealed unsafe class CodeDrawLayer : IDisposable
 
     public void DrawRect(float x, float y, float w, float h, float r, float g, float b, float a)
         => Enqueue(new CmdRect { X = x, Y = y, W = w, H = h, R = r, G = g, B = b, A = a });
-
-    public void DrawLayer(CodeDrawLayer src) => Enqueue(new CmdLayer { Src = src });
 
     public void EnsureCanvas(int w, int h)
     {
@@ -355,6 +366,7 @@ public sealed unsafe class CodeDrawLayer : IDisposable
         EnsureInit();
         RetireRequestedFences();
 
+        // _gl.Disable(GLEnum.CullFace);
         var local = new List<(long seq, ICmd cmd)>(256);
         while (Volatile.Read(ref _lastRenderedCmdSeq) < targetSeq)
         {
@@ -472,6 +484,12 @@ public sealed unsafe class CodeDrawLayer : IDisposable
 
         _progBlit = GlShader.CreateProgram(_gl, GlShader.LayerShader.VS, GlShader.LayerShader.FS);
         _uBlitTex = _gl.GetUniformLocation(_progBlit, "uTex");
+
+        _progLayerRect = GlShader.CreateProgram(_gl, GlShader.LayerRectShader.VS, GlShader.LayerRectShader.FS);
+        _uLayerRectDstRectPx = _gl.GetUniformLocation(_progLayerRect, "uDstRectPx");
+        _uLayerRectDstResPx  = _gl.GetUniformLocation(_progLayerRect, "uDstResPx");
+        _uLayerRectSrcUvRect = _gl.GetUniformLocation(_progLayerRect, "uSrcUvRect");
+        _uLayerRectTex       = _gl.GetUniformLocation(_progLayerRect, "uTex");
     }
 
     private void ResizeInternal(int w, int h)
@@ -519,9 +537,9 @@ public sealed unsafe class CodeDrawLayer : IDisposable
         gl.UseProgram(_progRect);
         gl.BindVertexArray(_vao);
 
-        gl.Uniform4(_uRectPosSize, x, y, w, h);
-        gl.Uniform4(_uRectColor, r, g, b, a);
-        gl.Uniform2(_uRectRes, (float)_w, (float)_h);
+        Uniform4f(gl, _uRectPosSize, x, y, w, h);
+        Uniform4f(gl, _uRectColor, r, g, b, a);
+        Uniform2f(gl, _uRectRes, _w, _h);
 
         gl.DrawElements(GLEnum.Triangles, 6, GLEnum.UnsignedInt, null);
 

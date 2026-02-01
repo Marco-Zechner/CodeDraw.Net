@@ -156,8 +156,8 @@ public static class GlShader
 
                                      // Map the full-screen quad pos (-1..1) into our dst rect in NDC.
                                      // aPos.x=-1 => ndcMin.x, aPos.x=+1 => ndcMax.x (same for y)
-                                     vec2 t = (aPos * 0.5) + 0.5;      // [-1..1] -> [0..1]
-                                     vec2 ndc = mix(ndcMin, ndcMax, t);
+                                     vec2 t = vec2(aUv.x, 1.0 - aUv.y); // make t.y = 0 mean "top"
+                                    vec2 ndc = mix(ndcMin, ndcMax, t);
 
                                      gl_Position = vec4(ndc, 0.0, 1.0);
 

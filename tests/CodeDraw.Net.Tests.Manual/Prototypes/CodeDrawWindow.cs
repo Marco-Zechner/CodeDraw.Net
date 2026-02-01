@@ -352,15 +352,7 @@ public sealed unsafe class CodeDrawWindow : IDisposable
 
                     if (layer.TryGetLatest(out var tex, out _, out _, out var fence, out var seq))
                     {
-                        var ready = fence == 0;
-                        if (!ready)
-                        {
-                            var s = gl.ClientWaitSync(fence, SyncObjectMask.Bit, 0);
-                            ready = s is GLEnum.AlreadySignaled or GLEnum.ConditionSatisfied;
-                            if (ready) layer.RequestRetireFence(fence);
-                        }
-
-                        if (ready && tex != 0 && seq >= lastSeq)
+                        if (tex != 0 && seq >= lastSeq)
                         {
                             lastTex = tex;
                             lastSeq = seq;

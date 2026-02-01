@@ -131,19 +131,11 @@ public sealed unsafe class CodeDrawLayer : IDisposable
     private sealed class CmdLayer : ICmd
     {
         public CodeDrawLayer? Src;
-
-        public bool HasDstRect;
-        public float Dx, Dy, Dw, Dh;
-
-        public bool HasSrcRect;
-        public float Sx, Sy, Sw, Sh; // in pixels of source
-
-        public bool PreserveAspect;
         public void Exec(GL gl, CodeDrawLayer self)
         {
             var s = Src;
             if (s is null || s._disposed) return;
-            self.ExecLayer(gl, s, this);
+            self.ExecLayer(gl, s);
         }
     }
 
@@ -152,9 +144,6 @@ public sealed unsafe class CodeDrawLayer : IDisposable
         public readonly int W = w, H = h;
         public void Exec(GL gl, CodeDrawLayer self) => self.ResizeInternal(W, H);
     }
-
-    private uint _progBlitRect;
-    private int _uBlitRectTex, _uBlitRectDstRect, _uBlitRectDstRes, _uBlitRectSrcUv;
 
     private BlendMode _blendMode = BlendMode.ALPHA;
     private CodeDrawShader? _customBlitShader;
@@ -233,7 +222,6 @@ public sealed unsafe class CodeDrawLayer : IDisposable
 
         if (_progRect != 0) _gl.DeleteProgram(_progRect);
         if (_progBlit != 0) _gl.DeleteProgram(_progBlit);
-        if (_progBlitRect != 0) _gl.DeleteProgram(_progBlitRect);
         if (_vao != 0) _gl.DeleteVertexArray(_vao);
         if (_vbo != 0) _gl.DeleteBuffer(_vbo);
         if (_ebo != 0) _gl.DeleteBuffer(_ebo);
@@ -255,25 +243,7 @@ public sealed unsafe class CodeDrawLayer : IDisposable
     public void DrawRect(float x, float y, float w, float h, float r, float g, float b, float a)
         => Enqueue(new CmdRect { X = x, Y = y, W = w, H = h, R = r, G = g, B = b, A = a });
 
-    public void DrawLayer(CodeDrawLayer src)
-        => Enqueue(new CmdLayer { Src = src });
-
-    public void DrawLayer(CodeDrawLayer src, float dx, float dy, float dw, float dh)
-        => Enqueue(new CmdLayer { Src = src, HasDstRect = true, Dx = dx, Dy = dy, Dw = dw, Dh = dh });
-
-    public void DrawLayer(CodeDrawLayer src,
-        float dx, float dy, float dw, float dh,
-        float sx, float sy, float sw, float sh,
-        bool preserveAspect = false)
-    {
-        Enqueue(new CmdLayer
-        {
-            Src = src,
-            HasDstRect = true, Dx = dx, Dy = dy, Dw = dw, Dh = dh,
-            HasSrcRect = true, Sx = sx, Sy = sy, Sw = sw, Sh = sh,
-            PreserveAspect = preserveAspect
-        });
-    }
+    public void DrawLayer(CodeDrawLayer src) => Enqueue(new CmdLayer { Src = src });
 
     public void EnsureCanvas(int w, int h)
     {
@@ -429,20 +399,9 @@ public sealed unsafe class CodeDrawLayer : IDisposable
             cmd.Exec(_gl, this);
         }
 
-        var fence = _gl.FenceSync(SyncCondition.SyncGpuCommandsComplete, SyncBehaviorFlags.None);
-        _gl.Flush();
-
-        while (true)
-        {
-            var s = _gl.ClientWaitSync(fence, SyncObjectMask.Bit, 1_000_000);
-            if (s is GLEnum.AlreadySignaled or GLEnum.ConditionSatisfied)
-                break;
-        }
-
-        _gl.DeleteSync(fence);
+        _gl.Finish();
 
         _buf[Back].Fence = 0;
-
         _front = Back;
 
         _pub.FrontIndex = _front;
@@ -503,12 +462,6 @@ public sealed unsafe class CodeDrawLayer : IDisposable
 
         _progBlit = GlShader.CreateProgram(_gl, GlShader.LayerShader.VS, GlShader.LayerShader.FS);
         _uBlitTex = _gl.GetUniformLocation(_progBlit, "uTex");
-
-        _progBlitRect = GlShader.CreateProgram(_gl, GlShader.LayerRectShader.VS, GlShader.LayerRectShader.FS);
-        _uBlitRectTex = _gl.GetUniformLocation(_progBlitRect, "uTex");
-        _uBlitRectDstRect = _gl.GetUniformLocation(_progBlitRect, "uDstRectPx");
-        _uBlitRectDstRes = _gl.GetUniformLocation(_progBlitRect, "uDstResPx");
-        _uBlitRectSrcUv = _gl.GetUniformLocation(_progBlitRect, "uSrcUvRect");
     }
 
     private void ResizeInternal(int w, int h)
@@ -566,61 +519,19 @@ public sealed unsafe class CodeDrawLayer : IDisposable
         gl.UseProgram(0);
     }
 
-    private void ExecLayer(GL gl, CodeDrawLayer src, CmdLayer cmd)
+    private void ExecLayer(GL gl, CodeDrawLayer src)
     {
-        if (!src.TryGetLatest(out var tex, out var srcW, out var srcH, out _, out _)) return;
-        if (tex == 0 || srcW <= 0 || srcH <= 0) return;
+        if (!src.TryGetLatest(out var tex, out _, out _, out _, out _)) return;
 
-        // Destination rect: default = full destination canvas
-        float dx = 0, dy = 0, dw = _w, dh = _h;
-        if (cmd.HasDstRect)
-        {
-            dx = cmd.Dx; dy = cmd.Dy; dw = cmd.Dw; dh = cmd.Dh;
-        }
+        var prog = _customBlitShader?.Program ?? _progBlit;
 
-        // Source rect in pixels: default = full source canvas
-        float sx = 0, sy = 0, sw = srcW, sh = srcH;
-        if (cmd.HasSrcRect)
-        {
-            sx = cmd.Sx; sy = cmd.Sy; sw = cmd.Sw; sh = cmd.Sh;
-        }
-
-        if (cmd.PreserveAspect && dw > 0 && dh > 0 && sw > 0 && sh > 0)
-        {
-            var srcAspect = sw / sh;
-            var dstAspect = dw / dh;
-
-            if (dstAspect > srcAspect)
-            {
-                // dst too wide -> reduce width
-                var newW = dh * srcAspect;
-                dx += (dw - newW) * 0.5f;
-                dw = newW;
-            }
-            else
-            {
-                // dst too tall -> reduce height
-                var newH = dw / srcAspect;
-                dy += (dh - newH) * 0.5f;
-                dh = newH;
-            }
-        }
-
-        // Convert source pixel rect -> UV rect
-        var u0 = sx / srcW;
-        var v0 = 1.0f - (sy + sh) / srcH;
-        var uW = sw / srcW;
-        var vH = sh / srcH;
-
-        gl.UseProgram(_progBlitRect);
+        gl.UseProgram(prog);
         gl.BindVertexArray(_vao);
         gl.ActiveTexture(GLEnum.Texture0);
         gl.BindTexture(GLEnum.Texture2D, tex);
 
-        if (_uBlitRectTex >= 0) gl.Uniform1(_uBlitRectTex, 0);
-        if (_uBlitRectDstRect >= 0) gl.Uniform4(_uBlitRectDstRect, dx, dy, dw, dh);
-        if (_uBlitRectDstRes >= 0) gl.Uniform2(_uBlitRectDstRes, (float)_w, (float)_h);
-        if (_uBlitRectSrcUv >= 0) gl.Uniform4(_uBlitRectSrcUv, u0, v0, uW, vH);
+        var uTexLoc = (prog == _progBlit) ? _uBlitTex : gl.GetUniformLocation(prog, "uTex");
+        if (uTexLoc >= 0) gl.Uniform1(uTexLoc, 0);
 
         gl.DrawElements(GLEnum.Triangles, 6, GLEnum.UnsignedInt, null);
 

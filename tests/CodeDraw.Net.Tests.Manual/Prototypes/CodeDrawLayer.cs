@@ -137,7 +137,12 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable
 
     private sealed class CmdClear(float r, float g, float b, float a) : ICmd
     {
-        public void Exec(GL gl, CodeDrawLayer self) { self._clearColor = (r, g, b, a); self._clearRequested = true; }
+        public void Exec(GL gl, CodeDrawLayer self)
+        {
+            self._clearColor = (r, g, b, a);
+            gl.ClearColor(self._clearColor.r, self._clearColor.g, self._clearColor.b, self._clearColor.a);
+            gl.Clear((uint)ClearBufferMask.ColorBufferBit);
+        }
     }
 
     private sealed class CmdRect : ICmd
@@ -163,6 +168,25 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable
         public readonly int W = w, H = h;
         public void Exec(GL gl, CodeDrawLayer self) => self.ResizeInternal(W, H);
     }
+
+    private bool _clearFirst;
+
+    private sealed class CmdSetClearFirst : ICmd
+    {
+        public bool Enabled;
+        public void Exec(GL gl, CodeDrawLayer self) => self._clearFirst = Enabled;
+    }
+
+    /// <summary>
+    /// If enabled, every Render() begins with ClearColor+Clear,
+    /// and we never CopyFrontToBack(). This prevents "retained" accumulation.
+    /// </summary>
+    public void SetClearFirst(bool enabled) => Enqueue(new CmdSetClearFirst { Enabled = enabled });
+
+    /// <summary>
+    /// Convenience: commonly useful for debugging.
+    /// </summary>
+    public bool ClearFirstEnabled => _clearFirst;
 
     private BlendMode _blendMode = BlendMode.SOURCE_OVER_ALPHA;
     private CodeDrawShader? _customBlitShader;
@@ -366,7 +390,7 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable
         EnsureInit();
         RetireRequestedFences();
 
-        // _gl.Disable(GLEnum.CullFace);
+        CmdResize? lastResize = null;
         var local = new List<(long seq, ICmd cmd)>(256);
         while (Volatile.Read(ref _lastRenderedCmdSeq) < targetSeq)
         {
@@ -375,7 +399,10 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable
                 Thread.Yield();
                 continue;
             }
-            local.Add(item);
+            if (item.cmd is CmdResize cmd)
+                lastResize = cmd;
+            else
+                local.Add(item);
             Volatile.Write(ref _lastRenderedCmdSeq, item.seq);
         }
 
@@ -395,31 +422,23 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable
         _gl.Disable(GLEnum.DepthTest);
         ApplyBlendMode();
 
-        foreach (var (_, cmd) in local)
-        {
-            if (cmd is CmdClear) cmd.Exec(_gl, this);
-            if (cmd is CmdResize) cmd.Exec(_gl, this);
-        }
+        lastResize?.Exec(_gl, this);
 
         _gl.BindFramebuffer(GLEnum.Framebuffer, _buf[Back].Fbo);
         _gl.Viewport(0, 0, (uint)_w, (uint)_h);
 
-        if (_clearRequested)
+        if (_clearFirst || _clearRequested)
         {
-            _gl.ClearColor(_clearColor.r, _clearColor.g, _clearColor.b, _clearColor.a);
-            _gl.Clear((uint)ClearBufferMask.ColorBufferBit);
+            local.Insert(0, (0, new CmdClear(_clearColor.r, _clearColor.g, _clearColor.b, _clearColor.a)));
             _clearRequested = false;
         }
-        else
+        else if (local.Count > 1 && local[0].cmd is not CmdClear)
         {
             CopyFrontToBack();
         }
 
         foreach (var (_, cmd) in local)
-        {
-            if (cmd is CmdClear || cmd is CmdResize) continue;
             cmd.Exec(_gl, this);
-        }
 
         _gl.Finish();
 

@@ -1,12 +1,4 @@
-﻿// ============================================================
-// STEP 2 — Minimal Blit pipeline (Crop + Place + Draw)
-// Uses your existing GlShader.LayerRectShader
-// ============================================================
-// Add this NEW FILE: CodeDrawLayer.Blit.Step2.cs
-
-using System.Runtime.CompilerServices;
-
-namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes;
+﻿namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes;
 
 public sealed unsafe partial class CodeDrawLayer
 {
@@ -40,13 +32,10 @@ public sealed unsafe partial class CodeDrawLayer
             var ch = sy2 - sy;
             if (cw <= 0 || ch <= 0) return;
 
-            var srcUvRect = new float[]
-            {
-                sx / sw,
-                1f - ((sy + ch) / sh),
-                cw / sw,
-                ch / sh
-            };
+            var u0 = sx / sw;
+            var v0 = 1f - ((sy + ch) / sh);
+            var du = cw / sw;
+            var dv = ch / sh;
 
             // Blend override (scoped)
             var oldBlend = self._blendMode;
@@ -65,7 +54,7 @@ public sealed unsafe partial class CodeDrawLayer
 
             Uniform4f(gl, self._uLayerRectDstRectPx, DstRectPx.X, DstRectPx.Y, DstRectPx.W, DstRectPx.H);
             Uniform2f(gl, self._uLayerRectDstResPx, self._w, self._h);
-            Uniform4f(gl, self._uLayerRectSrcUvRect, srcUvRect[0], srcUvRect[1], srcUvRect[2], srcUvRect[3]);
+            Uniform4f(gl, self._uLayerRectSrcUvRect, u0, v0, du, dv);
 
             gl.DrawElements(Silk.NET.OpenGL.GLEnum.Triangles, 6, Silk.NET.OpenGL.GLEnum.UnsignedInt, null);
 

@@ -7,6 +7,9 @@ public sealed unsafe partial class CodeDrawLayer
         public float X2 => X + W;
         public float Y2 => Y + H;
         public bool IsEmpty => W <= 0 || H <= 0;
+
+        public static RectF FromMinMax(float x1, float y1, float x2, float y2)
+            => new(x1, y1, x2 - x1, y2 - y1);
     }
 
     public readonly record struct Rgba(float R, float G, float B, float A);
@@ -22,6 +25,9 @@ public sealed unsafe partial class CodeDrawLayer
     // 2) Draw full layer stretched into dst rect (no crop)
     public void DrawLayer(CodeDrawLayer src, RectF dstRect)
         => Blit(src).Place(dstRect).Draw();
+
+    public void DrawLayer(CodeDrawLayer src, RectF dstRect, BlendMode blend)
+        => Blit(src).Place(dstRect).Blend(blend).Draw();
 
     // 3) Crop source rect and draw into full dst
     public void DrawLayer(CodeDrawLayer src, RectF srcRect, bool fitToTarget = true)

@@ -222,7 +222,7 @@ public sealed unsafe class SharedGlfwHost : IDisposable
         return _winToId.TryGetValue((nint)win, out var id) ? id : 0;
     }
 
-    public WindowHandle* CreateWindow(int w, int h, string title) => CreateWindow(20, 20, w, h, title);
+    public WindowHandle* CreateWindow(int w, int h, string title) => CreateWindow(50, 120, w, h, title);
 
     public WindowHandle* CreateWindow(int x, int y, int w, int h, string title)
     {

@@ -169,7 +169,7 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable
         public void Exec(GL gl, CodeDrawLayer self) => self.ResizeInternal(W, H);
     }
 
-    private bool _clearFirst;
+    private bool _clearFirst = true;
 
     private sealed class CmdSetClearFirst : ICmd
     {
@@ -177,16 +177,17 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable
         public void Exec(GL gl, CodeDrawLayer self) => self._clearFirst = Enabled;
     }
 
+    private void SetClearFirst(bool enabled) => Enqueue(new CmdSetClearFirst { Enabled = enabled });
+
     /// <summary>
     /// If enabled, every Render() begins with ClearColor+Clear,
     /// and we never CopyFrontToBack(). This prevents "retained" accumulation.
     /// </summary>
-    public void SetClearFirst(bool enabled) => Enqueue(new CmdSetClearFirst { Enabled = enabled });
-
-    /// <summary>
-    /// Convenience: commonly useful for debugging.
-    /// </summary>
-    public bool ClearFirstEnabled => _clearFirst;
+    public bool AutoClearLastFrame
+    {
+        get => _clearFirst;
+        set => SetClearFirst(value);
+    }
 
     private BlendMode _blendMode = BlendMode.SOURCE_OVER_ALPHA;
     private CodeDrawShader? _customBlitShader;

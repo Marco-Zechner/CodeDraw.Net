@@ -164,11 +164,11 @@ public sealed unsafe class CodeDrawWindow : IDisposable
 
     public bool ShouldClose => _closing || IsDisposed;
 
-    public CodeDrawWindow(SharedGlfwHost host, int w, int h, string title)
+    public CodeDrawWindow(SharedGlfwHost host, int w, int h, int x, int y, string title)
     {
         _host = host;
         _title = title;
-        _win = host.CreateWindow(w, h, _title);
+        _win = host.CreateWindow(x, y, w, h, _title);
         _host.RegisterWindowObject(_win, this);
         _winLock = host.GetWindowLock(_win);
         WindowId = host.GetWindowId(_win);
@@ -181,6 +181,9 @@ public sealed unsafe class CodeDrawWindow : IDisposable
         _presentThread.Start();
         _updateThread.Start();
     }
+
+    public CodeDrawWindow(SharedGlfwHost host, int w, int h, string title)
+        : this(host, w, h, 50, 120, title) {}
 
     private void DestroyWindowOnce()
     {

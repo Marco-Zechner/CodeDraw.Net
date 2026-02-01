@@ -30,9 +30,9 @@ public sealed class Prototype2 : IDisposable
 
     public Prototype2(SharedGlfwHost host)
     {
-        _winSrc = new CodeDrawWindow(host, 800, 500, "2B: Source (Pattern Atlas)");
-        _winDst = new CodeDrawWindow(host, 800, 500, "2B: Dest (Crop/Place Tests)");
-        _winFull = new CodeDrawWindow(host, 800, 500, "2B: Full (Copy Src fully, mostly desaturated)");
+        _winSrc = new CodeDrawWindow(host, 800, 500, 50, 120, "2B: Source (Pattern Atlas)");
+        _winDst = new CodeDrawWindow(host, 800, 500, 850, 120, "2B: Dest (Crop/Place Tests)");
+        _winFull = new CodeDrawWindow(host, 800, 500, 1650, 120, "2B: Full (Copy Src fully, mostly desaturated)");
 
         _desatShader = new CodeDrawLayer.CodeDrawShader(host, DesatShaderVs, DesatShaderFs);
 

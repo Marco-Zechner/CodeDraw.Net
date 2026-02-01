@@ -1,10 +1,11 @@
 ﻿using System.Collections.Concurrent;
+using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.Shaders;
 using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
 
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes;
 
-public sealed unsafe class SharedGlfwHost : IDisposable
+public sealed unsafe class SharedGlfwHost : IDisposable, IGlExecutor
 {
     private readonly ConcurrentDictionary<nint, object> _windowLocks = new();
 
@@ -155,6 +156,8 @@ public sealed unsafe class SharedGlfwHost : IDisposable
 
     public Glfw Glfw => _glfw!;
     public WindowHandle* ShareRoot => _shareRoot;
+
+    public ShaderStore EngineShaders { get; private set; } = null!;
 
     private Thread? _uiThread;
     private Glfw? _glfw;
@@ -442,6 +445,11 @@ public sealed unsafe class SharedGlfwHost : IDisposable
         _ = GL.GetApi(_glfw.GetProcAddress);
         _glfw.MakeContextCurrent(null);
 
+        EngineShaders = new ShaderStore(
+            EngineShaderPaths.ResolveEngineShaderRoot(),
+            exec: this, // SharedGlfwHost implements IGlExecutor
+            hotReload: true
+        );
         _started.Set();
 
         while (_running)
@@ -557,5 +565,31 @@ public sealed unsafe class SharedGlfwHost : IDisposable
         });
 
         tcs.Task.GetAwaiter().GetResult();
+    }
+
+    public void Run(Action<GL> work)
+    {
+        InvokeUi(() =>
+        {
+            var glfw = _glfw!;
+            glfw.MakeContextCurrent(_shareRoot);
+            var gl = GL.GetApi(glfw.GetProcAddress);
+            work(gl);
+            glfw.MakeContextCurrent(null);
+        });
+    }
+
+    public T Run<T>(Func<GL, T> work)
+    {
+        T result = default!;
+        InvokeUi(() =>
+        {
+            var glfw = _glfw!;
+            glfw.MakeContextCurrent(_shareRoot);
+            var gl = GL.GetApi(glfw.GetProcAddress);
+            result = work(gl);
+            glfw.MakeContextCurrent(null);
+        });
+        return result;
     }
 }

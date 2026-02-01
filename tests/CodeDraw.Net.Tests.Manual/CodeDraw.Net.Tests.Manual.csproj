@@ -25,4 +25,10 @@
     <ProjectReference Include="..\..\src\CodeDraw.Net\CodeDraw.Net.csproj" />
   </ItemGroup>
 
+<!--    <ItemGroup Condition="'$(Configuration)'=='Debug' Or '$(Configuration)'=='Release'">-->
+<!--        <Content Include="resources\**\*.*">-->
+<!--            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>-->
+<!--        </Content>-->
+<!--    </ItemGroup>-->
+
 </Project>

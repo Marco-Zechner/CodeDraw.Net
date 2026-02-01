@@ -193,6 +193,8 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable
     private BlendMode _blendMode = BlendMode.SOURCE_OVER_ALPHA;
     private CodeDrawShader? _customBlitShader;
 
+    private ShaderStore? _shaderStore;
+
     private readonly SharedGlfwHost _host;
     private readonly WindowHandle* _ctxWin;
     private readonly GL _gl;
@@ -221,12 +223,11 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable
 
     private bool _inited;
     private uint _vao, _vbo, _ebo;
-    private uint _progRect, _progBlit;
-    private int _uRectPosSize, _uRectColor, _uRectRes;
-    private int _uBlitTex;
 
-    private uint _progLayerRect;
-    private int _uLayerRectDstRectPx, _uLayerRectDstResPx, _uLayerRectSrcUvRect, _uLayerRectTex;
+    private AutoProgram _progRect, _progBlit, _progLayerRect;
+    private AutoUniform _uRectPosSize, _uRectColor, _uRectRes;
+    private AutoUniform _uBlitTex;
+    private AutoUniform _uLayerRectDstRectPx, _uLayerRectDstResPx, _uLayerRectSrcUvRect, _uLayerRectTex;
 
     private int _w, _h;
 
@@ -268,9 +269,6 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable
             _buf[i] = default;
         }
 
-        if (_progLayerRect != 0) _gl.DeleteProgram(_progLayerRect);
-        if (_progRect != 0) _gl.DeleteProgram(_progRect);
-        if (_progBlit != 0) _gl.DeleteProgram(_progBlit);
         if (_vao != 0) _gl.DeleteVertexArray(_vao);
         if (_vbo != 0) _gl.DeleteBuffer(_vbo);
         if (_ebo != 0) _gl.DeleteBuffer(_ebo);
@@ -498,19 +496,21 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable
 
         (_vao, _vbo, _ebo) = ShaderCompiler.CreateFullScreenQuad(_gl);
 
-        _progRect = ShaderCompiler.CreateProgram(_gl, ShaderCompiler.RectShader.VS, ShaderCompiler.RectShader.FS);
-        _uRectPosSize = _gl.GetUniformLocation(_progRect, "uPosSize");
-        _uRectColor = _gl.GetUniformLocation(_progRect, "uColor");
-        _uRectRes = _gl.GetUniformLocation(_progRect, "uRes");
+        _shaderStore ??= _host.EngineShaders;
 
-        _progBlit = ShaderCompiler.CreateProgram(_gl, ShaderCompiler.LayerShader.VS, ShaderCompiler.LayerShader.FS);
-        _uBlitTex = _gl.GetUniformLocation(_progBlit, "uTex");
+        _progRect     = new AutoProgram(_shaderStore, "rect");
+        _uRectPosSize = new AutoUniform(_gl, _shaderStore, _progRect, "uPosSize");
+        _uRectColor   = new AutoUniform(_gl, _shaderStore, _progRect, "uColor");
+        _uRectRes     = new AutoUniform(_gl, _shaderStore, _progRect, "uRes");
 
-        _progLayerRect = ShaderCompiler.CreateProgram(_gl, ShaderCompiler.LayerRectShader.VS, ShaderCompiler.LayerRectShader.FS);
-        _uLayerRectDstRectPx = _gl.GetUniformLocation(_progLayerRect, "uDstRectPx");
-        _uLayerRectDstResPx  = _gl.GetUniformLocation(_progLayerRect, "uDstResPx");
-        _uLayerRectSrcUvRect = _gl.GetUniformLocation(_progLayerRect, "uSrcUvRect");
-        _uLayerRectTex       = _gl.GetUniformLocation(_progLayerRect, "uTex");
+        _progBlit     = new AutoProgram(_shaderStore, "layerShader");
+        _uBlitTex     = new AutoUniform(_gl, _shaderStore, _progBlit, "uTex");
+
+        _progLayerRect       = new AutoProgram(_shaderStore, "layerRectShader");
+        _uLayerRectDstRectPx = new AutoUniform(_gl, _shaderStore, _progLayerRect, "uDstRectPx");
+        _uLayerRectDstResPx  = new AutoUniform(_gl, _shaderStore, _progLayerRect, "uDstResPx");
+        _uLayerRectSrcUvRect = new AutoUniform(_gl, _shaderStore, _progLayerRect, "uSrcUvRect");
+        _uLayerRectTex       = new AutoUniform(_gl, _shaderStore, _progLayerRect, "uTex");
     }
 
     private void ResizeInternal(int w, int h)

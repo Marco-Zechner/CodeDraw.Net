@@ -9,10 +9,11 @@ public sealed unsafe class CodeDrawLayer : IDisposable
 {
     public enum BlendMode
     {
-        ALPHA,      // SrcAlpha, OneMinusSrcAlpha
+        SOURCE_OVER_ALPHA,      // SrcAlpha, OneMinusSrcAlpha
         ADD,        // One, One
         MULTIPLY,   // DstColor, Zero
         NONE,       // Disable blending
+        RGB_ALPHA_KEEP_DST_A,
     }
 
     private void ApplyBlendMode()
@@ -23,7 +24,7 @@ public sealed unsafe class CodeDrawLayer : IDisposable
                 _gl.Disable(GLEnum.Blend);
                 break;
 
-            case BlendMode.ALPHA:
+            case BlendMode.SOURCE_OVER_ALPHA:
                 _gl.Enable(GLEnum.Blend);
                 _gl.BlendEquationSeparate(GLEnum.FuncAdd, GLEnum.FuncAdd);
                 _gl.BlendFunc(GLEnum.SrcAlpha, GLEnum.OneMinusSrcAlpha);
@@ -39,6 +40,15 @@ public sealed unsafe class CodeDrawLayer : IDisposable
                 _gl.Enable(GLEnum.Blend);
                 _gl.BlendEquationSeparate(GLEnum.FuncAdd, GLEnum.FuncAdd);
                 _gl.BlendFunc(GLEnum.DstColor, GLEnum.Zero);
+                break;
+
+            case BlendMode.RGB_ALPHA_KEEP_DST_A:
+                _gl.Enable(GLEnum.Blend);
+                _gl.BlendEquationSeparate(GLEnum.FuncAdd, GLEnum.FuncAdd);
+                _gl.BlendFuncSeparate(
+                    GLEnum.SrcAlpha, GLEnum.OneMinusSrcAlpha, // RGB
+                    GLEnum.Zero,     GLEnum.One              // A: keep dst
+                );
                 break;
         }
     }
@@ -145,7 +155,7 @@ public sealed unsafe class CodeDrawLayer : IDisposable
         public void Exec(GL gl, CodeDrawLayer self) => self.ResizeInternal(W, H);
     }
 
-    private BlendMode _blendMode = BlendMode.ALPHA;
+    private BlendMode _blendMode = BlendMode.SOURCE_OVER_ALPHA;
     private CodeDrawShader? _customBlitShader;
 
     private readonly SharedGlfwHost _host;
@@ -233,7 +243,7 @@ public sealed unsafe class CodeDrawLayer : IDisposable
     // --------- Public API ---------
 
     /// <summary>
-    /// Alpha is the default blend mode.
+    /// SOURCE_OVER_ALPHA is the default blend mode.
     /// </summary>
     /// <param name="mode"></param>
     public void SetBlendMode(BlendMode mode) => Enqueue(new CmdSetBlendMode { Mode = mode });

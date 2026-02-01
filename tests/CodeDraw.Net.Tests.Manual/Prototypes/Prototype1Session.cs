@@ -48,12 +48,13 @@ public sealed class Prototype1Session : IDisposable
             layer.Clear(0.10f, 0.11f, 0.13f, 1f);
 
             layer.DrawRect(60 + 120 * MathF.Sin(_tA), 80, 220, 140, 0.2f, 1.0f, 0.6f, 1f);
-            layer.DrawRect(90, 260, 140, 80, 1.0f, 0.3f, 0.2f, 0.9f);
+            layer.DrawRect(90, 260, 140, 80, 1.0f, 0.3f, 0.2f, 0.8f);
 
+            layer.SetBlendMode(CodeDrawLayer.BlendMode.RGB_ALPHA_KEEP_DST_A);
             layer.DrawLayer(_overlay);
             layer.SetBlendMode(CodeDrawLayer.BlendMode.NONE);
-            layer.DrawRect(255, 10, 240, 40, 0.2f, 0.4f, 1.0f, 0.5f + 0.5f * MathF.Sin(_tOverlay * 2f));
-            layer.SetBlendMode(CodeDrawLayer.BlendMode.ALPHA);
+            layer.DrawRect(230, 5, 300, 40, 0.2f, 0.4f, 1.0f, 0.5f + 0.5f * MathF.Sin(_tOverlay * 2f));
+            layer.SetBlendMode(CodeDrawLayer.BlendMode.SOURCE_OVER_ALPHA);
 
             layer.Render();
         };

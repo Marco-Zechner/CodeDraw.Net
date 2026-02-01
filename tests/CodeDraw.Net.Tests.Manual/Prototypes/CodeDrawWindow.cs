@@ -294,6 +294,20 @@ public sealed unsafe class CodeDrawWindow : IDisposable
             lock (_winLock) glfw.SwapInterval(0);
             var gl = GL.GetApi(glfw.GetProcAddress);
 
+            gl.Enable(GLEnum.DebugOutput);
+            gl.Enable(GLEnum.DebugOutputSynchronous);
+
+            unsafe
+            {
+                gl.DebugMessageCallback((source, type, id, severity, length, message, userParam) =>
+                {
+                    var msg = new string((sbyte*)message, 0, (int)length);
+                    Console.WriteLine($"GL Debug Message: Source={source}, Type={type}, ID={id}, Severity={severity}, Message={msg}");
+                }, null);
+            }
+            gl.DebugMessageControl(GLEnum.DontCare, GLEnum.DontCare, GLEnum.DebugSeverityNotification, 0, null, false);
+
+
             var (vao, vbo, ebo) = GlShader.CreateFullScreenQuad(gl);
             var progBlit = GlShader.CreateProgram(gl, GlShader.LayerShader.VS, GlShader.LayerShader.FS);
             var uTex = gl.GetUniformLocation(progBlit, "uTex");

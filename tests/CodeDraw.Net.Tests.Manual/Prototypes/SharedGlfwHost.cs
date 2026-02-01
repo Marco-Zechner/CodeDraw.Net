@@ -10,33 +10,41 @@ public sealed unsafe class SharedGlfwHost : IDisposable
 
     internal object GetWindowLock(WindowHandle* win)
     {
-        if (win == null) return new object();
-        return _windowLocks.GetOrAdd((nint)win, _ => new object());
+        return win == null ? new object() : _windowLocks.GetOrAdd((nint)win, _ => new object());
     }
 
     public HostInputHub Input { get; } = new();
 
-    private readonly ConcurrentQueue<HostInputEvent> _hostInputQ = new();
-    private void EnqueueHostInput(HostInputEvent e) => _hostInputQ.Enqueue(e);
+    private readonly ConcurrentDictionary<nint, ConcurrentQueue<HostInputEvent>> _hostInputByWin = new();
+
+    private void EnsureHostInputQueueForWindow(nint winHandle)
+    {
+        _hostInputByWin.GetOrAdd(winHandle, _ => new ConcurrentQueue<HostInputEvent>());
+    }
+
+    private void RemoveHostInputQueueForWindow(nint winHandle)
+    {
+        _hostInputByWin.TryRemove(winHandle, out _);
+    }
+
+    private void EnqueueHostInput(HostInputEvent e)
+    {
+        if (_hostInputByWin.TryGetValue(e.WindowHandle, out var q))
+            q.Enqueue(e);
+    }
 
     public void PumpHostInputForWindow(CodeDrawWindow windowObj, int max = 10_000)
     {
         if (windowObj.IsDisposed) return;
 
         var myHandle = windowObj.WindowHandle;
+
+        if (!_hostInputByWin.TryGetValue(myHandle, out var q))
+            return;
+
         var n = 0;
-        var others = new List<HostInputEvent>(256);
-
-        while (n++ < max && _hostInputQ.TryDequeue(out var e))
-        {
-            if (e.WindowHandle == myHandle)
-                Input.Dispatch(windowObj, e);
-            else
-                others.Add(e);
-        }
-
-        for (var i = 0; i < others.Count; i++)
-            _hostInputQ.Enqueue(others[i]);
+        while (n++ < max && q.TryDequeue(out var e))
+            Input.Dispatch(windowObj, e);
     }
 
 
@@ -214,27 +222,7 @@ public sealed unsafe class SharedGlfwHost : IDisposable
         return _winToId.TryGetValue((nint)win, out var id) ? id : 0;
     }
 
-    public WindowHandle* CreateWindow(int w, int h, string title)
-    {
-        WindowHandle* result = null;
-        InvokeUi(() =>
-        {
-            ApplyCommonHints(_glfw!);
-            result = _glfw!.CreateWindow(w, h, title, null, _shareRoot);
-            if (result == null) throw new Exception("CreateWindow failed");
-            _windowLocks.TryAdd((nint)result, new object());
-
-            var id = Interlocked.Increment(ref _nextWindowId);
-            _winToId[(nint)result] = id;
-            _inputQueues[id] = new ConcurrentQueue<object>();
-
-            RegisterInputCallbacks(result, id);
-
-            _glfw.MakeContextCurrent(result);
-            _glfw.MakeContextCurrent(null);
-        });
-        return result;
-    }
+    public WindowHandle* CreateWindow(int w, int h, string title) => CreateWindow(20, 20, w, h, title);
 
     public WindowHandle* CreateWindow(int x, int y, int w, int h, string title)
     {
@@ -252,6 +240,7 @@ public sealed unsafe class SharedGlfwHost : IDisposable
             _winToId[(nint)result] = id;
             _inputQueues[id] = new ConcurrentQueue<object>();
 
+            EnsureHostInputQueueForWindow((nint)result);
             RegisterInputCallbacks(result, id);
 
             _glfw.MakeContextCurrent(result);
@@ -287,6 +276,7 @@ public sealed unsafe class SharedGlfwHost : IDisposable
         {
             _callbacks.TryRemove((nint)win, out _);
             UnregisterWindowObject(win);
+            RemoveHostInputQueueForWindow((nint)win);
 
             _windowLocks.TryRemove((nint)win, out _);
 

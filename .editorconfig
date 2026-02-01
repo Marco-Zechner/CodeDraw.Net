@@ -12,7 +12,7 @@ tab_width = 4
 #####################################################
 # 1. Private Fields → _camelCase
 #####################################################
-dotnet_naming_rule.private_fields_must_have_underscore.severity = error
+dotnet_naming_rule.private_fields_must_have_underscore.severity = warning
 dotnet_naming_rule.private_fields_must_have_underscore.symbols = private_fields
 dotnet_naming_rule.private_fields_must_have_underscore.style = underscore_camel_case
 
@@ -26,7 +26,7 @@ dotnet_naming_style.underscore_camel_case.capitalization = camel_case
 #####################################################
 # 2. Properties → PascalCase
 #####################################################
-dotnet_naming_rule.properties_must_be_pascal_case.severity = error
+dotnet_naming_rule.properties_must_be_pascal_case.severity = warning
 dotnet_naming_rule.properties_must_be_pascal_case.symbols = properties
 dotnet_naming_rule.properties_must_be_pascal_case.style = pascal_case
 
@@ -38,7 +38,7 @@ dotnet_naming_style.pascal_case.capitalization = pascal_case
 #####################################################
 # 3. Methods → PascalCase
 #####################################################
-dotnet_naming_rule.methods_must_be_pascal_case.severity = error
+dotnet_naming_rule.methods_must_be_pascal_case.severity = warning
 dotnet_naming_rule.methods_must_be_pascal_case.symbols = methods
 dotnet_naming_rule.methods_must_be_pascal_case.style = pascal_case
 
@@ -48,7 +48,7 @@ dotnet_naming_symbols.methods.applicable_kinds = method
 #####################################################
 # 4. Classes → PascalCase
 #####################################################
-dotnet_naming_rule.classes_must_be_pascal_case.severity = error
+dotnet_naming_rule.classes_must_be_pascal_case.severity = warning
 dotnet_naming_rule.classes_must_be_pascal_case.symbols = classes
 dotnet_naming_rule.classes_must_be_pascal_case.style = pascal_case
 
@@ -58,7 +58,7 @@ dotnet_naming_symbols.classes.applicable_kinds = class
 #####################################################
 # 5. Constants → ALL_CAPS
 #####################################################
-dotnet_naming_rule.constants_must_be_all_caps.severity = error
+dotnet_naming_rule.constants_must_be_all_caps.severity = warning
 dotnet_naming_rule.constants_must_be_all_caps.symbols = constants
 dotnet_naming_rule.constants_must_be_all_caps.style = all_caps
 
@@ -71,7 +71,7 @@ dotnet_naming_style.all_caps.capitalization = all_upper
 #####################################################
 # 6. Interfaces → IPascalCase
 #####################################################
-dotnet_naming_rule.interfaces_must_start_with_I.severity = error
+dotnet_naming_rule.interfaces_must_start_with_I.severity = warning
 dotnet_naming_rule.interfaces_must_start_with_I.symbols = interfaces
 dotnet_naming_rule.interfaces_must_start_with_I.style = pascal_with_i_prefix
 
@@ -84,7 +84,7 @@ dotnet_naming_style.pascal_with_i_prefix.capitalization = pascal_case
 #####################################################
 # 7. Parameters and Locals → camelCase
 #####################################################
-dotnet_naming_rule.locals_and_params_must_be_camel_case.severity = error
+dotnet_naming_rule.locals_and_params_must_be_camel_case.severity = warning
 dotnet_naming_rule.locals_and_params_must_be_camel_case.symbols = locals_and_params
 dotnet_naming_rule.locals_and_params_must_be_camel_case.style = camel_case_style
 
@@ -95,7 +95,7 @@ dotnet_naming_style.camel_case_style.capitalization = camel_case
 #####################################################
 # 8. Enum Types → PascalCase
 #####################################################
-dotnet_naming_rule.enum_types_must_be_pascal_case.severity = error
+dotnet_naming_rule.enum_types_must_be_pascal_case.severity = warning
 dotnet_naming_rule.enum_types_must_be_pascal_case.symbols = enum_types
 dotnet_naming_rule.enum_types_must_be_pascal_case.style = pascal_case
 

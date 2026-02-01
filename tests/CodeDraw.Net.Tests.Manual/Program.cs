@@ -1,8 +1,11 @@
 using System.Reflection;
 using System.Text;
-// using MarcoZechner.CodeDrawDotNet.Api;
 
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual;
+
+// ---------------------------------------------------------
+// Common contracts
+// ---------------------------------------------------------
 
 public interface ITestable
 {
@@ -14,7 +17,7 @@ public interface ITestable
     void RunTest();
 }
 
-[AttributeUsage(AttributeTargets.Class, Inherited = false, AllowMultiple = false)]
+[AttributeUsage(AttributeTargets.Class, Inherited = false)]
 public sealed class OrderAttribute : Attribute
 {
     public int Id { get; }
@@ -26,7 +29,7 @@ public sealed class OrderAttribute : Attribute
     }
 }
 
-[AttributeUsage(AttributeTargets.Class, Inherited = false, AllowMultiple = false)]
+[AttributeUsage(AttributeTargets.Class, Inherited = false)]
 public sealed class PrototypeAttribute : Attribute
 {
     public int Id { get; }
@@ -37,6 +40,13 @@ public sealed class PrototypeAttribute : Attribute
         Id = id;
     }
 }
+
+/// <summary>
+/// Marks a public static prototype runner method.
+/// Expected signature: public static void RunTest()
+/// </summary>
+[AttributeUsage(AttributeTargets.Method, Inherited = false)]
+public sealed class StaticPrototypeAttribute : Attribute { }
 
 public enum TestOutcome
 {
@@ -75,12 +85,18 @@ public static class Program
             e.SetObserved();
         };
 
+        // ---------------------------------------------
+        // Prototype mode (-p): run a single prototype
+        // Now supports:
+        //  1) ITestable instance with RunTest()
+        //  2) [StaticPrototype] public static void RunTest()
+        // ---------------------------------------------
         if (args.Any(s => s.Equals("-p", StringComparison.OrdinalIgnoreCase)))
         {
             var allPrototypes = DiscoverPrototypes();
             if (allPrototypes.Count == 0)
             {
-                Console.WriteLine("No prototypes found. Create classes that implement ITestable with a public parameterless constructor.");
+                Console.WriteLine("No prototypes found. Add [Prototype(id)] to a class that either implements ITestable, or has a [StaticPrototype] public static void RunTest().");
                 return;
             }
 
@@ -89,20 +105,18 @@ public static class Program
                 .FirstOrDefault();
 
             var target = selectedId != 0
-                ? allPrototypes.FirstOrDefault(t => t.id == selectedId).type
-                : allPrototypes.First().type;
+                ? allPrototypes.FirstOrDefault(t => t.Id == selectedId)
+                : allPrototypes.First();
 
-            if (target is null) return;
+            if (target.Type is null) return;
 
-            var instance = (ITestable?)Activator.CreateInstance(target);
-            if (instance is null)
-                throw new InvalidOperationException("Failed to construct prototype (null instance).");
-
-            instance.RunTest();
+            RunPrototype(target);
             return;
         }
 
-
+        // ---------------------------------------------
+        // Test runner mode: unchanged (ITestable only)
+        // ---------------------------------------------
         var allTests = DiscoverTests();
         if (allTests.Count == 0)
         {
@@ -141,7 +155,6 @@ public static class Program
                     throw new InvalidOperationException("Failed to construct test (null instance).");
 
                 instance.RunTest();
-                // CodeDrawRuntime.CloseAllWindows(); //TODO: fix
                 sw.Stop();
 
                 result.Duration = sw.Elapsed;
@@ -182,7 +195,7 @@ public static class Program
             Console.SetCursorPosition(0, consoleTopBefore);
             for (var i = 0; i < consoleTopAfter - consoleTopBefore; i++)
             {
-                Console.WriteLine(new string(' ', Console.WindowWidth-1));
+                Console.WriteLine(new string(' ', Console.WindowWidth - 1));
             }
             Console.SetCursorPosition(0, consoleTopBefore);
 
@@ -191,6 +204,34 @@ public static class Program
 
         PrintSummary(results);
         PrintExitHint();
+    }
+
+    // ---------------------------------------------------------
+    // Prototype execution
+    // ---------------------------------------------------------
+
+    private readonly struct PrototypeInfo(int id, Type type, MethodInfo? staticRun)
+    {
+        public readonly int Id = id;
+        public readonly Type Type = type;
+        public readonly MethodInfo? StaticRun = staticRun;
+    }
+
+    private static void RunPrototype(PrototypeInfo p)
+    {
+        // Prefer static runner if available
+        if (p.StaticRun is not null)
+        {
+            p.StaticRun.Invoke(null, null);
+            return;
+        }
+
+        // Fallback: ITestable instance runner
+        var instance = (ITestable?)Activator.CreateInstance(p.Type);
+        if (instance is null)
+            throw new InvalidOperationException("Failed to construct prototype (null instance).");
+
+        instance.RunTest();
     }
 
     // --- Discovery & selection ----------------------------------------------------------
@@ -207,46 +248,30 @@ public static class Program
                 t.GetConstructor(Type.EmptyTypes) is not null)
             .ToList();
 
-        // Partition: with [Order] and without
         var withAttr = new List<(int id, Type type)>();
         var withoutAttr = new List<Type>();
 
         foreach (var t in candidates)
         {
             var attr = t.GetCustomAttribute<OrderAttribute>();
-            if (attr is not null)
-            {
-                withAttr.Add((attr.Id, t));
-            }
-            else
-            {
-                withoutAttr.Add(t);
-            }
+            if (attr is not null) withAttr.Add((attr.Id, t));
+            else withoutAttr.Add(t);
         }
 
-        // Resolve ID collisions for attributed tests: bump to next free id
         var used = new HashSet<int>();
         var fixedWithAttr = new List<(int id, Type type)>(withAttr.Count);
 
         foreach (var (id, type) in withAttr.OrderBy(x => x.id).ThenBy(x => x.type.Name))
         {
-            var assigned = id;
-            if (assigned <= 0) assigned = 1;
-
-            while (!used.Add(assigned))
-            {
-                assigned++;
-            }
+            var assigned = id <= 0 ? 1 : id;
+            while (!used.Add(assigned)) assigned++;
 
             if (assigned != id)
-            {
                 Console.WriteLine($"[warning] Duplicate [Order({id})] detected. '{type.Name}' reassigned to id {assigned}.");
-            }
 
             fixedWithAttr.Add((assigned, type));
         }
 
-        // Assign IDs to tests without attribute, after the highest used id
         var next = used.Count == 0 ? 1 : (used.Max() + 1);
         foreach (var t in withoutAttr.OrderBy(t => t.Name))
         {
@@ -255,72 +280,77 @@ public static class Program
             next++;
         }
 
-        // Return sorted by id
         return fixedWithAttr.OrderBy(x => x.id).ToList();
     }
 
-    private static List<(int id, Type type)> DiscoverPrototypes()
+    private static List<PrototypeInfo> DiscoverPrototypes()
     {
         var asm = Assembly.GetExecutingAssembly();
 
-        var candidates = asm
+        // Only classes explicitly marked as prototypes
+        var protoTypes = asm
             .GetTypes()
-            .Where(t =>
-                t is { IsAbstract: false, IsInterface: false } &&
-                typeof(ITestable).IsAssignableFrom(t) &&
-                t.GetConstructor(Type.EmptyTypes) is not null)
+            .Where(t => t is { IsAbstract: false, IsInterface: false } &&
+                        t.GetCustomAttribute<PrototypeAttribute>() is not null)
             .ToList();
 
-        // Partition: with [Order] and without
-        var withAttr = new List<(int id, Type type)>();
-        var withoutAttr = new List<Type>();
+        var withAttr = new List<(int id, PrototypeInfo info)>();
 
-        foreach (var t in candidates)
+        foreach (var t in protoTypes)
         {
-            var attr = t.GetCustomAttribute<PrototypeAttribute>();
-            if (attr is not null)
+            var attr = t.GetCustomAttribute<PrototypeAttribute>()!;
+            var staticRun = FindStaticPrototypeRunner(t);
+
+            // Validation: must have either static runner OR ITestable+ctor
+            var hasInstanceRunner = typeof(ITestable).IsAssignableFrom(t) && t.GetConstructor(Type.EmptyTypes) is not null;
+            if (staticRun is null && !hasInstanceRunner)
             {
-                withAttr.Add((attr.Id, t));
+                Console.WriteLine($"[warning] [Prototype({attr.Id})] on '{t.Name}' ignored: needs either [StaticPrototype] public static void RunTest(), or implement ITestable with public parameterless ctor.");
+                continue;
             }
-            else
-            {
-                withoutAttr.Add(t);
-            }
+
+            withAttr.Add((attr.Id, new PrototypeInfo(attr.Id, t, staticRun)));
         }
 
-        // Resolve ID collisions for attributed tests: bump to next free id
+        // Resolve ID collisions: bump to next free id
         var used = new HashSet<int>();
-        var fixedWithAttr = new List<(int id, Type type)>(withAttr.Count);
+        var fixedList = new List<PrototypeInfo>(withAttr.Count);
 
-        foreach (var (id, type) in withAttr.OrderBy(x => x.id).ThenBy(x => x.type.Name))
+        foreach (var (id, info) in withAttr.OrderBy(x => x.id).ThenBy(x => x.info.Type.Name))
         {
-            var assigned = id;
-            if (assigned <= 0) assigned = 1;
-
-            while (!used.Add(assigned))
-            {
-                assigned++;
-            }
+            var assigned = id <= 0 ? 1 : id;
+            while (!used.Add(assigned)) assigned++;
 
             if (assigned != id)
-            {
-                Console.WriteLine($"[warning] Duplicate [Prototype({id})] detected. '{type.Name}' reassigned to id {assigned}.");
-            }
+                Console.WriteLine($"[warning] Duplicate [Prototype({id})] detected. '{info.Type.Name}' reassigned to id {assigned}.");
 
-            fixedWithAttr.Add((assigned, type));
+            fixedList.Add(new PrototypeInfo(assigned, info.Type, info.StaticRun));
         }
 
-        // Assign IDs to tests without attribute, after the highest used id
-        var next = used.Count == 0 ? 1 : (used.Max() + 1);
-        foreach (var t in withoutAttr.OrderBy(t => t.Name))
+        return fixedList.OrderBy(x => x.Id).ToList();
+    }
+
+    private static MethodInfo? FindStaticPrototypeRunner(Type t)
+    {
+        // Find exactly one: public static void RunTest() with [StaticPrototype]
+        var methods = t.GetMethods(BindingFlags.Public | BindingFlags.Static);
+
+        var candidates = methods
+            .Where(m =>
+                m.GetCustomAttribute<StaticPrototypeAttribute>() is not null &&
+                m.Name == "RunTest" &&
+                m.ReturnType == typeof(void) &&
+                m.GetParameters().Length == 0)
+            .ToList();
+
+        if (candidates.Count == 0) return null;
+
+        if (candidates.Count > 1)
         {
-            while (!used.Add(next)) next++;
-            fixedWithAttr.Add((next, t));
-            next++;
+            Console.WriteLine($"[warning] '{t.Name}' has multiple [StaticPrototype] RunTest methods. Using the first one.");
         }
 
-        // Return sorted by id
-        return fixedWithAttr.OrderBy(x => x.id).ToList();
+        return candidates[0];
     }
 
     private static List<(int id, Type type)> FilterSelection(
@@ -373,8 +403,10 @@ public static class Program
 
         Console.WriteLine(
             "\nUsage:\n" +
-            "  EngineTests [-s] [ids]\n\n" +
+            "  EngineTests [-s] [ids]\n" +
+            "  EngineTests -p [id]\n\n" +
             "Arguments:\n" +
+            "  -p          Prototype mode: run one [Prototype(id)] (supports static or instance runner).\n" +
             "  -s          Skip user prompts; mark tests with no exception as 'Unknown'.\n" +
             "  ids         Space-separated test IDs to run (from [Order(id)] or auto-assigned).\n" +
             "              If omitted, all tests run.\n" +
@@ -382,7 +414,9 @@ public static class Program
             "  EngineTests              # run all tests, ask y/n per test\n" +
             "  EngineTests -s           # run all tests, skip user prompts\n" +
             "  EngineTests 1 3 5        # run test IDs 1,3,5 and ask y/n per test\n" +
-            "  EngineTests -s 2 4       # run IDs 2 and 4, skip prompts\n"
+            "  EngineTests -s 2 4       # run IDs 2 and 4, skip prompts\n" +
+            "  EngineTests -p           # run first prototype\n" +
+            "  EngineTests -p 1         # run prototype id 1\n"
         );
         Environment.Exit(1);
     }
@@ -393,7 +427,7 @@ public static class Program
         {
             Console.Write(prompt);
             var line = Console.ReadLine();
-            if (line is null) return false; // piped/no input -> default 'no'
+            if (line is null) return false;
             line = line.Trim().ToLowerInvariant();
             if (line is "y" or "yes") return true;
             if (line is "n" or "no") return false;

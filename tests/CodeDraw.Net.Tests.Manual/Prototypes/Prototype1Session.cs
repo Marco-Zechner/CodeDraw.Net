@@ -24,6 +24,19 @@ public sealed class Prototype1Session : IDisposable
         _winA.OnClose = w => Console.WriteLine($"A closed (id={w.WindowId})");
         _winB.OnClose = w => Console.WriteLine($"B closed (id={w.WindowId})");
 
+        host.Input.OnKeyDown += ((win, key, mods) =>
+        {
+            switch (key)
+            {
+                case Keys.Escape:
+                    win.Close();
+                    break;
+                case Keys.F11:
+                    win.MaximizeBorderless = !win.MaximizeBorderless;
+                    break;
+            }
+        });
+
         _winA.OnUpdate = ctx =>
         {
             _tA += ctx.DeltaSeconds;
@@ -37,15 +50,11 @@ public sealed class Prototype1Session : IDisposable
             layer.DrawRect(60 + 120 * MathF.Sin(_tA), 80, 220, 140, 0.2f, 1.0f, 0.6f, 1f);
             layer.DrawRect(90, 260, 140, 80, 1.0f, 0.3f, 0.2f, 0.9f);
 
+            layer.SetBlendMode(CodeDrawLayer.BlendMode.NONE);
             layer.DrawLayer(_overlay);
+            layer.SetBlendMode(CodeDrawLayer.BlendMode.ALPHA);
 
             layer.Render();
-
-            if (ctx.Win.Input.GetKeyDown(Keys.F))
-            {
-                ctx.Win.MaximizeBorderless = !ctx.Win.MaximizeBorderless;
-                Console.WriteLine($"A MaximizeBorderless: {ctx.Win.MaximizeBorderless}");
-            }
         };
 
         _winB.UpdateDelayMs = 33;
@@ -57,14 +66,7 @@ public sealed class Prototype1Session : IDisposable
             _overlay.Clear();
             _overlay.DrawRect(10, 10, 260, 40, 0.2f, 0.4f, 1.0f, 0.5f + 0.5f * MathF.Sin(_tOverlay * 2f));
             _overlay.Render();
-
-            if (ctx.Win.Input.GetKeyDown(Keys.F))
-            {
-                ctx.Win.MaximizeBorderless = !ctx.Win.MaximizeBorderless;
-                Console.WriteLine($"B MaximizeBorderless: {ctx.Win.MaximizeBorderless}");
-            }
         };
-
     }
 
     public void WaitForClose()

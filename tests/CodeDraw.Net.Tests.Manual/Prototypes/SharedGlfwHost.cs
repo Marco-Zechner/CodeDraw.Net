@@ -6,6 +6,107 @@ namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes;
 
 public sealed unsafe class SharedGlfwHost : IDisposable
 {
+    public HostInputHub Input { get; } = new();
+
+    private readonly ConcurrentQueue<HostInputEvent> _hostInputQ = new();
+    private void EnqueueHostInput(HostInputEvent e) => _hostInputQ.Enqueue(e);
+
+    public void PumpHostInputForWindow(CodeDrawWindow windowObj, int max = 10_000)
+    {
+        if (windowObj.IsDisposed) return;
+
+        var myHandle = windowObj.WindowHandle;
+        var n = 0;
+        var others = new List<HostInputEvent>(256);
+
+        while (n++ < max && _hostInputQ.TryDequeue(out var e))
+        {
+            if (e.WindowHandle == myHandle)
+                Input.Dispatch(windowObj, e);
+            else
+                others.Add(e);
+        }
+
+        for (int i = 0; i < others.Count; i++)
+            _hostInputQ.Enqueue(others[i]);
+    }
+
+
+    // ---------- event types ----------
+    internal abstract record HostInputEvent(nint WindowHandle);
+
+    private sealed record HostKeyEvent(nint WindowHandle, Keys Key, int Scancode, InputAction Action, KeyModifiers Mods)
+        : HostInputEvent(WindowHandle);
+
+    private sealed record HostMouseButtonEvent(nint WindowHandle, MouseButton Button, InputAction Action, KeyModifiers Mods)
+        : HostInputEvent(WindowHandle);
+
+    private sealed record HostScrollEvent(nint WindowHandle, double Dx, double Dy)
+        : HostInputEvent(WindowHandle);
+
+    private sealed record HostCursorPosEvent(nint WindowHandle, double X, double Y)
+        : HostInputEvent(WindowHandle);
+
+    // ---------- hub ----------
+    public sealed class HostInputHub
+    {
+        // Key
+        public event Action<CodeDrawWindow, Keys, KeyModifiers>? OnKeyDown;
+        public event Action<CodeDrawWindow, Keys, KeyModifiers>? OnKeyUp;
+        public event Action<CodeDrawWindow, Keys, KeyModifiers>? OnKeyRepeat;
+
+        // Mouse
+        public event Action<CodeDrawWindow, MouseButton, KeyModifiers>? OnMouseDown;
+        public event Action<CodeDrawWindow, MouseButton, KeyModifiers>? OnMouseUp;
+
+        // Wheel / move
+        public event Action<CodeDrawWindow, double, double>? OnScroll;
+        public event Action<CodeDrawWindow, double, double>? OnMouseMove;
+
+        internal void Dispatch(CodeDrawWindow win, HostInputEvent e)
+        {
+            switch (e)
+            {
+                case HostKeyEvent ke:
+                    switch (ke.Action)
+                    {
+                        case InputAction.Press: OnKeyDown?.Invoke(win, ke.Key, ke.Mods); break;
+                        case InputAction.Release: OnKeyUp?.Invoke(win, ke.Key, ke.Mods); break;
+                        case InputAction.Repeat: OnKeyRepeat?.Invoke(win, ke.Key, ke.Mods); break;
+                    }
+                    break;
+
+                case HostMouseButtonEvent mb:
+                    if (mb.Action == InputAction.Press)  OnMouseDown?.Invoke(win, mb.Button, mb.Mods);
+                    else if (mb.Action == InputAction.Release) OnMouseUp?.Invoke(win, mb.Button, mb.Mods);
+                    break;
+
+                case HostScrollEvent sc:
+                    OnScroll?.Invoke(win, sc.Dx, sc.Dy);
+                    break;
+
+                case HostCursorPosEvent mv:
+                    OnMouseMove?.Invoke(win, mv.X, mv.Y);
+                    break;
+            }
+        }
+    }
+
+    private readonly ConcurrentDictionary<nint, WeakReference<CodeDrawWindow>> _winToObj = new();
+
+    internal void RegisterWindowObject(WindowHandle* win, CodeDrawWindow obj)
+        => _winToObj[(nint)win] = new WeakReference<CodeDrawWindow>(obj);
+
+    internal void UnregisterWindowObject(WindowHandle* win)
+        => _winToObj.TryRemove((nint)win, out _);
+
+    internal CodeDrawWindow? TryGetWindowObject(WindowHandle* win)
+    {
+        if (win == null) return null;
+        if (!_winToObj.TryGetValue((nint)win, out var wr)) return null;
+        return wr.TryGetTarget(out var w) ? w : null;
+    }
+
     private sealed class WindowCallbacks
     {
         public GlfwCallbacks.CursorPosCallback? CursorPos;
@@ -174,6 +275,7 @@ public sealed unsafe class SharedGlfwHost : IDisposable
         InvokeUi(() =>
         {
             _callbacks.TryRemove((nint)win, out _);
+            UnregisterWindowObject(win);
 
             if (_winToId.TryRemove((nint)win, out var id))
             {
@@ -392,10 +494,26 @@ public sealed unsafe class SharedGlfwHost : IDisposable
     {
         var cbs = new WindowCallbacks
         {
-            CursorPos = (w, x, y) => Enq(new MouseMoveEvent(id, x, y)),
-            MouseButton = (w, button, action, mods) => Enq(new MouseButtonEvent(id, button, action, mods)),
-            Scroll = (w, dx, dy) => Enq(new MouseWheelEvent(id, dx, dy)),
-            Key = (w, key, scancode, action, mods) => Enq(new KeyEvent(id, key, scancode, action, mods)),
+            CursorPos = (w, x, y) =>
+            {
+                Enq(new MouseMoveEvent(id, x, y));
+                EnqueueHostInput(new HostCursorPosEvent((nint)w, x, y));
+            },
+            MouseButton = (w, button, action, mods) =>
+            {
+                Enq(new MouseButtonEvent(id, button, action, mods));
+                EnqueueHostInput(new HostMouseButtonEvent((nint)w, button, action, mods));
+            },
+            Scroll = (w, dx, dy) =>
+            {
+                Enq(new MouseWheelEvent(id, dx, dy));
+                EnqueueHostInput(new HostScrollEvent((nint)w, dx, dy));
+            },
+            Key = (w, key, scancode, action, mods) =>
+            {
+                Enq(new KeyEvent(id, key, scancode, action, mods));
+                EnqueueHostInput(new HostKeyEvent((nint)w, key, scancode, action, mods));
+            },
             Char = (w, codepoint) => Enq(new CharEvent(id, codepoint)),
             Close = (w) =>
             {
@@ -412,6 +530,8 @@ public sealed unsafe class SharedGlfwHost : IDisposable
         _glfw.SetKeyCallback(win, cbs.Key);
         _glfw.SetCharCallback(win, cbs.Char);
         _glfw.SetWindowCloseCallback(win, cbs.Close);
+
+        return;
 
         void Enq(object e)
         {

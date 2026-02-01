@@ -104,6 +104,7 @@ public sealed unsafe class CodeDrawWindow : IDisposable
 
     private readonly SharedGlfwHost _host;
     private readonly WindowHandle* _win;
+    internal nint WindowHandle => (nint)_win;
 
     private Thread? _presentThread;
     private Thread? _updateThread;
@@ -166,6 +167,7 @@ public sealed unsafe class CodeDrawWindow : IDisposable
         _host = host;
         _title = title;
         _win = host.CreateWindow(w, h, _title);
+        _host.RegisterWindowObject(_win, this);
         WindowId = host.GetWindowId(_win);
 
         _layer = new CodeDrawLayer(host, w, h);
@@ -180,6 +182,7 @@ public sealed unsafe class CodeDrawWindow : IDisposable
     private void DestroyWindowOnce()
     {
         if (Interlocked.Exchange(ref _windowDestroyed, 1) != 0) return;
+        _host.UnregisterWindowObject(_win);
         _host.DestroyWindow(_win);
     }
 
@@ -250,6 +253,7 @@ public sealed unsafe class CodeDrawWindow : IDisposable
 
             Input.BeginUpdateFrame();
             _host.DrainWindowInput(WindowId, HandleEvent);
+            _host.PumpHostInputForWindow(this);
 
             if (!_startFired && OnStart != null)
             {
@@ -360,6 +364,12 @@ public sealed unsafe class CodeDrawWindow : IDisposable
                 }
 
                 glfw.SwapBuffers(_win);
+
+                var err = gl.GetError();
+                if (err != GLEnum.NoError)
+                {
+                    Console.WriteLine($"GL error: {err}");
+                }
             }
 
             gl.DeleteProgram(progBlit);

@@ -232,6 +232,10 @@ public sealed unsafe class CodeDrawLayer : IDisposable
 
     // --------- Public API ---------
 
+    /// <summary>
+    /// Alpha is the default blend mode.
+    /// </summary>
+    /// <param name="mode"></param>
     public void SetBlendMode(BlendMode mode) => Enqueue(new CmdSetBlendMode { Mode = mode });
     public void SetLayerBlitShader(CodeDrawShader? shader) => Enqueue(new CmdSetBlitShader { Shader = shader });
     public void Clear(float r = 0f, float g = 0, float b = 0f, float a = 0f) => Enqueue(new CmdClear(r, g, b, a));

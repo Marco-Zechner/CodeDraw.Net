@@ -13,11 +13,11 @@ public sealed class Prototype1Session : IDisposable
 
     public Prototype1Session(SharedGlfwHost host)
     {
-        _winA = new CodeDrawWindow(host, 800, 450, "A");
-        _winB = new CodeDrawWindow(host, 800, 450, "B (mirrors A)");
+        _winA = new CodeDrawWindow(host, 800, 500, "A");
+        _winB = new CodeDrawWindow(host, 800, 500, "B (mirrors A)");
         _winB.SetPresentedLayer(_winA.Layer);
 
-        _overlay = new CodeDrawLayer(host, 800, 450);
+        _overlay = new CodeDrawLayer(host, 800, 500);
 
         _winA.OnStart = w => Console.WriteLine($"A started (id={w.WindowId})");
         _winB.OnStart = w => Console.WriteLine($"B started (id={w.WindowId})");
@@ -44,14 +44,15 @@ public sealed class Prototype1Session : IDisposable
             var layer = ctx.Win.Layer;
             if (layer is null || layer.IsDisposed) return;
 
-            layer.EnsureCanvas(800, 450);
+            layer.EnsureCanvas(800, 500);
             layer.Clear(0.10f, 0.11f, 0.13f, 1f);
 
             layer.DrawRect(60 + 120 * MathF.Sin(_tA), 80, 220, 140, 0.2f, 1.0f, 0.6f, 1f);
             layer.DrawRect(90, 260, 140, 80, 1.0f, 0.3f, 0.2f, 0.9f);
 
-            layer.SetBlendMode(CodeDrawLayer.BlendMode.NONE);
             layer.DrawLayer(_overlay);
+            layer.SetBlendMode(CodeDrawLayer.BlendMode.NONE);
+            layer.DrawRect(255, 10, 240, 40, 0.2f, 0.4f, 1.0f, 0.5f + 0.5f * MathF.Sin(_tOverlay * 2f));
             layer.SetBlendMode(CodeDrawLayer.BlendMode.ALPHA);
 
             layer.Render();
@@ -62,9 +63,9 @@ public sealed class Prototype1Session : IDisposable
         {
             _tOverlay += ctx.DeltaSeconds;
 
-            _overlay.EnsureCanvas(800, 450);
+            _overlay.EnsureCanvas(800, 500);
             _overlay.Clear();
-            _overlay.DrawRect(10, 10, 260, 40, 0.2f, 0.4f, 1.0f, 0.5f + 0.5f * MathF.Sin(_tOverlay * 2f));
+            _overlay.DrawRect(10, 5, 240, 40, 0.2f, 0.4f, 1.0f, 0.5f + 0.5f * MathF.Sin(_tOverlay * 2f));
             _overlay.Render();
         };
     }

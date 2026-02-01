@@ -6,6 +6,14 @@ namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes;
 
 public sealed unsafe class SharedGlfwHost : IDisposable
 {
+    private readonly ConcurrentDictionary<nint, object> _windowLocks = new();
+
+    internal object GetWindowLock(WindowHandle* win)
+    {
+        if (win == null) return new object();
+        return _windowLocks.GetOrAdd((nint)win, _ => new object());
+    }
+
     public HostInputHub Input { get; } = new();
 
     private readonly ConcurrentQueue<HostInputEvent> _hostInputQ = new();
@@ -27,7 +35,7 @@ public sealed unsafe class SharedGlfwHost : IDisposable
                 others.Add(e);
         }
 
-        for (int i = 0; i < others.Count; i++)
+        for (var i = 0; i < others.Count; i++)
             _hostInputQ.Enqueue(others[i]);
     }
 
@@ -214,6 +222,7 @@ public sealed unsafe class SharedGlfwHost : IDisposable
             ApplyCommonHints(_glfw!);
             result = _glfw!.CreateWindow(w, h, title, null, _shareRoot);
             if (result == null) throw new Exception("CreateWindow failed");
+            _windowLocks.TryAdd((nint)result, new object());
 
             var id = Interlocked.Increment(ref _nextWindowId);
             _winToId[(nint)result] = id;
@@ -235,6 +244,7 @@ public sealed unsafe class SharedGlfwHost : IDisposable
             ApplyCommonHints(_glfw!);
             result = _glfw!.CreateWindow(w, h, title, null, _shareRoot);
             if (result == null) throw new Exception("CreateWindow failed");
+            _windowLocks.TryAdd((nint)result, new object());
 
             _glfw.SetWindowPos(result, x, y);
 
@@ -260,6 +270,7 @@ public sealed unsafe class SharedGlfwHost : IDisposable
 
             result = _glfw.CreateWindow(w, h, title, null, _shareRoot);
             if (result == null) throw new Exception("CreateHiddenWindow failed");
+            _windowLocks.TryAdd((nint)result, new object());
 
             _glfw.HideWindow(result);
 
@@ -276,6 +287,8 @@ public sealed unsafe class SharedGlfwHost : IDisposable
         {
             _callbacks.TryRemove((nint)win, out _);
             UnregisterWindowObject(win);
+
+            _windowLocks.TryRemove((nint)win, out _);
 
             if (_winToId.TryRemove((nint)win, out var id))
             {
@@ -313,46 +326,49 @@ public sealed unsafe class SharedGlfwHost : IDisposable
 
     private void SetMaximizeBorderlessInternal_UIThreadUnsafe(WindowHandle* win, bool enabled, int monitorIndex)
     {
-        var glfw = _glfw!;
-        var mons = GetMonitorsInternal_UIThreadUnsafe(glfw);
-        if (mons.Count == 0) return;
-        if (monitorIndex < 0 || monitorIndex >= mons.Count) monitorIndex = 0;
-
-        var m = mons[monitorIndex];
-        var id = GetWindowId(win);
-
-        if (enabled)
+        var l = GetWindowLock(win);
+        lock (l)
         {
-            if (!_restoreRects.TryGetValue(id, out var rr) || !rr.valid)
+            var glfw = _glfw!;
+            var mons = GetMonitorsInternal_UIThreadUnsafe(glfw);
+            if (mons.Count == 0) return;
+            if (monitorIndex < 0 || monitorIndex >= mons.Count) monitorIndex = 0;
+
+            var m = mons[monitorIndex];
+            var id = GetWindowId(win);
+
+            if (enabled)
             {
-                glfw.GetWindowPos(win, out var x, out var y);
-                glfw.GetWindowSize(win, out var w, out var h);
-                _restoreRects[id] = (x, y, w, h, true);
+                if (!_restoreRects.TryGetValue(id, out var rr) || !rr.valid)
+                {
+                    glfw.GetWindowPos(win, out var x, out var y);
+                    glfw.GetWindowSize(win, out var w, out var h);
+                    _restoreRects[id] = (x, y, w, h, true);
+                }
+
+                glfw.SetWindowAttrib(win, WindowAttributeSetter.Decorated, false);
+
+                glfw.SetWindowPos(win, m.WorkX, m.WorkY);
+                glfw.SetWindowSize(win, m.WorkWidth, m.WorkHeight);
+            }
+            else
+            {
+                glfw.SetWindowAttrib(win, WindowAttributeSetter.Decorated, true);
+
+                if (_restoreRects.TryGetValue(id, out var rr) && rr.valid)
+                {
+                    glfw.SetWindowPos(win, rr.x, rr.y);
+                    glfw.SetWindowSize(win, rr.w, rr.h);
+                }
+
+                _restoreRects.TryRemove(id, out _);
             }
 
-            glfw.SetWindowAttrib(win, WindowAttributeSetter.Decorated, false);
-
-            // Stable: use WORKAREA
-            glfw.SetWindowPos(win, m.WorkX, m.WorkY);
-            glfw.SetWindowSize(win, m.WorkWidth, m.WorkHeight);
-            glfw.FocusWindow(win);
-        }
-        else
-        {
-            glfw.SetWindowAttrib(win, WindowAttributeSetter.Decorated, true);
-
-            if (_restoreRects.TryGetValue(id, out var rr) && rr.valid)
-            {
-                glfw.SetWindowPos(win, rr.x, rr.y);
-                glfw.SetWindowSize(win, rr.w, rr.h);
-            }
-
-            _restoreRects.TryRemove(id, out _);
             glfw.FocusWindow(win);
         }
     }
 
-    private IReadOnlyList<MonitorInfo> GetMonitorsInternal_UIThreadUnsafe(Glfw glfw)
+    private static List<MonitorInfo> GetMonitorsInternal_UIThreadUnsafe(Glfw glfw)
     {
         var monitors = new List<MonitorInfo>();
         var monitorPointers = glfw.GetMonitors(out var count);
@@ -364,7 +380,6 @@ public sealed unsafe class SharedGlfwHost : IDisposable
             var modePtr = glfw.GetVideoMode(mPtr);
             var refreshRate = modePtr->RefreshRate;
 
-            // work area = stable
             glfw.GetMonitorWorkarea(mPtr, out var wx, out var wy, out var ww, out var wh);
 
             glfw.GetMonitorContentScale(mPtr, out var scaleX, out var scaleY);
@@ -376,7 +391,6 @@ public sealed unsafe class SharedGlfwHost : IDisposable
 
     private int FindBestMonitorIndexForWindow_UIThreadUnsafe(WindowHandle* win)
     {
-        // use window center against monitor workareas
         _glfw!.GetWindowPos(win, out var wx, out var wy);
         _glfw.GetWindowSize(win, out var ww, out var wh);
 
@@ -386,7 +400,7 @@ public sealed unsafe class SharedGlfwHost : IDisposable
         var mons = GetMonitorsInternal_UIThreadUnsafe(_glfw!);
         if (mons.Count == 0) return 0;
 
-        for (int i = 0; i < mons.Count; i++)
+        for (var i = 0; i < mons.Count; i++)
         {
             var m = mons[i];
             if (cx >= m.WorkX && cx < m.WorkX + m.WorkWidth &&
@@ -395,29 +409,28 @@ public sealed unsafe class SharedGlfwHost : IDisposable
         }
 
         long bestArea = -1;
-        int best = 0;
+        var best = 0;
 
         int x1 = wx, y1 = wy, x2 = wx + ww, y2 = wy + wh;
 
-        for (int i = 0; i < mons.Count; i++)
+        for (var i = 0; i < mons.Count; i++)
         {
             var m = mons[i];
             int mx1 = m.WorkX, my1 = m.WorkY, mx2 = m.WorkX + m.WorkWidth, my2 = m.WorkY + m.WorkHeight;
 
-            int ix1 = Math.Max(x1, mx1);
-            int iy1 = Math.Max(y1, my1);
-            int ix2 = Math.Min(x2, mx2);
-            int iy2 = Math.Min(y2, my2);
+            var ix1 = Math.Max(x1, mx1);
+            var iy1 = Math.Max(y1, my1);
+            var ix2 = Math.Min(x2, mx2);
+            var iy2 = Math.Min(y2, my2);
 
-            int iw = Math.Max(0, ix2 - ix1);
-            int ih = Math.Max(0, iy2 - iy1);
+            var iw = Math.Max(0, ix2 - ix1);
+            var ih = Math.Max(0, iy2 - iy1);
 
-            long area = (long)iw * ih;
-            if (area > bestArea)
-            {
-                bestArea = area;
-                best = i;
-            }
+            var area = (long)iw * ih;
+            if (area <= bestArea) continue;
+
+            bestArea = area;
+            best = i;
         }
 
         return best;

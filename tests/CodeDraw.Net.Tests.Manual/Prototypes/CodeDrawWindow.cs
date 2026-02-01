@@ -102,6 +102,8 @@ public sealed unsafe class CodeDrawWindow : IDisposable
         long Tick
     );
 
+    private readonly object _winLock;
+
     private readonly SharedGlfwHost _host;
     private readonly WindowHandle* _win;
     internal nint WindowHandle => (nint)_win;
@@ -168,6 +170,7 @@ public sealed unsafe class CodeDrawWindow : IDisposable
         _title = title;
         _win = host.CreateWindow(w, h, _title);
         _host.RegisterWindowObject(_win, this);
+        _winLock = host.GetWindowLock(_win);
         WindowId = host.GetWindowId(_win);
 
         _layer = new CodeDrawLayer(host, w, h);
@@ -287,8 +290,8 @@ public sealed unsafe class CodeDrawWindow : IDisposable
         try
         {
             var glfw = _host.Glfw;
-            glfw.MakeContextCurrent(_win);
-            glfw.SwapInterval(0);
+            lock (_winLock) glfw.MakeContextCurrent(_win);
+            lock (_winLock) glfw.SwapInterval(0);
             var gl = GL.GetApi(glfw.GetProcAddress);
 
             var (vao, vbo, ebo) = GlShader.CreateFullScreenQuad(gl);
@@ -303,11 +306,12 @@ public sealed unsafe class CodeDrawWindow : IDisposable
 
             while (!ShouldClose)
             {
-                glfw.GetFramebufferSize(_win, out var fbW, out var fbH);
+                int fbW, fbH;
+                lock (_winLock) glfw.GetFramebufferSize(_win, out fbW, out fbH);
 
                 if (fbW == 0 || fbH == 0)
                 {
-                    glfw.SwapBuffers(_win);
+                    lock (_winLock) glfw.SwapBuffers(_win);
                     Thread.Sleep(16);
                     continue;
                 }
@@ -363,7 +367,7 @@ public sealed unsafe class CodeDrawWindow : IDisposable
                     gl.UseProgram(0);
                 }
 
-                glfw.SwapBuffers(_win);
+                lock (_winLock) glfw.SwapBuffers(_win);
 
                 var err = gl.GetError();
                 if (err != GLEnum.NoError)
@@ -377,7 +381,7 @@ public sealed unsafe class CodeDrawWindow : IDisposable
             gl.DeleteBuffer(vbo);
             gl.DeleteBuffer(ebo);
 
-            glfw.MakeContextCurrent(null);
+            lock (_winLock) glfw.MakeContextCurrent(null);
         }
         finally
         {

@@ -314,10 +314,11 @@ public sealed unsafe class CodeDrawWindow : IDisposable
 
             var (vao, vbo, ebo) = ShaderCompiler.CreateFullScreenQuad(gl);
 
-            // Local per-presenter-context shader store (compile once for this window)
-            var shaderStore = new ShaderStore(EngineShaderPaths.ResolveEngineShaderRoot(), gl, hotReload: true);
-            var progBlit = new AutoProgram(shaderStore, "layerShader");
-            var uBlitTex = new AutoUniform(gl, shaderStore, progBlit, "uTex");
+            var shaderRoot = EngineShaderPaths.ResolveEngineShaderRoot();
+            using var shaders = new ShaderStore(gl, shaderRoot, hotReload: false);
+
+            var progBlit = new AutoProgram(shaders, "layerShader");
+            var uTex     = new AutoUniform(shaders, progBlit, "uTex");
 
             gl.Disable(GLEnum.Blend);
 
@@ -373,7 +374,7 @@ public sealed unsafe class CodeDrawWindow : IDisposable
                     gl.BindVertexArray(vao);
                     gl.ActiveTexture(GLEnum.Texture0);
                     gl.BindTexture(GLEnum.Texture2D, lastTex);
-                    if (uBlitTex >= 0) gl.Uniform1(uBlitTex, 0);
+                    if (uTex >= 0) gl.Uniform1(uTex, 0);
                     gl.DrawElements(GLEnum.Triangles, 6, GLEnum.UnsignedInt, null);
                     gl.BindTexture(GLEnum.Texture2D, 0);
                     gl.BindVertexArray(0);
@@ -389,11 +390,10 @@ public sealed unsafe class CodeDrawWindow : IDisposable
                 }
             }
 
+            gl.DeleteProgram(progBlit);
             gl.DeleteVertexArray(vao);
             gl.DeleteBuffer(vbo);
             gl.DeleteBuffer(ebo);
-
-            shaderStore.Dispose();
 
             lock (_winLock) glfw.MakeContextCurrent(null);
         }

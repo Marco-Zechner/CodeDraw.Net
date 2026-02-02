@@ -193,8 +193,6 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable
     private BlendMode _blendMode = BlendMode.SOURCE_OVER_ALPHA;
     private CodeDrawShader? _customBlitShader;
 
-    private ShaderStore? _shaderStore;
-
     private readonly SharedGlfwHost _host;
     private readonly WindowHandle* _ctxWin;
     private readonly GL _gl;
@@ -224,6 +222,8 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable
     private bool _inited;
     private uint _vao, _vbo, _ebo;
 
+    private ShaderStore? _shaders;
+
     private AutoProgram _progRect, _progBlit, _progLayerRect;
     private AutoUniform _uRectPosSize, _uRectColor, _uRectRes;
     private AutoUniform _uBlitTex;
@@ -251,6 +251,30 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable
         glfw.MakeContextCurrent(null);
     }
 
+    private void EnsureInit()
+    {
+        if (_inited) return;
+        _inited = true;
+
+        (_vao, _vbo, _ebo) = ShaderCompiler.CreateFullScreenQuad(_gl);
+
+        _shaders = new ShaderStore(_gl, EngineShaderPaths.ResolveEngineShaderRoot(), hotReload: false);
+
+        _progRect     = new AutoProgram(_shaders, "rect");
+        _uRectPosSize = new AutoUniform(_shaders, _progRect, "uPosSize");
+        _uRectColor   = new AutoUniform(_shaders, _progRect, "uColor");
+        _uRectRes     = new AutoUniform(_shaders, _progRect, "uRes");
+
+        _progBlit = new AutoProgram(_shaders, "layerShader");
+        _uBlitTex = new AutoUniform(_shaders, _progBlit, "uTex");
+
+        _progLayerRect       = new AutoProgram(_shaders, "layerRectShader");
+        _uLayerRectDstRectPx = new AutoUniform(_shaders, _progLayerRect, "uDstRectPx");
+        _uLayerRectDstResPx  = new AutoUniform(_shaders, _progLayerRect, "uDstResPx");
+        _uLayerRectSrcUvRect = new AutoUniform(_shaders, _progLayerRect, "uSrcUvRect");
+        _uLayerRectTex       = new AutoUniform(_shaders, _progLayerRect, "uTex");
+    }
+
     public void Dispose()
     {
         if (_disposed) return;
@@ -269,12 +293,12 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable
             _buf[i] = default;
         }
 
+        _shaders?.Dispose();
+        _shaders = null;
+
         if (_vao != 0) _gl.DeleteVertexArray(_vao);
         if (_vbo != 0) _gl.DeleteBuffer(_vbo);
         if (_ebo != 0) _gl.DeleteBuffer(_ebo);
-
-        _shaderStore?.Dispose();
-        _shaderStore = null;
 
         glfw.MakeContextCurrent(null);
         _host.DestroyWindow(_ctxWin);
@@ -490,32 +514,6 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable
         _gl.BindTexture(GLEnum.Texture2D, 0);
         _gl.BindVertexArray(0);
         _gl.UseProgram(0);
-    }
-
-    private void EnsureInit()
-    {
-        if (_inited) return;
-        _inited = true;
-
-        (_vao, _vbo, _ebo) = ShaderCompiler.CreateFullScreenQuad(_gl);
-
-        // Local per-context shader store: compiles on THIS layer context
-        // (same shaders will be compiled once per layer/window, which is fine)
-        _shaderStore ??= new ShaderStore(EngineShaderPaths.ResolveEngineShaderRoot(), _gl, hotReload: true);
-
-        _progRect     = new AutoProgram(_shaderStore, "rect");
-        _uRectPosSize = new AutoUniform(_gl, _shaderStore, _progRect, "uPosSize");
-        _uRectColor   = new AutoUniform(_gl, _shaderStore, _progRect, "uColor");
-        _uRectRes     = new AutoUniform(_gl, _shaderStore, _progRect, "uRes");
-
-        _progBlit     = new AutoProgram(_shaderStore, "layerShader");
-        _uBlitTex     = new AutoUniform(_gl, _shaderStore, _progBlit, "uTex");
-
-        _progLayerRect       = new AutoProgram(_shaderStore, "layerRectShader");
-        _uLayerRectDstRectPx = new AutoUniform(_gl, _shaderStore, _progLayerRect, "uDstRectPx");
-        _uLayerRectDstResPx  = new AutoUniform(_gl, _shaderStore, _progLayerRect, "uDstResPx");
-        _uLayerRectSrcUvRect = new AutoUniform(_gl, _shaderStore, _progLayerRect, "uSrcUvRect");
-        _uLayerRectTex       = new AutoUniform(_gl, _shaderStore, _progLayerRect, "uTex");
     }
 
     private void ResizeInternal(int w, int h)

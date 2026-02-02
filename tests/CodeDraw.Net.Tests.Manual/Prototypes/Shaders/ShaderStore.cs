@@ -1,182 +1,133 @@
 ﻿using System.Collections.Concurrent;
 using Silk.NET.OpenGL;
-using System.Text;
 
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.Shaders;
 
+/// <summary>
+/// Per-context shader program store. DO NOT share between different GL contexts.
+/// It compiles programs from files: {Root}/{name}.vert + {Root}/{name}.frag
+/// </summary>
 public sealed class ShaderStore : IDisposable
 {
-    private sealed class Entry
+    private sealed class Entry(string name)
     {
-        public readonly string Name;
+        public readonly string Name = name;
         public uint Program;
         public DateTime LastVertWriteUtc;
         public DateTime LastFragWriteUtc;
-        public volatile bool Dirty = true;
-        public string? LastError;
+        public bool Dirty = true;
         public readonly object BuildLock = new();
-
-        public Entry(string name) => Name = name;
+        public string? LastError;
     }
 
+    private readonly GL _gl;
     private readonly ConcurrentDictionary<string, Entry> _entries =
         new(StringComparer.OrdinalIgnoreCase);
 
     public string RootPath { get; }
     public bool HotReload { get; set; }
 
-    public UniformCache Uniforms { get; } = new();
-
-    // One directory watcher for robust reload
-    private FileSystemWatcher? _watcher;
-    private readonly object _watchLock = new();
-
-    public ShaderStore(string rootPath, bool hotReload = true)
+    public ShaderStore(GL gl, string rootPath, bool hotReload = false)
     {
+        _gl = gl;
         RootPath = Path.GetFullPath(rootPath);
         HotReload = hotReload;
-        if (HotReload) EnsureWatcher();
+
+        if (!Directory.Exists(RootPath))
+            Console.WriteLine($"[ShaderStore] Warning: shader root not found: {RootPath}");
     }
 
     public uint GetProgram(string name)
     {
         var e = _entries.GetOrAdd(name, n => new Entry(n));
-        if (HotReload) EnsureWatcher();
 
         var vertAbs = Path.Combine(RootPath, name + ".vert");
         var fragAbs = Path.Combine(RootPath, name + ".frag");
 
-        var vWrite = File.Exists(vertAbs) ? File.GetLastWriteTimeUtc(vertAbs) : DateTime.MinValue;
-        var fWrite = File.Exists(fragAbs) ? File.GetLastWriteTimeUtc(fragAbs) : DateTime.MinValue;
+        // HotReload "lite": timestamp check only (safe + no watchers required)
+        // If files don't exist, we still try once to produce a useful error.
+        DateTime vWrite = DateTime.MinValue, fWrite = DateTime.MinValue;
+        if (HotReload && File.Exists(vertAbs) && File.Exists(fragAbs))
+        {
+            vWrite = File.GetLastWriteTimeUtc(vertAbs);
+            fWrite = File.GetLastWriteTimeUtc(fragAbs);
+            if (vWrite != e.LastVertWriteUtc || fWrite != e.LastFragWriteUtc)
+                e.Dirty = true;
+        }
 
-        if (vWrite != e.LastVertWriteUtc || fWrite != e.LastFragWriteUtc)
-            e.Dirty = true;
-
-        if (!e.Dirty && e.Program != 0) return e.Program;
+        if (!e.Dirty && e.Program != 0)
+            return e.Program;
 
         lock (e.BuildLock)
         {
-            // re-check under lock
-            vWrite = File.Exists(vertAbs) ? File.GetLastWriteTimeUtc(vertAbs) : DateTime.MinValue;
-            fWrite = File.Exists(fragAbs) ? File.GetLastWriteTimeUtc(fragAbs) : DateTime.MinValue;
-
-            if (!e.Dirty && e.Program != 0 && vWrite == e.LastVertWriteUtc && fWrite == e.LastFragWriteUtc)
+            // Re-check under lock
+            if (!e.Dirty && e.Program != 0)
                 return e.Program;
 
             try
             {
                 if (!File.Exists(vertAbs) || !File.Exists(fragAbs))
-                    throw new FileNotFoundException($"Shader files not found for '{name}' in '{RootPath}'.");
+                    throw new FileNotFoundException(
+                        $"Shader files not found for '{name}'. Expected:\n  {vertAbs}\n  {fragAbs}");
 
-                Console.WriteLine($"[ShaderStore] {(e.Program != 0 ? "Rec" : "C")}ompiling shader program: " + name);
+                // Optional log – matches your existing clue
+                Console.WriteLine($"[ShaderStore] {(e.Program != 0 ? "Rec" : "C")}ompiling shader program: {name}");
 
                 var vs = File.ReadAllText(vertAbs);
                 var fs = File.ReadAllText(fragAbs);
 
-                // NOTE: compile on the CURRENT GL context/thread that calls GetProgram()
-                // Caller must ensure an appropriate context is current.
-                var newProg = ShaderCompiler.CreateProgram(_gl!, vs, fs, label: name);
+                var newProg = ShaderCompiler.CreateProgram(_gl, vs, fs, label: name);
 
-                // Swap old -> new, delete old on compiler context
-                var old = e.Program;
+                if (e.Program != 0)
+                    _gl.DeleteProgram(e.Program);
+
                 e.Program = newProg;
-
-                if (old != 0)
-                {
-                    Uniforms.Invalidate(old);
-                    _gl!.DeleteProgram(old);
-                }
-
-                e.LastVertWriteUtc = vWrite;
-                e.LastFragWriteUtc = fWrite;
-                e.Dirty = false;
                 e.LastError = null;
+                e.Dirty = false;
+
+                if (HotReload)
+                {
+                    // Update timestamps only if enabled (otherwise no need)
+                    e.LastVertWriteUtc = File.GetLastWriteTimeUtc(vertAbs);
+                    e.LastFragWriteUtc = File.GetLastWriteTimeUtc(fragAbs);
+                }
 
                 return e.Program;
             }
             catch (Exception ex)
             {
                 e.LastError = ex.ToString();
-                e.Dirty = false; // don’t spam compile every call; next file change re-dirties
-                return e.Program; // might be 0 if never succeeded
+                e.Dirty = false; // avoid compile spam; set Dirty=true manually or touch files if HotReload
+                return e.Program; // keep old program if it exists
             }
         }
     }
 
-    // --- NEW: bind the store to the GL instance of *this context* ---
-    // This keeps the call sites minimal (you construct the store with gl once).
-    private readonly GL? _gl;
-    public ShaderStore(string rootPath, GL gl, bool hotReload = true) : this(rootPath, hotReload)
+    public int GetUniformLocation(uint program, string uniformName)
     {
-        _gl = gl;
+        if (program == 0) return -1;
+        return _gl.GetUniformLocation(program, uniformName);
     }
-
-    public int GetUniformLocation(GL gl, uint program, string uniformName)
-        => Uniforms.Get(gl, program, uniformName);
 
     public string? GetLastError(string name)
         => _entries.TryGetValue(name, out var e) ? e.LastError : null;
 
-    private void EnsureWatcher()
+    public void MarkDirty(string name)
     {
-        lock (_watchLock)
-        {
-            if (_watcher != null) return;
-
-            var w = new FileSystemWatcher(RootPath)
-            {
-                IncludeSubdirectories = true,
-                NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size | NotifyFilters.CreationTime | NotifyFilters.FileName
-            };
-
-            void Touch(string path)
-            {
-                var file = Path.GetFileName(path);
-                if (file is null) return;
-
-                if (!file.EndsWith(".vert", StringComparison.OrdinalIgnoreCase) &&
-                    !file.EndsWith(".frag", StringComparison.OrdinalIgnoreCase))
-                    return;
-
-                var baseName = Path.GetFileNameWithoutExtension(file);
-                if (_entries.TryGetValue(baseName, out var e))
-                    e.Dirty = true;
-            }
-
-            FileSystemEventHandler onChange = (_, ev) => Touch(ev.FullPath);
-            RenamedEventHandler onRename = (_, ev) => { Touch(ev.OldFullPath); Touch(ev.FullPath); };
-
-            w.Changed += onChange;
-            w.Created += onChange;
-            w.Deleted += onChange;
-            w.Renamed += onRename;
-
-            w.EnableRaisingEvents = true;
-            _watcher = w;
-        }
+        if (_entries.TryGetValue(name, out var e))
+            e.Dirty = true;
     }
 
     public void Dispose()
     {
-        lock (_watchLock)
-        {
-            _watcher?.Dispose();
-            _watcher = null;
-        }
-
-        // Programs must be deleted on compiler context
         foreach (var e in _entries.Values)
         {
-            var p = e.Program;
-            if (p != 0)
+            if (e.Program != 0)
             {
-                Uniforms.Invalidate(p);
-                _gl?.DeleteProgram(p);
+                _gl.DeleteProgram(e.Program);
                 e.Program = 0;
             }
         }
-
         _entries.Clear();
-        Uniforms.Clear();
     }
 }

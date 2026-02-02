@@ -314,7 +314,8 @@ public sealed unsafe class CodeDrawWindow : IDisposable
 
             var (vao, vbo, ebo) = ShaderCompiler.CreateFullScreenQuad(gl);
 
-            var shaderStore = _host.EngineShaders;
+            // Local per-presenter-context shader store (compile once for this window)
+            var shaderStore = new ShaderStore(EngineShaderPaths.ResolveEngineShaderRoot(), gl, hotReload: true);
             var progBlit = new AutoProgram(shaderStore, "layerShader");
             var uBlitTex = new AutoUniform(gl, shaderStore, progBlit, "uTex");
 
@@ -391,6 +392,8 @@ public sealed unsafe class CodeDrawWindow : IDisposable
             gl.DeleteVertexArray(vao);
             gl.DeleteBuffer(vbo);
             gl.DeleteBuffer(ebo);
+
+            shaderStore.Dispose();
 
             lock (_winLock) glfw.MakeContextCurrent(null);
         }

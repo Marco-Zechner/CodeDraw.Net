@@ -1,5 +1,6 @@
 ﻿using System.Collections.Concurrent;
 using Silk.NET.OpenGL;
+using System.Text;
 
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.Shaders;
 
@@ -24,21 +25,16 @@ public sealed class ShaderStore : IDisposable
     public string RootPath { get; }
     public bool HotReload { get; set; }
 
-    // Owned by store
     public UniformCache Uniforms { get; } = new();
-
-    private readonly IGlExecutor _exec;
 
     // One directory watcher for robust reload
     private FileSystemWatcher? _watcher;
     private readonly object _watchLock = new();
 
-    public ShaderStore(string rootPath, IGlExecutor exec, bool hotReload = true)
+    public ShaderStore(string rootPath, bool hotReload = true)
     {
         RootPath = Path.GetFullPath(rootPath);
         HotReload = hotReload;
-        _exec = exec;
-
         if (HotReload) EnsureWatcher();
     }
 
@@ -77,8 +73,9 @@ public sealed class ShaderStore : IDisposable
                 var vs = File.ReadAllText(vertAbs);
                 var fs = File.ReadAllText(fragAbs);
 
-                // Compile/link on compiler context
-                var newProg = _exec.Run(gl => ShaderCompiler.CreateProgram(gl, vs, fs, label: name));
+                // NOTE: compile on the CURRENT GL context/thread that calls GetProgram()
+                // Caller must ensure an appropriate context is current.
+                var newProg = ShaderCompiler.CreateProgram(_gl!, vs, fs, label: name);
 
                 // Swap old -> new, delete old on compiler context
                 var old = e.Program;
@@ -87,7 +84,7 @@ public sealed class ShaderStore : IDisposable
                 if (old != 0)
                 {
                     Uniforms.Invalidate(old);
-                    _exec.Run(gl => gl.DeleteProgram(old));
+                    _gl!.DeleteProgram(old);
                 }
 
                 e.LastVertWriteUtc = vWrite;
@@ -104,6 +101,14 @@ public sealed class ShaderStore : IDisposable
                 return e.Program; // might be 0 if never succeeded
             }
         }
+    }
+
+    // --- NEW: bind the store to the GL instance of *this context* ---
+    // This keeps the call sites minimal (you construct the store with gl once).
+    private readonly GL? _gl;
+    public ShaderStore(string rootPath, GL gl, bool hotReload = true) : this(rootPath, hotReload)
+    {
+        _gl = gl;
     }
 
     public int GetUniformLocation(GL gl, uint program, string uniformName)
@@ -166,7 +171,7 @@ public sealed class ShaderStore : IDisposable
             if (p != 0)
             {
                 Uniforms.Invalidate(p);
-                _exec.Run(gl => gl.DeleteProgram(p));
+                _gl?.DeleteProgram(p);
                 e.Program = 0;
             }
         }

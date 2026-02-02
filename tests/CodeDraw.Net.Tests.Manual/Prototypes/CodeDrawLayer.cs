@@ -273,6 +273,9 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable
         if (_vbo != 0) _gl.DeleteBuffer(_vbo);
         if (_ebo != 0) _gl.DeleteBuffer(_ebo);
 
+        _shaderStore?.Dispose();
+        _shaderStore = null;
+
         glfw.MakeContextCurrent(null);
         _host.DestroyWindow(_ctxWin);
     }
@@ -496,7 +499,9 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable
 
         (_vao, _vbo, _ebo) = ShaderCompiler.CreateFullScreenQuad(_gl);
 
-        _shaderStore ??= _host.EngineShaders;
+        // Local per-context shader store: compiles on THIS layer context
+        // (same shaders will be compiled once per layer/window, which is fine)
+        _shaderStore ??= new ShaderStore(EngineShaderPaths.ResolveEngineShaderRoot(), _gl, hotReload: true);
 
         _progRect     = new AutoProgram(_shaderStore, "rect");
         _uRectPosSize = new AutoUniform(_gl, _shaderStore, _progRect, "uPosSize");

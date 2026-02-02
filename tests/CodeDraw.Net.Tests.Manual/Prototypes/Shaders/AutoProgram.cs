@@ -15,6 +15,5 @@ public sealed class AutoProgram(ShaderStore store, string name)
     }
 
     public override string ToString() => $"{name}@0x{_cached:X}";
-
     public static implicit operator uint(AutoProgram p) => p.Handle;
 }

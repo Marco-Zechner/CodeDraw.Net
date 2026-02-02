@@ -315,10 +315,10 @@ public sealed unsafe class CodeDrawWindow : IDisposable
             var (vao, vbo, ebo) = ShaderCompiler.CreateFullScreenQuad(gl);
 
             var shaderRoot = EngineShaderPaths.ResolveEngineShaderRoot();
-            using var shaders = new ShaderStore(gl, shaderRoot, hotReload: false);
+            using var shaders = new ShaderStore(shaderRoot, _title, hotReload: true);
 
             var progBlit = new AutoProgram(shaders, "layerShader");
-            var uTex     = new AutoUniform(shaders, progBlit, "uTex");
+            var uTex     = new AutoUniform(gl, shaders, progBlit, "uTex");
 
             gl.Disable(GLEnum.Blend);
 
@@ -337,6 +337,8 @@ public sealed unsafe class CodeDrawWindow : IDisposable
                     Thread.Sleep(16);
                     continue;
                 }
+
+                shaders?.BeginFrame(gl);
 
                 gl.BindFramebuffer(GLEnum.Framebuffer, 0);
                 gl.Viewport(0, 0, (uint)fbW, (uint)fbH);

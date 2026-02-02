@@ -197,6 +197,8 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable
     private readonly WindowHandle* _ctxWin;
     private readonly GL _gl;
 
+    private readonly string _label;
+
     private readonly Buffer[] _buf = new Buffer[2];
     private int _front;
     private int Back => 1 - _front;
@@ -224,10 +226,10 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable
 
     private ShaderStore? _shaders;
 
-    private AutoProgram _progRect, _progBlit, _progLayerRect;
-    private AutoUniform _uRectPosSize, _uRectColor, _uRectRes;
-    private AutoUniform _uBlitTex;
-    private AutoUniform _uLayerRectDstRectPx, _uLayerRectDstResPx, _uLayerRectSrcUvRect, _uLayerRectTex;
+    private AutoProgram _progRect = null!, _progBlit = null!, _progLayerRect = null!;
+    private AutoUniform _uRectPosSize = null!, _uRectColor = null!, _uRectRes = null!;
+    private AutoUniform _uBlitTex = null!;
+    private AutoUniform _uLayerRectDstRectPx = null!, _uLayerRectDstResPx = null!, _uLayerRectSrcUvRect = null!, _uLayerRectTex = null!;
 
     private int _w, _h;
 
@@ -235,8 +237,9 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable
 
     public bool IsDisposed => _disposed;
 
-    public CodeDrawLayer(SharedGlfwHost host, int w = 800, int h = 600)
+    public CodeDrawLayer(SharedGlfwHost host, int w = 800, int h = 600, string lable = "Unknown Layer")
     {
+        _label = lable;
         _host = host;
         _ctxWin = host.CreateHiddenWindow(1, 1, "layer-ctx");
 
@@ -258,21 +261,21 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable
 
         (_vao, _vbo, _ebo) = ShaderCompiler.CreateFullScreenQuad(_gl);
 
-        _shaders = new ShaderStore(_gl, EngineShaderPaths.ResolveEngineShaderRoot(), hotReload: false);
+        _shaders = new ShaderStore(EngineShaderPaths.ResolveEngineShaderRoot(), _label, hotReload: true);
 
         _progRect     = new AutoProgram(_shaders, "rect");
-        _uRectPosSize = new AutoUniform(_shaders, _progRect, "uPosSize");
-        _uRectColor   = new AutoUniform(_shaders, _progRect, "uColor");
-        _uRectRes     = new AutoUniform(_shaders, _progRect, "uRes");
+        _uRectPosSize = new AutoUniform(_gl, _shaders, _progRect, "uPosSize");
+        _uRectColor   = new AutoUniform(_gl, _shaders, _progRect, "uColor");
+        _uRectRes     = new AutoUniform(_gl, _shaders, _progRect, "uRes");
 
         _progBlit = new AutoProgram(_shaders, "layerShader");
-        _uBlitTex = new AutoUniform(_shaders, _progBlit, "uTex");
+        _uBlitTex = new AutoUniform(_gl, _shaders, _progBlit, "uTex");
 
         _progLayerRect       = new AutoProgram(_shaders, "layerRectShader");
-        _uLayerRectDstRectPx = new AutoUniform(_shaders, _progLayerRect, "uDstRectPx");
-        _uLayerRectDstResPx  = new AutoUniform(_shaders, _progLayerRect, "uDstResPx");
-        _uLayerRectSrcUvRect = new AutoUniform(_shaders, _progLayerRect, "uSrcUvRect");
-        _uLayerRectTex       = new AutoUniform(_shaders, _progLayerRect, "uTex");
+        _uLayerRectDstRectPx = new AutoUniform(_gl, _shaders, _progLayerRect, "uDstRectPx");
+        _uLayerRectDstResPx  = new AutoUniform(_gl, _shaders, _progLayerRect, "uDstResPx");
+        _uLayerRectSrcUvRect = new AutoUniform(_gl, _shaders, _progLayerRect, "uSrcUvRect");
+        _uLayerRectTex       = new AutoUniform(_gl, _shaders, _progLayerRect, "uTex");
     }
 
     public void Dispose()
@@ -415,6 +418,9 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable
         glfw.MakeContextCurrent(_ctxWin);
 
         EnsureInit();
+
+        _shaders?.BeginFrame(_gl);
+
         RetireRequestedFences();
 
         CmdResize? lastResize = null;

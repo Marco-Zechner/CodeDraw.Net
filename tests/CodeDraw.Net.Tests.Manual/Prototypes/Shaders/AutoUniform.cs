@@ -1,6 +1,8 @@
-﻿namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.Shaders;
+﻿using Silk.NET.OpenGL;
 
-public sealed class AutoUniform(ShaderStore store, AutoProgram prog, string name)
+namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.Shaders;
+
+public sealed class AutoUniform(GL gl, ShaderStore store, AutoProgram prog, string name)
 {
     private uint _cachedProgram;
     private int _cachedLoc;
@@ -12,10 +14,9 @@ public sealed class AutoUniform(ShaderStore store, AutoProgram prog, string name
         {
             var p = prog.Handle;
             if (p == 0) return -1;
-
             if (_hasValue && _cachedProgram == p) return _cachedLoc;
 
-            var loc = store.GetUniformLocation(p, name);
+            var loc = store.GetUniformLocation(gl, p, name);
             _cachedProgram = p;
             _cachedLoc = loc;
             _hasValue = true;

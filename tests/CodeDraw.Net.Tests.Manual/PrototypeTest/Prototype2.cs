@@ -1,5 +1,6 @@
 ﻿using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes;
 using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.DrawLayer;
+using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.Shaders;
 using Silk.NET.GLFW;
 using CodeDrawLayer = MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.DrawLayer.CodeDrawLayer;
 
@@ -26,7 +27,7 @@ public sealed class Prototype2 : IDisposable
     private readonly CodeDrawWindow _winDst;
     private readonly CodeDrawWindow _winFull;
 
-    private readonly CodeDrawLayer.CodeDrawShader _desatShader;
+    private readonly CodeDrawShader _desatShader;
 
     private float _t;
 
@@ -36,7 +37,15 @@ public sealed class Prototype2 : IDisposable
         _winDst = new CodeDrawWindow(host, 800, 500, 850, 120, "2B: Dest (Crop/Place Tests)");
         _winFull = new CodeDrawWindow(host, 800, 500, 1650, 120, "2B: Full (Copy Src fully, mostly desaturated)");
 
-        _desatShader = new CodeDrawLayer.CodeDrawShader(host, DesatShaderVs, DesatShaderFs);
+        // A:flickering...
+        _desatShader = new CodeDrawShader("DesatShader", DesatShaderVs, DesatShaderFs);
+        // B: flickering...
+        // _desatShader = new MyDesatShader();
+        //TODO: C: broken
+        // var shaderStore = new ShaderStore(AppShaderPaths.ResolveAppShaderRoot("PrototypeTest/shader"), "User", true);
+        // _desatShader = shaderStore.Load("MyDesatShader");  // C1
+        // _desatShader = shaderStore.Load("MyDesatShader", "MyDesatShader2"); // C2 (different file name)
+
 
         _winSrc.OnStart = w => Console.WriteLine($"2B Src started (id={w.WindowId})");
         _winDst.OnStart = w => Console.WriteLine($"2B Dst started (id={w.WindowId})");
@@ -232,7 +241,6 @@ public sealed class Prototype2 : IDisposable
         _winSrc.Dispose();
         _winDst.Dispose();
         _winFull.Dispose();
-        _desatShader.Dispose();
     }
 
     private void WaitForClose()
@@ -298,4 +306,37 @@ public sealed class Prototype2 : IDisposable
             FragColor = vec4(rgb, c.a);
         }
         """;
+
+    public sealed class MyDesatShader : CodeDrawShaderBase
+    {
+        public override string Name => nameof(MyDesatShader);
+        public override string VertexSource =>
+            """
+            #version 330 core
+            layout(location=0) in vec2 aPos;
+            layout(location=1) in vec2 aUV;
+            out vec2 vUV;
+            void main(){
+                vUV = aUV;
+                gl_Position = vec4(aPos, 0.0, 1.0);
+            }
+            """;
+        public override string FragmentSource =>
+            """
+            #version 330 core
+            in vec2 vUV;
+            out vec4 FragColor;
+
+            uniform sampler2D uTex;
+            uniform float uAmount = 0.85; // 0..1
+
+            void main(){
+                vec4 c = texture(uTex, vUV);
+                float lum = dot(c.rgb, vec3(0.2126, 0.7152, 0.0722));
+                vec3 gray = vec3(lum);
+                vec3 rgb = mix(c.rgb, gray, uAmount);
+                FragColor = vec4(rgb, c.a);
+            }
+            """;
+    }
 }

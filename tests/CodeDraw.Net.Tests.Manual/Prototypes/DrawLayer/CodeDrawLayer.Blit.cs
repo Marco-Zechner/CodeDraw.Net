@@ -7,7 +7,7 @@ public sealed unsafe partial class CodeDrawLayer
     // ---------- internal command ----------
     private sealed class CmdBlit : ICmd
     {
-        public DrawLayer.CodeDrawLayer? Src;
+        public CodeDrawLayer? Src;
 
         public RectF SrcRectPx;
         public RectF DstRectPx;
@@ -16,7 +16,7 @@ public sealed unsafe partial class CodeDrawLayer
         public bool HasBlendOverride;
         public BlendMode BlendOverride;
 
-        public void Exec(GL gl, DrawLayer.CodeDrawLayer self)
+        public void Exec(GL gl, CodeDrawLayer self)
         {
             var src = Src;
             if (src is null || src._disposed) return;
@@ -73,19 +73,19 @@ public sealed unsafe partial class CodeDrawLayer
     // ---------- stages ----------
     public readonly struct BlitSrcStage
     {
-        private readonly DrawLayer.CodeDrawLayer _dst;
-        private readonly DrawLayer.CodeDrawLayer _src;
+        private readonly CodeDrawLayer _dst;
+        private readonly CodeDrawLayer _src;
 
         private readonly RectF _srcRectPx; // crop in src pixels
 
-        internal BlitSrcStage(DrawLayer.CodeDrawLayer dst, DrawLayer.CodeDrawLayer src)
+        internal BlitSrcStage(CodeDrawLayer dst, CodeDrawLayer src)
         {
             _dst = dst;
             _src = src;
             _srcRectPx = new RectF(0, 0, src._w, src._h);
         }
 
-        private BlitSrcStage(DrawLayer.CodeDrawLayer dst, DrawLayer.CodeDrawLayer src, RectF srcRect)
+        private BlitSrcStage(CodeDrawLayer dst, CodeDrawLayer src, RectF srcRect)
         {
             _dst = dst;
             _src = src;
@@ -102,8 +102,8 @@ public sealed unsafe partial class CodeDrawLayer
 
     public readonly struct BlitDstStage
     {
-        private readonly DrawLayer.CodeDrawLayer _dst;
-        private readonly DrawLayer.CodeDrawLayer _src;
+        private readonly CodeDrawLayer _dst;
+        private readonly CodeDrawLayer _src;
 
         private readonly RectF _srcRectPx;
         private readonly RectF _dstRectPx;
@@ -111,7 +111,7 @@ public sealed unsafe partial class CodeDrawLayer
         private readonly bool _hasBlendOverride;
         private readonly BlendMode _blendOverride;
 
-        internal BlitDstStage(DrawLayer.CodeDrawLayer dst, DrawLayer.CodeDrawLayer src, RectF srcRect, RectF dstRect)
+        internal BlitDstStage(CodeDrawLayer dst, CodeDrawLayer src, RectF srcRect, RectF dstRect)
         {
             _dst = dst;
             _src = src;
@@ -121,7 +121,7 @@ public sealed unsafe partial class CodeDrawLayer
             _blendOverride = default;
         }
 
-        private BlitDstStage(DrawLayer.CodeDrawLayer dst, DrawLayer.CodeDrawLayer src, RectF srcRect, RectF dstRect, bool hasBlend, BlendMode mode)
+        private BlitDstStage(CodeDrawLayer dst, CodeDrawLayer src, RectF srcRect, RectF dstRect, bool hasBlend, BlendMode mode)
         {
             _dst = dst;
             _src = src;

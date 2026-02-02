@@ -69,7 +69,19 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable
     }
 
     private BlendMode _blendMode = BlendMode.SOURCE_OVER_ALPHA;
+
     private CodeDrawShader? _customBlitShader;
+
+    // for fixed shaders compiled per layer
+    private uint _customFixedProgram;
+    private string? _customFixedKey;
+    private int _customFixed_uTexLoc = -1;
+
+    // for store-backed shaders
+    private AutoProgram? _customAutoProgram;
+    private AutoUniform? _customAuto_uTex;
+    private ShaderStore? _customAutoStore; // store currently used (so we can BeginFrame)
+
 
     private readonly SharedGlfwHost _host;
     private readonly WindowHandle* _ctxWin;
@@ -173,6 +185,19 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable
             if (_buf[i].Tex != 0) _gl.DeleteTexture(_buf[i].Tex);
             _buf[i] = default;
         }
+
+        if (_customFixedProgram != 0)
+        {
+            _gl.DeleteProgram(_customFixedProgram);
+            _customFixedProgram = 0;
+        }
+        _customFixedKey = null;
+        _customBlitShader = null;
+
+        // store-backed objects are just wrappers; no GL delete needed here
+        _customAutoProgram = null;
+        _customAuto_uTex = null;
+        _customAutoStore = null;
 
         _shaders?.Dispose();
         _shaders = null;
@@ -298,6 +323,7 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable
         EnsureInit();
 
         _shaders?.BeginFrame(_gl);
+        _customAutoStore?.BeginFrame(_gl);
 
         RetireRequestedFences();
 
@@ -459,14 +485,51 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable
     {
         if (!src.TryGetLatest(out var tex, out _, out _, out _, out _)) return;
 
-        var prog = _customBlitShader?.Program ?? _progBlit;
+        uint prog = _progBlit;
+        int uTexLoc = _uBlitTex;
+
+        var s = _customBlitShader;
+        if (s != null)
+        {
+            if (s.ShaderKind == CodeDrawShader.Kind.STORE_PROGRAM)
+            {
+                // AutoProgram path
+                if (_customAutoProgram == null || !ReferenceEquals(_customAutoStore, s.Store))
+                {
+                    _customAutoStore = s.Store;
+                    _customAutoProgram = new AutoProgram(s.Store!, s.StoreProgramName!);
+                    _customAuto_uTex = new AutoUniform(_gl, s.Store!, _customAutoProgram, "uTex");
+                }
+
+                // store swaps program in BeginFrame, AutoProgram resolves it lazily
+                prog = _customAutoProgram;
+                uTexLoc = _customAuto_uTex!;
+            }
+            else
+            {
+                // Fixed sources path: compile once per layer
+                var key = $"fixed:{s.Name}";
+
+                if (_customFixedKey != key || _customFixedProgram == 0)
+                {
+                    if (_customFixedProgram != 0)
+                        gl.DeleteProgram(_customFixedProgram);
+
+                    _customFixedProgram = ShaderCompiler.CreateProgram(gl, s.FixedVs!, s.FixedFs!, label: s.Name);
+                    _customFixed_uTexLoc = gl.GetUniformLocation(_customFixedProgram, "uTex");
+                    _customFixedKey = key;
+                }
+
+                prog = _customFixedProgram;
+                uTexLoc = _customFixed_uTexLoc;
+            }
+        }
 
         gl.UseProgram(prog);
         gl.BindVertexArray(_vao);
         gl.ActiveTexture(GLEnum.Texture0);
         gl.BindTexture(GLEnum.Texture2D, tex);
 
-        var uTexLoc = (prog == _progBlit) ? _uBlitTex : gl.GetUniformLocation(prog, "uTex");
         if (uTexLoc >= 0) gl.Uniform1(uTexLoc, 0);
 
         gl.DrawElements(GLEnum.Triangles, 6, GLEnum.UnsignedInt, null);

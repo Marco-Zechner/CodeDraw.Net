@@ -28,7 +28,7 @@ public sealed class ShaderStore : IDisposable
     private readonly ConcurrentDictionary<string, Entry> _entries = new(StringComparer.OrdinalIgnoreCase);
 
     private readonly string _rootDir;
-    private readonly string _label;
+    private readonly string _shaderStoreDebugName;
 
     private FileSystemWatcher? _watcher;
     private readonly object _watchLock = new();
@@ -36,19 +36,76 @@ public sealed class ShaderStore : IDisposable
     // delete queue must be executed on GL thread
     private readonly ConcurrentQueue<uint> _deletePrograms = new();
 
-    public ShaderStore(string shaderRootDirectory, string label, bool hotReload = true)
+    public ShaderStore(string shaderRootDirectory, string shaderStoreDebugName, bool hotReload = true)
     {
-        _label = label;
+        _shaderStoreDebugName = shaderStoreDebugName;
         _rootDir = Path.GetFullPath(shaderRootDirectory);
         if (hotReload) EnsureWatcher();
     }
 
+    public CodeDrawShader Load(string name)
+    {
+        var programName = Path.GetFileNameWithoutExtension(name);
+
+        _ = GetOrCreate(name); // ensure entry exists (and watcher can track)
+        return new CodeDrawShader(this, programName: programName, displayName: programName);
+    }
+
+    public CodeDrawShader Load(string vertFileName, string fragFileName)
+    {
+        var v = Path.GetFileNameWithoutExtension(vertFileName);
+        var f = Path.GetFileNameWithoutExtension(fragFileName);
+
+        // logical program name: "v__f"
+        var programName = GetCombinedName(v, f);
+
+        _ = GetOrCreate(vertFileName, fragFileName);  // ensure entry exists (and watcher can track)
+        return new CodeDrawShader(this, programName: programName, displayName: programName);
+    }
+
+    private static string GetCombinedName(string vertName, string fragName)
+    {
+        if (string.Equals(vertName, fragName, StringComparison.OrdinalIgnoreCase))
+            return vertName;
+        return vertName + "__" + fragName;
+    }
+
     private Entry GetOrCreate(string name)
     {
-        var vertPath = Path.Combine(_rootDir, name + ".vert");
-        var fragPath = Path.Combine(_rootDir, name + ".frag");
+        var programName = Path.GetFileNameWithoutExtension(name);
 
-        return _entries.GetOrAdd(name, n => new Entry
+        var vertPath = Path.Combine(_rootDir, programName + ".vert");
+        var fragPath = Path.Combine(_rootDir, programName + ".frag");
+
+        if (!Path.Exists(vertPath))
+            Console.WriteLine($"[ShaderStore:{_shaderStoreDebugName}] Warning: Vertex shader file not found: {vertPath}");
+        if (!Path.Exists(fragPath))
+            Console.WriteLine($"[ShaderStore:{_shaderStoreDebugName}] Warning: Fragment shader file not found: {fragPath}");
+
+        return _entries.GetOrAdd(programName, n => new Entry
+        {
+            Name = n,
+            VertPath = vertPath,
+            FragPath = fragPath,
+            LatestSourceVersion = 0,
+            CompiledVersion = -1, // force initial compile
+        });
+    }
+
+    private Entry GetOrCreate(string vertName, string fragName)
+    {
+        var v = Path.GetFileNameWithoutExtension(vertName);
+        var f = Path.GetFileNameWithoutExtension(fragName);
+
+        var vertPath = Path.Combine(_rootDir, v + ".vert");
+        var fragPath = Path.Combine(_rootDir, f + ".frag");
+
+        if (!Path.Exists(vertPath))
+            Console.WriteLine($"[ShaderStore:{_shaderStoreDebugName}] Warning: Vertex shader file not found: {vertPath}");
+        if (!Path.Exists(fragPath))
+            Console.WriteLine($"[ShaderStore:{_shaderStoreDebugName}] Warning: Fragment shader file not found: {fragPath}");
+
+        return _entries.GetOrAdd(GetCombinedName(v, f), n => new Entry
         {
             Name = n,
             VertPath = vertPath,
@@ -60,9 +117,15 @@ public sealed class ShaderStore : IDisposable
 
     public uint GetProgram(string name)
     {
-        // PURE GETTER: no GL calls, no file IO, no compilation.
         // Program is swapped only in BeginFrame().
         var e = GetOrCreate(name);
+        return e.Program;
+    }
+
+    public uint GetProgram(string vertName, string fragName)
+    {
+        // Program is swapped only in BeginFrame().
+        var e = GetOrCreate(vertName, fragName);
         return e.Program;
     }
 
@@ -92,7 +155,7 @@ public sealed class ShaderStore : IDisposable
 
                 try
                 {
-                    Console.WriteLine($"[ShaderStore:{_label}] {(e.Program != 0 ? "Rec" : "C")}ompiling shader program: {e.Name}");
+                    Console.WriteLine($"[ShaderStore:{_shaderStoreDebugName}] {(e.Program != 0 ? "Rec" : "C")}ompiling shader program: {e.Name}");
                     var newProg = ShaderCompiler.CreateProgram(gl, vs, fs, label: e.Name);
 
                     var old = e.Program;
@@ -137,36 +200,41 @@ public sealed class ShaderStore : IDisposable
 
             void OnAny(string fullPath)
             {
-                var file = Path.GetFileName(fullPath);
-                if (string.IsNullOrWhiteSpace(file)) return;
+                fullPath = Path.GetFullPath(fullPath);
 
-                if (!file.EndsWith(".vert", StringComparison.OrdinalIgnoreCase) &&
-                    !file.EndsWith(".frag", StringComparison.OrdinalIgnoreCase))
+                if (!fullPath.EndsWith(".vert", StringComparison.OrdinalIgnoreCase) &&
+                    !fullPath.EndsWith(".frag", StringComparison.OrdinalIgnoreCase))
                     return;
 
-                var name = Path.GetFileNameWithoutExtension(file);
-                var e = GetOrCreate(name);
-
-                // Read both files NOW on watcher thread so GL thread doesn't do file IO
-                // If editor is mid-write, this can throw; that's fine: just don't bump version.
-                try
+                foreach (var e in _entries.Values)
                 {
-                    if (!File.Exists(e.VertPath) || !File.Exists(e.FragPath))
-                        return;
+                    // entry paths may differ from "name.vert/name.frag"
+                    if (!PathEquals(e.VertPath, fullPath) && !PathEquals(e.FragPath, fullPath))
+                        continue;
 
-                    var vs = File.ReadAllText(e.VertPath);
-                    var fs = File.ReadAllText(e.FragPath);
+                    try
+                    {
+                        if (!File.Exists(e.VertPath) || !File.Exists(e.FragPath))
+                            continue;
 
-                    e.PendingVS = vs;
-                    e.PendingFS = fs;
+                        var vs = File.ReadAllText(e.VertPath);
+                        var fs = File.ReadAllText(e.FragPath);
 
-                    // bump version last (publish step)
-                    Interlocked.Increment(ref e.LatestSourceVersion);
+                        e.PendingVS = vs;
+                        e.PendingFS = fs;
+
+                        Interlocked.Increment(ref e.LatestSourceVersion);
+                    }
+                    catch
+                    {
+                        // ignore transient write states
+                    }
                 }
-                catch
-                {
-                    // ignore transient write states; next change event will succeed
-                }
+
+                return;
+
+                static bool PathEquals(string a, string b)
+                    => string.Equals(Path.GetFullPath(a), Path.GetFullPath(b), StringComparison.OrdinalIgnoreCase);
             }
 
             FileSystemEventHandler h = (_, ev) => OnAny(ev.FullPath);

@@ -5,26 +5,17 @@ using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
 using Monitor = System.Threading.Monitor;
 
-namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes;
+namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.DrawLayer;
 
 public sealed unsafe partial class CodeDrawLayer : IDisposable
 {
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void Uniform2f(GL gl, int loc, float x, float y)
+    private static void Uniform2F(GL gl, int loc, float x, float y)
         => gl.Uniform2(loc, x, y);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void Uniform4f(GL gl, int loc, float x, float y, float z, float w)
+    private static void Uniform4F(GL gl, int loc, float x, float y, float z, float w)
         => gl.Uniform4(loc, x, y, z, w);
-
-    public enum BlendMode
-    {
-        SOURCE_OVER_ALPHA,      // SrcAlpha, OneMinusSrcAlpha
-        ADD,        // One, One
-        MULTIPLY,   // DstColor, Zero
-        NONE,       // Disable blending
-        RGB_ALPHA_KEEP_DST_A,
-    }
 
     private void ApplyBlendMode()
     {
@@ -63,120 +54,7 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable
         }
     }
 
-    public sealed class CodeDrawShader : IDisposable
-    {
-        private readonly SharedGlfwHost _host;
-        private readonly WindowHandle* _ctxWin;
-        private readonly GL _gl;
-
-        public uint Program { get; private set; }
-        public bool IsDisposed { get; private set; }
-
-        public CodeDrawShader(SharedGlfwHost host, string vs, string fs)
-        {
-            _host = host;
-            _ctxWin = host.CreateHiddenWindow(1, 1, "shader-ctx");
-            var glfw = host.Glfw;
-
-            glfw.MakeContextCurrent(_ctxWin);
-            glfw.SwapInterval(0);
-            _gl = GL.GetApi(glfw.GetProcAddress);
-
-            Program = ShaderCompiler.CreateProgram(_gl, vs, fs);
-
-            glfw.MakeContextCurrent(null);
-        }
-
-        public void Dispose()
-        {
-            if (IsDisposed) return;
-            IsDisposed = true;
-
-            var glfw = _host.Glfw;
-            glfw.MakeContextCurrent(_ctxWin);
-
-            if (Program != 0)
-            {
-                _gl.DeleteProgram(Program);
-                Program = 0;
-            }
-
-            glfw.MakeContextCurrent(null);
-            _host.DestroyWindow(_ctxWin);
-        }
-    }
-
-    private struct Buffer
-    {
-        public uint Tex;
-        public uint Fbo;
-        public nint Fence;
-        public int W, H;
-    }
-
-    private struct Publication
-    {
-        public int FrontIndex;
-        public nint Fence;
-        public int W, H;
-        public long Seq;
-    }
-
-    private interface ICmd { void Exec(GL gl, CodeDrawLayer self); }
-
-    private sealed class CmdSetBlendMode : ICmd
-    {
-        public BlendMode Mode;
-        public void Exec(GL gl, CodeDrawLayer self) { self._blendMode = Mode; self.ApplyBlendMode(); }
-    }
-
-    private sealed class CmdSetBlitShader : ICmd
-    {
-        public CodeDrawShader? Shader;
-        public void Exec(GL gl, CodeDrawLayer self) => self._customBlitShader = Shader is { IsDisposed: false } ? Shader : null;
-    }
-
-    private sealed class CmdClear(float r, float g, float b, float a) : ICmd
-    {
-        public void Exec(GL gl, CodeDrawLayer self)
-        {
-            self._clearColor = (r, g, b, a);
-            gl.ClearColor(self._clearColor.r, self._clearColor.g, self._clearColor.b, self._clearColor.a);
-            gl.Clear((uint)ClearBufferMask.ColorBufferBit);
-        }
-    }
-
-    private sealed class CmdRect : ICmd
-    {
-        public float X, Y, W, H;
-        public float R, G, B, A;
-        public void Exec(GL gl, CodeDrawLayer self) => self.ExecRect(gl, X, Y, W, H, R, G, B, A);
-    }
-
-    private sealed class CmdLayer : ICmd
-    {
-        public CodeDrawLayer? Src;
-        public void Exec(GL gl, CodeDrawLayer self)
-        {
-            var s = Src;
-            if (s is null || s._disposed) return;
-            self.ExecLayer(gl, s);
-        }
-    }
-
-    private sealed class CmdResize(int w, int h) : ICmd
-    {
-        public readonly int W = w, H = h;
-        public void Exec(GL gl, CodeDrawLayer self) => self.ResizeInternal(W, H);
-    }
-
     private bool _clearFirst = true;
-
-    private sealed class CmdSetClearFirst : ICmd
-    {
-        public bool Enabled;
-        public void Exec(GL gl, CodeDrawLayer self) => self._clearFirst = Enabled;
-    }
 
     private void SetClearFirst(bool enabled) => Enqueue(new CmdSetClearFirst { Enabled = enabled });
 
@@ -237,9 +115,9 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable
 
     public bool IsDisposed => _disposed;
 
-    public CodeDrawLayer(SharedGlfwHost host, int w = 800, int h = 600, string lable = "Unknown Layer")
+    public CodeDrawLayer(SharedGlfwHost host, int w = 800, int h = 600, string label = "Unknown Layer")
     {
-        _label = lable;
+        _label = label;
         _host = host;
         _ctxWin = host.CreateHiddenWindow(1, 1, "layer-ctx");
 
@@ -567,9 +445,9 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable
         gl.UseProgram(_progRect);
         gl.BindVertexArray(_vao);
 
-        Uniform4f(gl, _uRectPosSize, x, y, w, h);
-        Uniform4f(gl, _uRectColor, r, g, b, a);
-        Uniform2f(gl, _uRectRes, _w, _h);
+        Uniform4F(gl, _uRectPosSize, x, y, w, h);
+        Uniform4F(gl, _uRectColor, r, g, b, a);
+        Uniform2F(gl, _uRectRes, _w, _h);
 
         gl.DrawElements(GLEnum.Triangles, 6, GLEnum.UnsignedInt, null);
 

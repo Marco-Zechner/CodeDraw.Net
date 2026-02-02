@@ -117,8 +117,8 @@ public sealed unsafe class CodeDrawWindow : IDisposable
     public bool IsDisposed => Volatile.Read(ref _disposed) != 0;
     private int _windowDestroyed; // 0 = not yet, 1 = done
 
-    private CodeDrawLayer? _layer;
-    public CodeDrawLayer? Layer => _layer;
+    private DrawLayer.CodeDrawLayer? _layer;
+    public DrawLayer.CodeDrawLayer? Layer => _layer;
 
     public int WindowId { get; }
     private string _title;
@@ -157,7 +157,7 @@ public sealed unsafe class CodeDrawWindow : IDisposable
 
     private bool _startFired;
 
-    public void SetPresentedLayer(CodeDrawLayer? layer, bool keepLastFrameUntilReady = true)
+    public void SetPresentedLayer(DrawLayer.CodeDrawLayer? layer, bool keepLastFrameUntilReady = true)
     {
         _layer = layer;
         _keepLastFrameUntilReady = keepLastFrameUntilReady;
@@ -174,7 +174,7 @@ public sealed unsafe class CodeDrawWindow : IDisposable
         _winLock = host.GetWindowLock(_win);
         WindowId = host.GetWindowId(_win);
 
-        _layer = new CodeDrawLayer(host, w, h);
+        _layer = new DrawLayer.CodeDrawLayer(host, w, h);
 
         _presentThread = new Thread(PresentLoop) { IsBackground = true, Name = $"Presenter:{_title}" };
         _updateThread  = new Thread(UpdateLoop)  { IsBackground = true, Name = $"Update:{_title}" };
@@ -324,7 +324,7 @@ public sealed unsafe class CodeDrawWindow : IDisposable
 
             uint lastTex = 0;
             long lastSeq = 0;
-            CodeDrawLayer? lastLayerRef = null;
+            DrawLayer.CodeDrawLayer? lastLayerRef = null;
 
             while (!ShouldClose)
             {

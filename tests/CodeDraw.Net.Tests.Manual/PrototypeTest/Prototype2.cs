@@ -1,5 +1,7 @@
 ﻿using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes;
+using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.DrawLayer;
 using Silk.NET.GLFW;
+using CodeDrawLayer = MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.DrawLayer.CodeDrawLayer;
 
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.PrototypeTest;
 
@@ -70,7 +72,7 @@ public sealed class Prototype2 : IDisposable
             layer.Clear(0.02f, 0.02f, 0.02f, 1f);
 
             // --- 1) Quadrants (unique colors) ---
-            layer.SetBlendMode(CodeDrawLayer.BlendMode.NONE);
+            layer.SetBlendMode(BlendMode.NONE);
             layer.DrawRect(0, 0, W / 2, H / 2, 0.85f, 0.20f, 0.20f, 1f);              // TL red
             layer.DrawRect(W / 2, 0, W / 2, H / 2, 0.20f, 0.85f, 0.20f, 1f);           // TR green
             layer.DrawRect(0, H / 2, W / 2, H / 2, 0.20f, 0.35f, 0.95f, 1f);           // BL blue
@@ -105,7 +107,7 @@ public sealed class Prototype2 : IDisposable
             layer.DrawRect(cx - 40, cy - 60, 80, th*2, 1f, 1f, 1f, 1f);
 
             // --- 4) Border outline (detect UV flip / off-by-one / scaling) ---
-            DrawOutline(layer, new CodeDrawLayer.RectF(0, 0, W, H), new CodeDrawLayer.Rgba(1f, 1f, 1f, 1f), 3);
+            DrawOutline(layer, new RectF(0, 0, W, H), new Rgba(1f, 1f, 1f, 1f), 3);
 
             // --- 5) Moving marker (helps confirm "latest frame" + no caching bugs) ---
             var mx = 400 + 140 * MathF.Sin(_t * 0.9f) + 230 * MathF.Cos(_t * 1.6f);
@@ -131,53 +133,53 @@ public sealed class Prototype2 : IDisposable
             if (src is null || src.IsDisposed) { dst.Render(); return; }
 
             // Background guide grid (visual alignment)
-            dst.SetBlendMode(CodeDrawLayer.BlendMode.NONE);
-            DrawGrid(dst, W, H, 40, new CodeDrawLayer.Rgba(0.15f, 0.15f, 0.15f, 1f));
-            dst.SetBlendMode(CodeDrawLayer.BlendMode.SOURCE_OVER_ALPHA);
+            dst.SetBlendMode(BlendMode.NONE);
+            DrawGrid(dst, W, H, 40, new Rgba(0.15f, 0.15f, 0.15f, 1f));
+            dst.SetBlendMode(BlendMode.SOURCE_OVER_ALPHA);
 
             // Draw separators
-            dst.SetBlendMode(CodeDrawLayer.BlendMode.NONE);
+            dst.SetBlendMode(BlendMode.NONE);
             dst.DrawRect(0, 0, W, 4, 0f, 1f, 0f, 1f);
             dst.DrawRect(0, H - 4, W, 4, 0f, 1f, 0f, 1f);
-            dst.SetBlendMode(CodeDrawLayer.BlendMode.SOURCE_OVER_ALPHA);
+            dst.SetBlendMode(BlendMode.SOURCE_OVER_ALPHA);
 
             // B) Full src -> region (aspect stretch is expected)
-            var regionB = new CodeDrawLayer.RectF(30, 30, 220, 140);
+            var regionB = new RectF(30, 30, 220, 140);
             dst.DrawLayer(src, regionB);
-            DrawOutline(dst, regionB, new CodeDrawLayer.Rgba(1f, 1f, 1f, 1f));
+            DrawOutline(dst, regionB, new Rgba(1f, 1f, 1f, 1f));
 
             // C) Crop TL quadrant -> box
-            var cropTL = new CodeDrawLayer.RectF(0, 0, 400, 250);
-            var dstC = new CodeDrawLayer.RectF(300, 30, 220, 140);
+            var cropTL = new RectF(0, 0, 400, 250);
+            var dstC = new RectF(300, 30, 220, 140);
             dst.DrawLayer(src, cropTL, dstC);
-            DrawOutline(dst, dstC, new CodeDrawLayer.Rgba(1f, 0.5f, 0.5f, 1f));
+            DrawOutline(dst, dstC, new Rgba(1f, 0.5f, 0.5f, 1f));
 
             // D) Crop stripe band (upper half) -> thin wide box
-            var cropBand = new CodeDrawLayer.RectF(0, 0, 800, 120);
-            var dstD = new CodeDrawLayer.RectF(30, 210, 490, 70);
+            var cropBand = new RectF(0, 0, 800, 120);
+            var dstD = new RectF(30, 210, 490, 70);
             dst.DrawLayer(src, cropBand, dstD);
-            DrawOutline(dst, dstD, new CodeDrawLayer.Rgba(0.6f, 1f, 0.6f, 1f));
+            DrawOutline(dst, dstD, new Rgba(0.6f, 1f, 0.6f, 1f));
 
             // E) Crop center square -> box (crosshair should be centered)
-            var cropCenter = new CodeDrawLayer.RectF(300, 150, 200, 200);
-            var dstE = new CodeDrawLayer.RectF(560, 30, 210, 210);
+            var cropCenter = new RectF(300, 150, 200, 200);
+            var dstE = new RectF(560, 30, 210, 210);
             dst.DrawLayer(src, cropCenter, dstE);
-            DrawOutline(dst, dstE, new CodeDrawLayer.Rgba(0.6f, 0.8f, 1f, 1f));
+            DrawOutline(dst, dstE, new Rgba(0.6f, 0.8f, 1f, 1f));
 
             // F) Crop bottom-right quadrant -> box
-            var cropBR = new CodeDrawLayer.RectF(400, 250, 400, 250);
-            var dstF = new CodeDrawLayer.RectF(560, 270, 210, 190);
+            var cropBR = new RectF(400, 250, 400, 250);
+            var dstF = new RectF(560, 270, 210, 190);
             dst.DrawLayer(src, cropBR, dstF);
-            DrawOutline(dst, dstF, new CodeDrawLayer.Rgba(1f, 1f, 0.6f, 1f));
+            DrawOutline(dst, dstF, new Rgba(1f, 1f, 0.6f, 1f));
 
             // Legend markers (just colors, no text)
-            dst.SetBlendMode(CodeDrawLayer.BlendMode.NONE);
+            dst.SetBlendMode(BlendMode.NONE);
             dst.DrawRect(30, 470, 20, 20, 1f, 1f, 1f, 1f);
             dst.DrawRect(60, 470, 20, 20, 1f, 0.5f, 0.5f, 1f);
             dst.DrawRect(90, 470, 20, 20, 0.6f, 1f, 0.6f, 1f);
             dst.DrawRect(120, 470, 20, 20, 0.6f, 0.8f, 1f, 1f);
             dst.DrawRect(150, 470, 20, 20, 1f, 1f, 0.6f, 1f);
-            dst.SetBlendMode(CodeDrawLayer.BlendMode.SOURCE_OVER_ALPHA);
+            dst.SetBlendMode(BlendMode.SOURCE_OVER_ALPHA);
 
             dst.Render();
         };
@@ -200,26 +202,26 @@ public sealed class Prototype2 : IDisposable
 
             // --- Now draw the SAME outlines used in _winDst, on top, in full color ---
             // (This makes it obvious where each crop/placement is coming from.)
-            dst.SetBlendMode(CodeDrawLayer.BlendMode.SOURCE_OVER_ALPHA);
+            dst.SetBlendMode(BlendMode.SOURCE_OVER_ALPHA);
 
-            var regionB = new CodeDrawLayer.RectF(0, 0, 800, 500);
-            var srcC = new CodeDrawLayer.RectF(0, 0, 400, 250);
-            var srcD = new CodeDrawLayer.RectF(0, 0, 800, 120);
-            var srcE = new CodeDrawLayer.RectF(300, 150, 200, 200);
-            var srcF = new CodeDrawLayer.RectF(400, 250, 400, 250);
+            var regionB = new RectF(0, 0, 800, 500);
+            var srcC = new RectF(0, 0, 400, 250);
+            var srcD = new RectF(0, 0, 800, 120);
+            var srcE = new RectF(300, 150, 200, 200);
+            var srcF = new RectF(400, 250, 400, 250);
 
-            DrawOutline(dst, regionB, new CodeDrawLayer.Rgba(1f, 1f, 1f, 1f), 3);
-            DrawOutline(dst, srcC,    new CodeDrawLayer.Rgba(1f, 0.5f, 0.5f, 1f), 3);
-            DrawOutline(dst, srcD,    new CodeDrawLayer.Rgba(0.6f, 1f, 0.6f, 1f), 3);
-            DrawOutline(dst, srcE,    new CodeDrawLayer.Rgba(0.6f, 0.8f, 1f, 1f), 3);
-            DrawOutline(dst, srcF,    new CodeDrawLayer.Rgba(1f, 1f, 0.6f, 1f), 3);
+            DrawOutline(dst, regionB, new Rgba(1f, 1f, 1f, 1f), 3);
+            DrawOutline(dst, srcC,    new Rgba(1f, 0.5f, 0.5f, 1f), 3);
+            DrawOutline(dst, srcD,    new Rgba(0.6f, 1f, 0.6f, 1f), 3);
+            DrawOutline(dst, srcE,    new Rgba(0.6f, 0.8f, 1f, 1f), 3);
+            DrawOutline(dst, srcF,    new Rgba(1f, 1f, 0.6f, 1f), 3);
 
             // Add small corner markers to show "top-left" of each box clearly
-            MarkCorner(dst, regionB, new CodeDrawLayer.Rgba(1f, 1f, 1f, 1f));
-            MarkCorner(dst, srcC,    new CodeDrawLayer.Rgba(1f, 0.5f, 0.5f, 1f));
-            MarkCorner(dst, srcD,    new CodeDrawLayer.Rgba(0.6f, 1f, 0.6f, 1f));
-            MarkCorner(dst, srcE,    new CodeDrawLayer.Rgba(0.6f, 0.8f, 1f, 1f));
-            MarkCorner(dst, srcF,    new CodeDrawLayer.Rgba(1f, 1f, 0.6f, 1f));
+            MarkCorner(dst, regionB, new Rgba(1f, 1f, 1f, 1f));
+            MarkCorner(dst, srcC,    new Rgba(1f, 0.5f, 0.5f, 1f));
+            MarkCorner(dst, srcD,    new Rgba(0.6f, 1f, 0.6f, 1f));
+            MarkCorner(dst, srcE,    new Rgba(0.6f, 0.8f, 1f, 1f));
+            MarkCorner(dst, srcF,    new Rgba(1f, 1f, 0.6f, 1f));
 
             dst.Render();
         };
@@ -240,25 +242,25 @@ public sealed class Prototype2 : IDisposable
         _winFull.WaitForClose();
     }
 
-    private static void DrawOutline(CodeDrawLayer l, CodeDrawLayer.RectF r, CodeDrawLayer.Rgba c, float t = 2f)
+    private static void DrawOutline(CodeDrawLayer l, RectF r, Rgba c, float t = 2f)
     {
-        l.SetBlendMode(CodeDrawLayer.BlendMode.SOURCE_OVER_ALPHA);
+        l.SetBlendMode(BlendMode.SOURCE_OVER_ALPHA);
         l.DrawRect(r.X, r.Y, r.W, t, c.R, c.G, c.B, c.A);
         l.DrawRect(r.X, r.Y + r.H - t, r.W, t, c.R, c.G, c.B, c.A);
         l.DrawRect(r.X, r.Y, t, r.H, c.R, c.G, c.B, c.A);
         l.DrawRect(r.X + r.W - t, r.Y, t, r.H, c.R, c.G, c.B, c.A);
     }
 
-    private static void DrawGrid(CodeDrawLayer l, int w, int h, int step, CodeDrawLayer.Rgba c)
+    private static void DrawGrid(CodeDrawLayer l, int w, int h, int step, Rgba c)
     {
         for (int x = 0; x < w; x += step) l.DrawRect(x, 0, 1, h, c.R, c.G, c.B, c.A);
         for (int y = 0; y < h; y += step) l.DrawRect(0, y, w, 1, c.R, c.G, c.B, c.A);
     }
 
-    private static void MarkCorner(CodeDrawLayer l, CodeDrawLayer.RectF r, CodeDrawLayer.Rgba c)
+    private static void MarkCorner(CodeDrawLayer l, RectF r, Rgba c)
     {
         // top-left "L" marker
-        l.SetBlendMode(CodeDrawLayer.BlendMode.SOURCE_OVER_ALPHA);
+        l.SetBlendMode(BlendMode.SOURCE_OVER_ALPHA);
         l.DrawRect(r.X, r.Y, 14, 6, c.R, c.G, c.B, c.A);
         l.DrawRect(r.X, r.Y, 6, 14, c.R, c.G, c.B, c.A);
     }

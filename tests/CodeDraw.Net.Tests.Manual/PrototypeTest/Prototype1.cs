@@ -1,4 +1,5 @@
 ﻿using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes;
+using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.DrawLayer;
 using Silk.NET.GLFW;
 
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.PrototypeTest;
@@ -66,9 +67,9 @@ public sealed class Prototype1 : IDisposable
             layer.DrawRect(60 + 120 * MathF.Sin(_tA), 80, 220, 140, 0.2f, 1.0f, 0.6f, 1f);
             layer.DrawRect(90, 260, 140, 80, 1.0f, 0.3f, 0.2f, 0.8f);
 
-            layer.SetBlendMode(CodeDrawLayer.BlendMode.NONE);
+            layer.SetBlendMode(BlendMode.NONE);
             layer.DrawRect(230, 5, 300, 40, 0.2f, 0.4f, 1.0f, 0.5f + 0.5f * MathF.Sin(_tOverlay * 2f));
-            layer.SetBlendMode(CodeDrawLayer.BlendMode.SOURCE_OVER_ALPHA);
+            layer.SetBlendMode(BlendMode.SOURCE_OVER_ALPHA);
 
             layer.Render();
         };

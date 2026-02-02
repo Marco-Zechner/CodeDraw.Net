@@ -1,11 +1,13 @@
-﻿namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes;
+﻿using Silk.NET.OpenGL;
+
+namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.DrawLayer;
 
 public sealed unsafe partial class CodeDrawLayer
 {
     // ---------- internal command ----------
     private sealed class CmdBlit : ICmd
     {
-        public CodeDrawLayer? Src;
+        public DrawLayer.CodeDrawLayer? Src;
 
         public RectF SrcRectPx;
         public RectF DstRectPx;
@@ -14,7 +16,7 @@ public sealed unsafe partial class CodeDrawLayer
         public bool HasBlendOverride;
         public BlendMode BlendOverride;
 
-        public void Exec(Silk.NET.OpenGL.GL gl, CodeDrawLayer self)
+        public void Exec(GL gl, DrawLayer.CodeDrawLayer self)
         {
             var src = Src;
             if (src is null || src._disposed) return;
@@ -48,17 +50,17 @@ public sealed unsafe partial class CodeDrawLayer
             gl.UseProgram(self._progLayerRect);
             gl.BindVertexArray(self._vao);
 
-            gl.ActiveTexture(Silk.NET.OpenGL.GLEnum.Texture0);
-            gl.BindTexture(Silk.NET.OpenGL.GLEnum.Texture2D, tex);
+            gl.ActiveTexture(GLEnum.Texture0);
+            gl.BindTexture(GLEnum.Texture2D, tex);
             if (self._uLayerRectTex >= 0) gl.Uniform1(self._uLayerRectTex, 0);
 
-            Uniform4f(gl, self._uLayerRectDstRectPx, DstRectPx.X, DstRectPx.Y, DstRectPx.W, DstRectPx.H);
-            Uniform2f(gl, self._uLayerRectDstResPx, self._w, self._h);
-            Uniform4f(gl, self._uLayerRectSrcUvRect, u0, v0, du, dv);
+            Uniform4F(gl, self._uLayerRectDstRectPx, DstRectPx.X, DstRectPx.Y, DstRectPx.W, DstRectPx.H);
+            Uniform2F(gl, self._uLayerRectDstResPx, self._w, self._h);
+            Uniform4F(gl, self._uLayerRectSrcUvRect, u0, v0, du, dv);
 
-            gl.DrawElements(Silk.NET.OpenGL.GLEnum.Triangles, 6, Silk.NET.OpenGL.GLEnum.UnsignedInt, null);
+            gl.DrawElements(GLEnum.Triangles, 6, GLEnum.UnsignedInt, null);
 
-            gl.BindTexture(Silk.NET.OpenGL.GLEnum.Texture2D, 0);
+            gl.BindTexture(GLEnum.Texture2D, 0);
             gl.BindVertexArray(0);
             gl.UseProgram(0);
 
@@ -71,19 +73,19 @@ public sealed unsafe partial class CodeDrawLayer
     // ---------- stages ----------
     public readonly struct BlitSrcStage
     {
-        private readonly CodeDrawLayer _dst;
-        private readonly CodeDrawLayer _src;
+        private readonly DrawLayer.CodeDrawLayer _dst;
+        private readonly DrawLayer.CodeDrawLayer _src;
 
-        internal readonly RectF _srcRectPx; // crop in src pixels
+        private readonly RectF _srcRectPx; // crop in src pixels
 
-        internal BlitSrcStage(CodeDrawLayer dst, CodeDrawLayer src)
+        internal BlitSrcStage(DrawLayer.CodeDrawLayer dst, DrawLayer.CodeDrawLayer src)
         {
             _dst = dst;
             _src = src;
             _srcRectPx = new RectF(0, 0, src._w, src._h);
         }
 
-        private BlitSrcStage(CodeDrawLayer dst, CodeDrawLayer src, RectF srcRect)
+        private BlitSrcStage(DrawLayer.CodeDrawLayer dst, DrawLayer.CodeDrawLayer src, RectF srcRect)
         {
             _dst = dst;
             _src = src;
@@ -100,16 +102,16 @@ public sealed unsafe partial class CodeDrawLayer
 
     public readonly struct BlitDstStage
     {
-        private readonly CodeDrawLayer _dst;
-        private readonly CodeDrawLayer _src;
+        private readonly DrawLayer.CodeDrawLayer _dst;
+        private readonly DrawLayer.CodeDrawLayer _src;
 
-        internal readonly RectF _srcRectPx;
-        internal readonly RectF _dstRectPx;
+        private readonly RectF _srcRectPx;
+        private readonly RectF _dstRectPx;
 
-        internal readonly bool _hasBlendOverride;
-        internal readonly BlendMode _blendOverride;
+        private readonly bool _hasBlendOverride;
+        private readonly BlendMode _blendOverride;
 
-        internal BlitDstStage(CodeDrawLayer dst, CodeDrawLayer src, RectF srcRect, RectF dstRect)
+        internal BlitDstStage(DrawLayer.CodeDrawLayer dst, DrawLayer.CodeDrawLayer src, RectF srcRect, RectF dstRect)
         {
             _dst = dst;
             _src = src;
@@ -119,7 +121,7 @@ public sealed unsafe partial class CodeDrawLayer
             _blendOverride = default;
         }
 
-        private BlitDstStage(CodeDrawLayer dst, CodeDrawLayer src, RectF srcRect, RectF dstRect, bool hasBlend, BlendMode mode)
+        private BlitDstStage(DrawLayer.CodeDrawLayer dst, DrawLayer.CodeDrawLayer src, RectF srcRect, RectF dstRect, bool hasBlend, BlendMode mode)
         {
             _dst = dst;
             _src = src;

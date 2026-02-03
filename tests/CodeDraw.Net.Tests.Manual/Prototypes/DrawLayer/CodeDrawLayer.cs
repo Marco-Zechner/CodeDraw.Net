@@ -112,7 +112,7 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
 
     public string DebugName { get; }
 
-    private readonly object _extShaderLock = new();
+    private readonly Lock _extShaderLock = new();
     private readonly HashSet<ShaderKey> _extKnown = [];
     private readonly ConcurrentQueue<ShaderKey> _extInitPending = new();
     private readonly Dictionary<ShaderKey, (AutoProgram prog, AutoUniform uTex)> _extCache = new();
@@ -404,7 +404,7 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
         gl.UseProgram(0);
     }
 
-    private void ExecLayer(GL gl, CodeDrawLayer src, LayerCopyShader? shader)
+    private void ExecLayer(GL gl, CodeDrawLayer src, CustomShader? shader)
     {
         if (!src.TryGetLatest(out var tex, out _, out _, out _, out _)) return;
 
@@ -418,22 +418,21 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
         }
         else
         {
-            // Use cached per-key wrappers (created in pending init step)
             lock (_extShaderLock)
             {
-                if (!_extCache.TryGetValue(shader.Key, out (AutoProgram ap, AutoUniform uTex) entry))
+                if (!_extCache.TryGetValue(shader.Key, out var entry))
                 {
-                    // Fail safe: fall back to internal.
                     prog = _progBlit;
                     uTexLoc = _uBlitTex;
                 }
                 else
                 {
-                    prog = entry.ap;
+                    prog = entry.prog;
                     uTexLoc = entry.uTex;
                 }
             }
         }
+
         if (prog == 0) return;
 
         gl.UseProgram(prog);
@@ -450,11 +449,10 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
         gl.UseProgram(0);
     }
 
-    private void ScheduleExternalShader(LayerCopyShader? shader)
+    private void ScheduleExternalShader(CustomShader? shader)
     {
         if (shader == null) return;
 
-        // This must be thread-safe and GL-free.
         lock (_extShaderLock)
         {
             if (_extKnown.Add(shader.Key))

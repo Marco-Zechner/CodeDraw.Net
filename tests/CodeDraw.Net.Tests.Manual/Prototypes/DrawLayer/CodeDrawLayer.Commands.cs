@@ -33,7 +33,7 @@ public sealed unsafe partial class CodeDrawLayer
     private sealed class CmdLayer : ICmd
     {
         public CodeDrawLayer? Src;
-        public LayerCopyShader? Shader;
+        public CustomShader? Shader;
 
         public void Exec(GL gl, CodeDrawLayer self)
         {

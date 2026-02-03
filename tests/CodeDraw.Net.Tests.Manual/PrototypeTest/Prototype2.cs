@@ -27,7 +27,7 @@ public sealed class Prototype2 : IDisposable
     private readonly CodeDrawWindow _winDst;
     private readonly CodeDrawWindow _winFull;
 
-    private readonly LayerCopyShader _desatCopyShader;
+    private readonly CustomShader _desatCopyShader;
 
     private float _t;
 
@@ -37,7 +37,7 @@ public sealed class Prototype2 : IDisposable
         _winDst = new CodeDrawWindow(host, 800, 500, 850, 120, "2B: Dest (Crop/Place Tests)");
         _winFull = new CodeDrawWindow(host, 800, 500, 1650, 120, "2B: Full (Copy Src fully, mostly desaturated)");
 
-        _desatCopyShader = LayerCopyShader.CsProject("desat", "PrototypeTest/shaders");
+        _desatCopyShader = CustomShader.CsProject("desat", "PrototypeTest/shaders");
 
         _winSrc.OnStart = w => Console.WriteLine($"2B Src started (id={w.WindowId})");
         _winDst.OnStart = w => Console.WriteLine($"2B Dst started (id={w.WindowId})");

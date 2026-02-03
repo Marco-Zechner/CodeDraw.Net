@@ -67,7 +67,7 @@ public sealed unsafe partial class CodeDrawLayer
         => Enqueue(new CmdRect { X = x, Y = y, W = w, H = h, R = r, G = g, B = b, A = a });
 
 
-    public void DrawLayer(CodeDrawLayer src, LayerCopyShader? shader = null)
+    public void DrawLayer(CodeDrawLayer src, CustomShader? shader = null)
     {
         if (shader is not null)
             ScheduleExternalShader(shader);

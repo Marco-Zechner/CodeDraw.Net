@@ -61,6 +61,7 @@ public sealed unsafe partial class CodeDrawLayer
     /// </summary>
     /// <param name="mode"></param>
     public void SetBlendMode(BlendMode mode) => Enqueue(new CmdSetBlendMode { Mode = mode });
+
     public void Clear(float r = 0f, float g = 0, float b = 0f, float a = 0f) => Enqueue(new CmdClear(r, g, b, a));
 
     public void DrawRect(float x, float y, float w, float h, float r, float g, float b, float a)
@@ -97,4 +98,36 @@ public sealed unsafe partial class CodeDrawLayer
     }
 
     public BlitSrcStage Blit(CodeDrawLayer src) => new(this, src);
+
+
+    public void CustomDrawRect(
+        float x, float y, float w, float h,
+        float r, float g, float b, float a,
+        CustomShader shader,
+        Uniforms uniforms)
+    {
+        if (_disposed) return;
+
+        // Ensure shader is registered before CheckHotReload in the next DrainUntil()
+        ScheduleExternalShader(shader);
+
+        // Defensive copy: keep cmd immutable even if caller reuses the array.
+        var src = uniforms.Values;
+        var copy = (src.Length == 0) ? [] : (UniformValue[])src.Clone();
+
+        Enqueue(new CmdCustomRect
+        {
+            X = x, Y = y, W = w, H = h,
+            R = r, G = g, B = b, A = a,
+            Shader = shader,
+            Uniforms = new Uniforms(copy)
+        });
+    }
+
+    public void CustomDrawRect(
+        float x, float y, float w, float h,
+        float r, float g, float b, float a,
+        CustomShader shader,
+        params UniformValue[] uniforms)
+        => CustomDrawRect(x, y, w, h, r, g, b, a, shader, new Uniforms(uniforms));
 }

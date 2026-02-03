@@ -27,8 +27,6 @@ public sealed class Prototype2 : IDisposable
     private readonly CodeDrawWindow _winDst;
     private readonly CodeDrawWindow _winFull;
 
-    private readonly CustomShader _desatCopyShader;
-
     private float _t;
 
     public Prototype2(SharedGlfwHost host)
@@ -37,7 +35,8 @@ public sealed class Prototype2 : IDisposable
         _winDst = new CodeDrawWindow(host, 800, 500, 850, 120, "2B: Dest (Crop/Place Tests)");
         _winFull = new CodeDrawWindow(host, 800, 500, 1650, 120, "2B: Full (Copy Src fully, mostly desaturated)");
 
-        _desatCopyShader = CustomShader.CsProject("desat", "PrototypeTest/shaders");
+        var desatCopyShader = CustomShader.CsProject("desat", "PrototypeTest/shaders");
+        var orbitShader = CustomShader.CsProject("orbitDots", "PrototypeTest/shaders");
 
         _winSrc.OnStart = w => Console.WriteLine($"2B Src started (id={w.WindowId})");
         _winDst.OnStart = w => Console.WriteLine($"2B Dst started (id={w.WindowId})");
@@ -46,7 +45,7 @@ public sealed class Prototype2 : IDisposable
         _winDst.OnClose = w => Console.WriteLine($"2B Dst closed (id={w.WindowId})");
         _winFull.OnClose = w => Console.WriteLine($"2B Full closed (id={w.WindowId})");
 
-        host.Input.OnKeyDown += ((win, key, mods) =>
+        host.Input.OnKeyDown += (win, key, mods) =>
         {
             switch (key)
             {
@@ -57,7 +56,8 @@ public sealed class Prototype2 : IDisposable
                     win.MaximizeBorderless = !win.MaximizeBorderless;
                     break;
             }
-        });
+        };
+
 
         _winSrc.OnUpdate = ctx =>
         {
@@ -116,8 +116,37 @@ public sealed class Prototype2 : IDisposable
             layer.DrawRect(mx, my, 16, 16, 0f, 0f, 0f, 1f);
             layer.DrawRect(mx + 3, my + 3, 10, 10, 1f, 1f, 1f, 1f);
 
+            layer.CustomDrawRect(
+                200, 150, 800, 500,
+                1,1,1,1f,
+                shader: orbitShader,
+                uniforms: Uniforms.Of(
+                    UniformValue.Float("uRadius1", 20),
+                    UniformValue.Float("uRadius2", 200f),
+                    UniformValue.Float("uPeriod",  20),
+                    UniformValue.Float("uOffset",  0)
+                )
+            );
+
+            DrawOrbitingDots(layer, 200, 150, 20f, 200f, 20, 5f, new Rgba(1f, 0.5f, 0f, MathF.Sin(_t * 1.6f) * 0.5f + 0.5f));
+
             layer.Render();
         };
+
+        void DrawOrbitingDots(CodeDrawLayer layer, float centerX, float centerY, float radiusDot, float radiusOrbit, float period, float timeOffset, Rgba color)
+        {
+            layer.CustomDrawRect(
+                centerX, centerY, layer.Width, layer.Height,
+                color.R, color.G, color.B, color.A,
+                shader: orbitShader,
+                uniforms: Uniforms.Of(
+                    UniformValue.Float("uRadius1", radiusDot),
+                    UniformValue.Float("uRadius2", radiusOrbit),
+                    UniformValue.Float("uPeriod",  period),
+                    UniformValue.Float("uOffset",  timeOffset)
+                )
+            );
+        }
 
         _winDst.OnUpdate = ctx =>
         {
@@ -197,7 +226,7 @@ public sealed class Prototype2 : IDisposable
             if (src is null || src.IsDisposed) { dst.Render(); return; }
 
             // --- A) Copy src fully, but through a mostly-desaturating shader ---
-            dst.DrawLayer(src, _desatCopyShader);
+            dst.DrawLayer(src, desatCopyShader);
 
             // --- Now draw the SAME outlines used in _winDst, on top, in full color ---
             // (This makes it obvious where each crop/placement is coming from.)

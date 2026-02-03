@@ -1,9 +1,10 @@
 ﻿using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.Shaders;
 using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
-using Monitor = System.Threading.Monitor;
+using UniformType = MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.Shaders.UniformType;
 
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.DrawLayer;
 
@@ -16,6 +17,53 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void Uniform4F(GL gl, int loc, float x, float y, float z, float w)
         => gl.Uniform4(loc, x, y, z, w);
+
+    // --- time base for uTime ---
+    private readonly long _timeStartTicks = Stopwatch.GetTimestamp();
+
+    private float GetTimeSeconds()
+    {
+        var now = Stopwatch.GetTimestamp();
+        var dt = (now - _timeStartTicks) / (double)Stopwatch.Frequency;
+        return (float)dt;
+    }
+
+    // ---- external shader cache (now supports both layer-copy + custom-rect) ----
+    private readonly object _extShaderLock = new();
+    private readonly HashSet<ShaderKey> _extKnown = [];
+    private readonly ConcurrentQueue<ShaderKey> _extInitPending = new();
+
+    private sealed class ExtShaderEntry
+    {
+        public AutoProgram Prog = null!;
+
+        // Common (layer copy)
+        public AutoUniform UTex = null!;
+
+        // Common (custom rect)
+        public AutoUniform UPosSize = null!;
+        public AutoUniform URes = null!;
+        public AutoUniform UTime = null!;
+        public AutoUniform UColor = null!;
+
+        // Per-program user uniform location cache:
+        // programHandle -> (uniformName -> location)
+        public readonly Dictionary<uint, Dictionary<string, int>> UserLocCache = new();
+    }
+
+    private readonly Dictionary<ShaderKey, ExtShaderEntry> _extCache = new();
+
+    private void ScheduleExternalShader(CustomShader? shader)
+    {
+        if (shader == null) return;
+
+        // thread-safe, GL-free
+        lock (_extShaderLock)
+        {
+            if (_extKnown.Add(shader.Key))
+                _extInitPending.Enqueue(shader.Key);
+        }
+    }
 
     private void ApplyBlendMode()
     {
@@ -55,18 +103,6 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
     }
 
     private bool _clearFirst = true;
-
-    private void SetClearFirst(bool enabled) => Enqueue(new CmdSetClearFirst { Enabled = enabled });
-
-    /// <summary>
-    /// If enabled, every Render() begins with ClearColor+Clear,
-    /// and we never CopyFrontToBack(). This prevents "retained" accumulation.
-    /// </summary>
-    public bool AutoClearLastFrame
-    {
-        get => _clearFirst;
-        set => SetClearFirst(value);
-    }
 
     private BlendMode _blendMode = BlendMode.SOURCE_OVER_ALPHA;
 
@@ -109,14 +145,7 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
     private readonly AutoResetEvent _published = new(false);
 
     public bool IsDisposed => _disposed;
-
     public string DebugName { get; }
-
-    private readonly Lock _extShaderLock = new();
-    private readonly HashSet<ShaderKey> _extKnown = [];
-    private readonly ConcurrentQueue<ShaderKey> _extInitPending = new();
-    private readonly Dictionary<ShaderKey, (AutoProgram prog, AutoUniform uTex)> _extCache = new();
-
 
     public CodeDrawLayer(SharedGlfwHost host, int w = 800, int h = 600, string label = "Unknown Layer")
     {
@@ -185,6 +214,13 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
         _host.DestroyWindow(_ctxWin);
     }
 
+    private void Enqueue(ICmd cmd)
+    {
+        if (_disposed) return;
+        var seq = Interlocked.Increment(ref _nextCmdSeq);
+        _q.Enqueue((seq, cmd));
+        Volatile.Write(ref _lastEnqueuedSeq, seq);
+    }
 
     public void WaitForPublish(int timeoutMs)
     {
@@ -218,14 +254,6 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
 
     // --------- Internals ---------
 
-    private void Enqueue(ICmd cmd)
-    {
-        if (_disposed) return;
-        var seq = Interlocked.Increment(ref _nextCmdSeq);
-        _q.Enqueue((seq, cmd));
-        Volatile.Write(ref _lastEnqueuedSeq, seq);
-    }
-
     private void DrainUntil(long targetSeq)
     {
         var glfw = _host.Glfw;
@@ -233,19 +261,28 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
 
         EnsureInit();
 
+        // 0) Initialize any newly-seen external shaders BEFORE checkHotReload.
         while (_extInitPending.TryDequeue(out var key))
         {
-            // Create cached wrappers once. AutoUniform is lazy; no GL calls here.
             lock (_extShaderLock)
             {
                 if (_extCache.ContainsKey(key)) continue;
 
                 var ap = new AutoProgram(this, key);
-                var u  = new AutoUniform(_gl, this, ap, "uTex");
-                _extCache[key] = (ap, u);
+
+                _extCache[key] = new ExtShaderEntry
+                {
+                    Prog    = ap,
+                    UTex    = new AutoUniform(_gl, this, ap, "uTex"),
+                    UPosSize= new AutoUniform(_gl, this, ap, "uPosSize"),
+                    URes    = new AutoUniform(_gl, this, ap, "uRes"),
+                    UTime   = new AutoUniform(_gl, this, ap, "uTime"),
+                    UColor  = new AutoUniform(_gl, this, ap, "uColor"),
+                };
             }
         }
 
+        // 1) compile/link any changes (internal + external) for this GL consumer
         ShaderStore.CheckHotReload(_gl, this);
 
         RetireRequestedFences();
@@ -427,8 +464,8 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
                 }
                 else
                 {
-                    prog = entry.prog;
-                    uTexLoc = entry.uTex;
+                    prog = entry.Prog;
+                    uTexLoc = entry.UTex;
                 }
             }
         }
@@ -449,14 +486,108 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
         gl.UseProgram(0);
     }
 
-    private void ScheduleExternalShader(CustomShader? shader)
+        private void ExecCustomRect(
+        GL gl,
+        float x, float y, float w, float h,
+        float r, float g, float b, float a,
+        CustomShader? shader,
+        Uniforms uniforms)
     {
-        if (shader == null) return;
+        uint prog;
+        int uPosSize, uRes, uTime, uColor;
+
+        if (shader == null)
+        {
+            // Default to engine rect
+            prog = _progRect;
+            uPosSize = _uRectPosSize;
+            uRes = _uRectRes;
+            uTime = -1; // engine rect doesn't need time (but harmless if you add it later)
+            uColor = _uRectColor;
+        }
+        else
+        {
+            ExtShaderEntry? entry;
+            lock (_extShaderLock)
+            {
+                _extCache.TryGetValue(shader.Key, out entry);
+            }
+
+            if (entry == null)
+            {
+                prog = _progRect;
+                uPosSize = _uRectPosSize;
+                uRes = _uRectRes;
+                uTime = -1;
+                uColor = _uRectColor;
+            }
+            else
+            {
+                prog = entry.Prog;
+                uPosSize = entry.UPosSize;
+                uRes = entry.URes;
+                uTime = entry.UTime;
+                uColor = entry.UColor;
+            }
+        }
+
+        if (prog == 0) return;
+
+        gl.UseProgram(prog);
+        gl.BindVertexArray(_vao);
+
+        // Built-ins (engine wins)
+        if (uPosSize >= 0) Uniform4F(gl, uPosSize, x, y, w, h);
+        if (uRes >= 0) Uniform2F(gl, uRes, _w, _h);
+        if (uTime >= 0) gl.Uniform1(uTime, GetTimeSeconds());
+        if (uColor >= 0) Uniform4F(gl, uColor, r, g, b, a);
+
+        // User uniforms
+        if (shader != null && uniforms.Values.Length > 0)
+        {
+            ApplyUserUniforms(gl, prog, shader.Key, uniforms);
+        }
+
+        gl.DrawElements(GLEnum.Triangles, 6, GLEnum.UnsignedInt, null);
+
+        gl.BindVertexArray(0);
+        gl.UseProgram(0);
+    }
+
+    private void ApplyUserUniforms(GL gl, uint prog, ShaderKey key, Uniforms uniforms)
+    {
+        Dictionary<string, int>? map;
 
         lock (_extShaderLock)
         {
-            if (_extKnown.Add(shader.Key))
-                _extInitPending.Enqueue(shader.Key);
+            if (!_extCache.TryGetValue(key, out var entry))
+                return;
+
+            if (!entry.UserLocCache.TryGetValue(prog, out map))
+            {
+                map = new Dictionary<string, int>(StringComparer.Ordinal);
+                entry.UserLocCache[prog] = map;
+            }
+        }
+
+        // No locks while doing GL calls
+        foreach (var u in uniforms.Values)
+        {
+            if (!map.TryGetValue(u.Name, out var loc))
+            {
+                loc = gl.GetUniformLocation(prog, u.Name);
+                map[u.Name] = loc;
+            }
+
+            if (loc < 0) continue;
+
+            switch (u.Type)
+            {
+                case UniformType.FLOAT1: gl.Uniform1(loc, u.A); break;
+                case UniformType.FLOAT2: gl.Uniform2(loc, u.A, u.B); break;
+                case UniformType.FLOAT3: gl.Uniform3(loc, u.A, u.B, u.C); break;
+                case UniformType.FLOAT4: gl.Uniform4(loc, u.A, u.B, u.C, u.D); break;
+            }
         }
     }
 }

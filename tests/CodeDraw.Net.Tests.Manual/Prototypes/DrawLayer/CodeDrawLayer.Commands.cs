@@ -54,4 +54,26 @@ public sealed unsafe partial class CodeDrawLayer
         public bool Enabled;
         public void Exec(GL gl, CodeDrawLayer self) => self._clearFirst = Enabled;
     }
+
+    private sealed class CmdCustomRect : ICmd
+    {
+        public float X, Y, W, H;
+        public float R, G, B, A;
+
+        public CustomShader? Shader;
+        public Uniforms Uniforms;
+
+        public void Exec(GL gl, CodeDrawLayer self)
+        {
+            var s = Shader;
+            if (s is null) return;
+
+            self.ExecCustomRect(
+                gl,
+                X, Y, W, H,
+                R, G, B, A,
+                s,
+                Uniforms);
+        }
+    }
 }

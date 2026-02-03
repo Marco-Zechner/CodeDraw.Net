@@ -5,7 +5,7 @@ using Silk.NET.OpenGL;
 
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes;
 
-public sealed unsafe class CodeDrawWindow : IDisposable
+public sealed unsafe class CodeDrawWindow : IDisposable, IShaderConsumer
 {
     public sealed class WindowInput
     {
@@ -133,6 +133,9 @@ public sealed unsafe class CodeDrawWindow : IDisposable
         }
     }
 
+    public string DebugName => $"[Window id={WindowId} title='{_title}']";
+
+
     private bool _maximizeBorderless;
     public bool MaximizeBorderless
     {
@@ -174,7 +177,7 @@ public sealed unsafe class CodeDrawWindow : IDisposable
         _winLock = host.GetWindowLock(_win);
         WindowId = host.GetWindowId(_win);
 
-        _layer = new DrawLayer.CodeDrawLayer(host, w, h);
+        _layer = new DrawLayer.CodeDrawLayer(host, w, h, "WindowLayer:" + WindowId);
 
         _presentThread = new Thread(PresentLoop) { IsBackground = true, Name = $"Presenter:{_title}" };
         _updateThread  = new Thread(UpdateLoop)  { IsBackground = true, Name = $"Update:{_title}" };
@@ -314,11 +317,8 @@ public sealed unsafe class CodeDrawWindow : IDisposable
 
             var (vao, vbo, ebo) = ShaderCompiler.CreateFullScreenQuad(gl);
 
-            var shaderRoot = EngineShaderPaths.ResolveEngineShaderRoot();
-            using var shaders = new ShaderStore(shaderRoot, _title, hotReload: true);
-
-            var progBlit = new AutoProgram(shaders, "layerShader");
-            var uTex     = new AutoUniform(gl, shaders, progBlit, "uTex");
+            var progBlit = new AutoProgram(this, ShaderPath.Engine("layerShader"));
+            var uBlitTex = new AutoUniform(gl, this, progBlit, "uTex");
 
             gl.Disable(GLEnum.Blend);
 
@@ -338,7 +338,7 @@ public sealed unsafe class CodeDrawWindow : IDisposable
                     continue;
                 }
 
-                shaders?.BeginFrame(gl);
+                ShaderStore.CheckHotReload(gl, this);
 
                 gl.BindFramebuffer(GLEnum.Framebuffer, 0);
                 gl.Viewport(0, 0, (uint)fbW, (uint)fbH);
@@ -376,7 +376,7 @@ public sealed unsafe class CodeDrawWindow : IDisposable
                     gl.BindVertexArray(vao);
                     gl.ActiveTexture(GLEnum.Texture0);
                     gl.BindTexture(GLEnum.Texture2D, lastTex);
-                    if (uTex >= 0) gl.Uniform1(uTex, 0);
+                    if (uBlitTex >= 0) gl.Uniform1(uBlitTex, 0);
                     gl.DrawElements(GLEnum.Triangles, 6, GLEnum.UnsignedInt, null);
                     gl.BindTexture(GLEnum.Texture2D, 0);
                     gl.BindVertexArray(0);
@@ -392,7 +392,8 @@ public sealed unsafe class CodeDrawWindow : IDisposable
                 }
             }
 
-            gl.DeleteProgram(progBlit);
+            ShaderStore.DisposeConsumer(gl, this);
+
             gl.DeleteVertexArray(vao);
             gl.DeleteBuffer(vbo);
             gl.DeleteBuffer(ebo);
@@ -404,4 +405,5 @@ public sealed unsafe class CodeDrawWindow : IDisposable
             DestroyWindowOnce();
         }
     }
+
 }

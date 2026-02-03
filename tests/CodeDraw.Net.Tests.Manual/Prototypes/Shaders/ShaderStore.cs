@@ -1,206 +1,203 @@
 ﻿using System.Collections.Concurrent;
-using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.Shaders;
 using Silk.NET.OpenGL;
 
-public sealed class ShaderStore : IDisposable
+namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.Shaders;
+
+public static class ShaderStore
 {
-    private sealed class Entry
+    private sealed class ProgramEntry
     {
-        public string Name = "";
-        public string VertPath = "";
-        public string FragPath = "";
+        public ShaderKey Key;
 
-        // Written by watcher thread, read by GL thread
-        public volatile int LatestSourceVersion;
-        public string? PendingVS;
-        public string? PendingFS;
+        public FileCache.Handle VertFile = null!;
+        public FileCache.Handle FragFile = null!;
 
-        // Owned by GL thread
         public uint Program;
-        public int CompiledVersion;
+        public int BuiltVertVersion = -1;
+        public int BuiltFragVersion = -1;
 
         public string? LastError;
 
-        // Prevent concurrent GL compiles (still GL thread, but protects mistakes)
-        public readonly object CompileLock = new();
+        public readonly ConcurrentQueue<uint> DeleteQueue = new();
+
+        // reporting flags
+        public bool DefaultLoadedReported;
+        public bool FileLoadedReported; // first successful real file compile
     }
 
-    private readonly ConcurrentDictionary<string, Entry> _entries = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly ConcurrentDictionary<IShaderConsumer, ConcurrentDictionary<ShaderKey, ProgramEntry>> _byConsumer = new();
+    private static readonly ConcurrentDictionary<IShaderConsumer, object> _consumerLocks = new();
 
-    private readonly string _rootDir;
-    private readonly string _label;
-
-    private FileSystemWatcher? _watcher;
-    private readonly object _watchLock = new();
-
-    // delete queue must be executed on GL thread
-    private readonly ConcurrentQueue<uint> _deletePrograms = new();
-
-    public ShaderStore(string shaderRootDirectory, string label, bool hotReload = true)
+    public static void Register(IShaderConsumer consumer, ShaderKey key, bool hotReload = true)
     {
-        _label = label;
-        _rootDir = Path.GetFullPath(shaderRootDirectory);
-        if (hotReload) EnsureWatcher();
-    }
+        var dict = _byConsumer.GetOrAdd(consumer, _ => new ConcurrentDictionary<ShaderKey, ProgramEntry>());
+        if (dict.ContainsKey(key)) return;
 
-    private Entry GetOrCreate(string name)
-    {
-        var vertPath = Path.Combine(_rootDir, name + ".vert");
-        var fragPath = Path.Combine(_rootDir, name + ".frag");
+        var vert = FileCache.Acquire(key.VertPath, hotReload);
+        var frag = FileCache.Acquire(key.FragPath, hotReload);
 
-        return _entries.GetOrAdd(name, n => new Entry
+        var e = new ProgramEntry
         {
-            Name = n,
-            VertPath = vertPath,
-            FragPath = fragPath,
-            LatestSourceVersion = 0,
-            CompiledVersion = -1, // force initial compile
-        });
+            Key = key,
+            VertFile = vert,
+            FragFile = frag,
+            Program = 0,
+            BuiltVertVersion = -1,
+            BuiltFragVersion = -1
+        };
+
+        if (!dict.TryAdd(key, e))
+        {
+            vert.Dispose();
+            frag.Dispose();
+        }
     }
 
-    public uint GetProgram(string name)
+    public static uint GetProgram(IShaderConsumer consumer, ShaderKey key)
     {
-        // PURE GETTER: no GL calls, no file IO, no compilation.
-        // Program is swapped only in BeginFrame().
-        var e = GetOrCreate(name);
-        return e.Program;
+        if (!_byConsumer.TryGetValue(consumer, out var dict)) return 0;
+        return dict.TryGetValue(key, out var e) ? e.Program : 0;
     }
 
-    public int GetUniformLocation(GL gl, uint program, string uniformName)
+    public static int GetUniformLocation(GL gl, uint program, string uniformName)
         => program == 0 ? -1 : gl.GetUniformLocation(program, uniformName);
 
-    // Call on GL thread at safe point (start of frame / start of DrainUntil)
-    public void BeginFrame(GL gl)
+    public static void CheckHotReload(GL gl, IShaderConsumer consumer)
     {
-        // 1) apply pending compiles
-        foreach (var kv in _entries)
+        if (!_byConsumer.TryGetValue(consumer, out var dict)) return;
+
+        var lockObj = _consumerLocks.GetOrAdd(consumer, _ => new object());
+        lock (lockObj)
         {
-            var e = kv.Value;
-
-            var latest = e.LatestSourceVersion;
-            if (latest == e.CompiledVersion) continue;
-
-            lock (e.CompileLock)
+            foreach (var kv in dict)
             {
-                latest = e.LatestSourceVersion;
-                if (latest == e.CompiledVersion) continue;
+                var e = kv.Value;
 
-                // Need sources. If watcher didn't populate yet, load once here.
-                // (Only happens on first compile or if watcher missed.)
-                var vs = e.PendingVS ?? File.ReadAllText(e.VertPath);
-                var fs = e.PendingFS ?? File.ReadAllText(e.FragPath);
+                var (vs, vVer, vErr) = e.VertFile.Snapshot();
+                var (fs, fVer, fErr) = e.FragFile.Snapshot();
 
-                try
+                var filesBad = (vErr != null || fErr != null);
+
+                if (filesBad)
                 {
-                    Console.WriteLine($"[ShaderStore:{_label}] {(e.Program != 0 ? "Rec" : "C")}ompiling shader program: {e.Name}");
-                    var newProg = ShaderCompiler.CreateProgram(gl, vs, fs, label: e.Name);
+                    e.LastError = $"File error: vert='{vErr ?? "ok"}', frag='{fErr ?? "ok"}'";
 
-                    var old = e.Program;
-                    e.Program = newProg;
-                    e.CompiledVersion = latest;
-                    e.LastError = null;
+                    if (e.Program != 0)
+                        continue; // keep last good
 
-                    if (old != 0)
-                        _deletePrograms.Enqueue(old);
+                    if (DefaultShaderSources.TryGet(e.Key, out var dvs, out var dfs))
+                    {
+                        if (!e.DefaultLoadedReported)
+                        {
+                            e.DefaultLoadedReported = true;
+                            Console.WriteLine($"[Info] ShaderStore:{consumer.DebugName} loaded default for '{e.Key}' due to file error\n{e.LastError}");
+                        }
+
+                        TrySwapProgram(gl, consumer, e, dvs, dfs,
+                            builtVertVersion: vVer, builtFragVersion: fVer, isDefault: true);
+                    }
+
+                    continue;
                 }
-                catch (Exception ex)
+
+                // No file errors: we can compile from files.
+
+                // If nothing changed since last successful file-build, skip.
+                if (vVer == e.BuiltVertVersion && fVer == e.BuiltFragVersion)
+                    continue;
+
+                // Determine whether this is the *first* successful compile-from-files.
+                // Built*Version is -1 until we successfully swapped a file-built program.
+                var isFirstFileCompile = (e.BuiltVertVersion < 0 || e.BuiltFragVersion < 0);
+
+                // On the first file compile: only print the "compiling from files" line.
+                if (isFirstFileCompile)
                 {
-                    e.LastError = ex.ToString();
-                    // Important: do NOT advance CompiledVersion on failure,
-                    // so next BeginFrame retries after next edit (or you can keep a "failedVersion" if desired)
+                    if (!e.FileLoadedReported)
+                    {
+                        e.FileLoadedReported = true;
+                        Console.WriteLine($"[Info] ShaderStore:{consumer.DebugName} compiling from files for '{e.Key}'");
+                    }
                 }
+                else
+                {
+                    // On subsequent rebuilds: only print hot-reload.
+                    Console.WriteLine($"[Info] ShaderStore:{consumer.DebugName} hot-reload compile for '{e.Key}'");
+                }
+
+                TrySwapProgram(gl, consumer, e, vs, fs, vVer, fVer, isDefault: false);
+            }
+
+            foreach (var kv in dict)
+            {
+                var e = kv.Value;
+                while (e.DeleteQueue.TryDequeue(out var p))
+                    if (p != 0)
+                        gl.DeleteProgram(p);
+            }
+        }
+    }
+
+    private static void TrySwapProgram(
+        GL gl,
+        IShaderConsumer consumer,
+        ProgramEntry e,
+        string vs,
+        string fs,
+        int builtVertVersion,
+        int builtFragVersion,
+        bool isDefault)
+    {
+        uint newProg = 0;
+        try
+        {
+            var label = isDefault ? $"{consumer.DebugName}:{e.Key}:DEFAULT" : $"{consumer.DebugName}:{e.Key}";
+            newProg = ShaderCompiler.CreateProgram(gl, vs, fs, label: label);
+            var old = e.Program;
+
+            e.Program = newProg;
+
+            if (!isDefault)
+            {
+                e.BuiltVertVersion = builtVertVersion;
+                e.BuiltFragVersion = builtFragVersion;
+                e.DefaultLoadedReported = false; // if we had default earlier, allow default log again next time we fall back
+            }
+
+            e.LastError = null;
+
+            if (old != 0)
+                e.DeleteQueue.Enqueue(old);
+        }
+        catch (Exception ex)
+        {
+            if (newProg != 0) gl.DeleteProgram(newProg);
+            e.LastError = ex.ToString();
+        }
+    }
+
+    public static void DisposeConsumer(GL gl, IShaderConsumer consumer)
+    {
+        if (!_byConsumer.TryRemove(consumer, out var dict)) return;
+
+        var lockObj = _consumerLocks.GetOrAdd(consumer, _ => new object());
+        lock (lockObj)
+        {
+            foreach (var kv in dict)
+            {
+                var e = kv.Value;
+
+                while (e.DeleteQueue.TryDequeue(out var p))
+                    if (p != 0) gl.DeleteProgram(p);
+
+                if (e.Program != 0) gl.DeleteProgram(e.Program);
+                e.Program = 0;
+
+                e.VertFile.Dispose();
+                e.FragFile.Dispose();
             }
         }
 
-        // 2) delete old programs after all swaps
-        while (_deletePrograms.TryDequeue(out var p))
-        {
-            if (p != 0) gl.DeleteProgram(p);
-        }
-    }
-
-    public string? GetLastError(string name)
-        => _entries.TryGetValue(name, out var e) ? e.LastError : null;
-
-    private void EnsureWatcher()
-    {
-        lock (_watchLock)
-        {
-            if (_watcher != null) return;
-
-            var w = new FileSystemWatcher(_rootDir)
-            {
-                IncludeSubdirectories = false,
-                NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size | NotifyFilters.CreationTime | NotifyFilters.FileName,
-                EnableRaisingEvents = true,
-            };
-
-            void OnAny(string fullPath)
-            {
-                var file = Path.GetFileName(fullPath);
-                if (string.IsNullOrWhiteSpace(file)) return;
-
-                if (!file.EndsWith(".vert", StringComparison.OrdinalIgnoreCase) &&
-                    !file.EndsWith(".frag", StringComparison.OrdinalIgnoreCase))
-                    return;
-
-                var name = Path.GetFileNameWithoutExtension(file);
-                var e = GetOrCreate(name);
-
-                // Read both files NOW on watcher thread so GL thread doesn't do file IO
-                // If editor is mid-write, this can throw; that's fine: just don't bump version.
-                try
-                {
-                    if (!File.Exists(e.VertPath) || !File.Exists(e.FragPath))
-                        return;
-
-                    var vs = File.ReadAllText(e.VertPath);
-                    var fs = File.ReadAllText(e.FragPath);
-
-                    e.PendingVS = vs;
-                    e.PendingFS = fs;
-
-                    // bump version last (publish step)
-                    Interlocked.Increment(ref e.LatestSourceVersion);
-                }
-                catch
-                {
-                    // ignore transient write states; next change event will succeed
-                }
-            }
-
-            FileSystemEventHandler h = (_, ev) => OnAny(ev.FullPath);
-            RenamedEventHandler r = (_, ev) => { OnAny(ev.OldFullPath); OnAny(ev.FullPath); };
-
-            w.Changed += h;
-            w.Created += h;
-            w.Deleted += h;
-            w.Renamed += r;
-
-            _watcher = w;
-        }
-    }
-
-    public void Dispose()
-    {
-        lock (_watchLock)
-        {
-            _watcher?.Dispose();
-            _watcher = null;
-        }
-        // programs must be deleted on GL thread; do it via DisposePrograms(gl)
-    }
-
-    public void DisposePrograms(GL gl)
-    {
-        while (_deletePrograms.TryDequeue(out var p))
-            if (p != 0) gl.DeleteProgram(p);
-
-        foreach (var e in _entries.Values)
-        {
-            if (e.Program != 0) gl.DeleteProgram(e.Program);
-            e.Program = 0;
-        }
-        _entries.Clear();
+        _consumerLocks.TryRemove(consumer, out _);
     }
 }

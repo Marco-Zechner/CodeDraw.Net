@@ -7,7 +7,7 @@ using Monitor = System.Threading.Monitor;
 
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.DrawLayer;
 
-public sealed unsafe partial class CodeDrawLayer : IDisposable
+public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
 {
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void Uniform2F(GL gl, int loc, float x, float y)
@@ -75,8 +75,6 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable
     private readonly WindowHandle* _ctxWin;
     private readonly GL _gl;
 
-    private readonly string _label;
-
     private readonly Buffer[] _buf = new Buffer[2];
     private int _front;
     private int Back => 1 - _front;
@@ -102,8 +100,6 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable
     private bool _inited;
     private uint _vao, _vbo, _ebo;
 
-    private ShaderStore? _shaders;
-
     private AutoProgram _progRect = null!, _progBlit = null!, _progLayerRect = null!;
     private AutoUniform _uRectPosSize = null!, _uRectColor = null!, _uRectRes = null!;
     private AutoUniform _uBlitTex = null!;
@@ -115,9 +111,12 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable
 
     public bool IsDisposed => _disposed;
 
+    public string DebugName { get; }
+
+
     public CodeDrawLayer(SharedGlfwHost host, int w = 800, int h = 600, string label = "Unknown Layer")
     {
-        _label = label;
+        DebugName = $"[Layer:{label}]";
         _host = host;
         _ctxWin = host.CreateHiddenWindow(1, 1, "layer-ctx");
 
@@ -139,21 +138,19 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable
 
         (_vao, _vbo, _ebo) = ShaderCompiler.CreateFullScreenQuad(_gl);
 
-        _shaders = new ShaderStore(EngineShaderPaths.ResolveEngineShaderRoot(), _label, hotReload: true);
+        _progRect     = new AutoProgram(this, ShaderPath.Engine("rect"));
+        _uRectPosSize = new AutoUniform(_gl, this, _progRect, "uPosSize");
+        _uRectColor   = new AutoUniform(_gl, this, _progRect, "uColor");
+        _uRectRes     = new AutoUniform(_gl, this, _progRect, "uRes");
 
-        _progRect     = new AutoProgram(_shaders, "rect");
-        _uRectPosSize = new AutoUniform(_gl, _shaders, _progRect, "uPosSize");
-        _uRectColor   = new AutoUniform(_gl, _shaders, _progRect, "uColor");
-        _uRectRes     = new AutoUniform(_gl, _shaders, _progRect, "uRes");
+        _progBlit = new AutoProgram(this, ShaderPath.Engine("layerShader"));
+        _uBlitTex = new AutoUniform(_gl, this, _progBlit, "uTex");
 
-        _progBlit = new AutoProgram(_shaders, "layerShader");
-        _uBlitTex = new AutoUniform(_gl, _shaders, _progBlit, "uTex");
-
-        _progLayerRect       = new AutoProgram(_shaders, "layerRectShader");
-        _uLayerRectDstRectPx = new AutoUniform(_gl, _shaders, _progLayerRect, "uDstRectPx");
-        _uLayerRectDstResPx  = new AutoUniform(_gl, _shaders, _progLayerRect, "uDstResPx");
-        _uLayerRectSrcUvRect = new AutoUniform(_gl, _shaders, _progLayerRect, "uSrcUvRect");
-        _uLayerRectTex       = new AutoUniform(_gl, _shaders, _progLayerRect, "uTex");
+        _progLayerRect       = new AutoProgram(this, ShaderPath.Engine("layerRectShader"));
+        _uLayerRectDstRectPx = new AutoUniform(_gl, this, _progLayerRect, "uDstRectPx");
+        _uLayerRectDstResPx  = new AutoUniform(_gl, this, _progLayerRect, "uDstResPx");
+        _uLayerRectSrcUvRect = new AutoUniform(_gl, this, _progLayerRect, "uSrcUvRect");
+        _uLayerRectTex       = new AutoUniform(_gl, this, _progLayerRect, "uTex");
     }
 
     public void Dispose()
@@ -174,8 +171,7 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable
             _buf[i] = default;
         }
 
-        _shaders?.Dispose();
-        _shaders = null;
+        ShaderStore.DisposeConsumer(_gl, this);
 
         if (_vao != 0) _gl.DeleteVertexArray(_vao);
         if (_vbo != 0) _gl.DeleteBuffer(_vbo);
@@ -297,7 +293,7 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable
 
         EnsureInit();
 
-        _shaders?.BeginFrame(_gl);
+        ShaderStore.CheckHotReload(_gl, this);
 
         RetireRequestedFences();
 

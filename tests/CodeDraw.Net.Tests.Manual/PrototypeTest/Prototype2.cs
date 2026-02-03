@@ -29,6 +29,40 @@ public sealed class Prototype2 : IDisposable
 
     private float _t;
 
+    private enum HoverRegion
+    {
+        NONE,
+        B_FULL,
+        C_TL_QUADRANT,
+        D_BAND,
+        E_CENTER,
+        F_BR_QUADRANT,
+    }
+
+    private int _hoverRegion = (int)HoverRegion.NONE;
+
+    private static bool Hit(RectF r, float mx, float my)
+        => mx >= r.X && mx <= r.X2 && my >= r.Y && my <= r.Y2;
+
+    private static HoverRegion ComputeHoverInWinDst(float mx, float my)
+    {
+        // These MUST match the rectangles in your _winDst.OnUpdate
+        var regionB  = new RectF(30, 30, 220, 140);
+        var dstC     = new RectF(300, 30, 220, 140);
+        var dstD     = new RectF(30, 210, 490, 70);
+        var dstE     = new RectF(560, 30, 210, 210);
+        var dstF     = new RectF(560, 270, 210, 190);
+
+        // Order matters if you ever overlap.
+        if (Hit(regionB, mx, my)) return HoverRegion.B_FULL;
+        if (Hit(dstC,    mx, my)) return HoverRegion.C_TL_QUADRANT;
+        if (Hit(dstD,    mx, my)) return HoverRegion.D_BAND;
+        if (Hit(dstE,    mx, my)) return HoverRegion.E_CENTER;
+        if (Hit(dstF,    mx, my)) return HoverRegion.F_BR_QUADRANT;
+
+        return HoverRegion.NONE;
+    }
+
     public Prototype2(SharedGlfwHost host)
     {
         _winSrc = new CodeDrawWindow(host, 800, 500, 50, 120, "2B: Source (Pattern Atlas)");
@@ -81,14 +115,14 @@ public sealed class Prototype2 : IDisposable
 
             // --- 2) Stripe overlays (easy to spot scaling/cropping correctness) ---
             // vertical stripes in lower half
-            for (int x = 0; x < W; x += 20)
+            for (var x = 0; x < W; x += 20)
             {
                 var a = (x / 20) % 2 == 0 ? 0.35f : 0.08f;
                 layer.DrawRect(x, H/2, 10, H / 2, 1f, 1f, 1f, a);
             }
 
             // horizontal stripes in upper half
-            for (int y = 0; y < H/2; y += 20)
+            for (var y = 0; y < H/2; y += 20)
             {
                 var a = ((y - H / 2) / 20) % 2 == 0 ? 0.35f : 0.08f;
                 layer.DrawRect(0, y, W, 10, 1f, 1f, 1f, a);
@@ -162,47 +196,50 @@ public sealed class Prototype2 : IDisposable
             var src = _winSrc.Layer;
             if (src is null || src.IsDisposed) { dst.Render(); return; }
 
-            // Background guide grid (visual alignment)
+            // --- mouse hover detection ---
+            // If we later have DPI scaling, do something like this:
+            // mxCanvas = (float)(ctx.Input.MouseX * (W / (double)framebufferW));
+            // myCanvas = (float)(ctx.Input.MouseY * (H / (double)framebufferH));
+            // For now: assume 1:1 with canvas.
+            var mxCanvas = (float)ctx.Input.MouseX;
+            var myCanvas = (float)ctx.Input.MouseY;
+
+            var hover = ComputeHoverInWinDst(mxCanvas, myCanvas);
+            Volatile.Write(ref _hoverRegion, (int)hover);
+
             dst.SetBlendMode(BlendMode.NONE);
             DrawGrid(dst, W, H, 40, new Rgba(0.15f, 0.15f, 0.15f, 1f));
             dst.SetBlendMode(BlendMode.SOURCE_OVER_ALPHA);
 
-            // Draw separators
             dst.SetBlendMode(BlendMode.NONE);
             dst.DrawRect(0, 0, W, 4, 0f, 1f, 0f, 1f);
             dst.DrawRect(0, H - 4, W, 4, 0f, 1f, 0f, 1f);
             dst.SetBlendMode(BlendMode.SOURCE_OVER_ALPHA);
 
-            // B) Full src -> region (aspect stretch is expected)
             var regionB = new RectF(30, 30, 220, 140);
             dst.DrawLayer(src, regionB);
             DrawOutline(dst, regionB, new Rgba(1f, 1f, 1f, 1f));
 
-            // C) Crop TL quadrant -> box
-            var cropTL = new RectF(0, 0, 400, 250);
+            var cropTl = new RectF(0, 0, 400, 250);
             var dstC = new RectF(300, 30, 220, 140);
-            dst.DrawLayer(src, cropTL, dstC);
+            dst.DrawLayer(src, cropTl, dstC);
             DrawOutline(dst, dstC, new Rgba(1f, 0.5f, 0.5f, 1f));
 
-            // D) Crop stripe band (upper half) -> thin wide box
             var cropBand = new RectF(0, 0, 800, 120);
             var dstD = new RectF(30, 210, 490, 70);
             dst.DrawLayer(src, cropBand, dstD);
             DrawOutline(dst, dstD, new Rgba(0.6f, 1f, 0.6f, 1f));
 
-            // E) Crop center square -> box (crosshair should be centered)
             var cropCenter = new RectF(300, 150, 200, 200);
             var dstE = new RectF(560, 30, 210, 210);
             dst.DrawLayer(src, cropCenter, dstE);
             DrawOutline(dst, dstE, new Rgba(0.6f, 0.8f, 1f, 1f));
 
-            // F) Crop bottom-right quadrant -> box
-            var cropBR = new RectF(400, 250, 400, 250);
+            var cropBr = new RectF(400, 250, 400, 250);
             var dstF = new RectF(560, 270, 210, 190);
-            dst.DrawLayer(src, cropBR, dstF);
+            dst.DrawLayer(src, cropBr, dstF);
             DrawOutline(dst, dstF, new Rgba(1f, 1f, 0.6f, 1f));
 
-            // Legend markers (just colors, no text)
             dst.SetBlendMode(BlendMode.NONE);
             dst.DrawRect(30, 470, 20, 20, 1f, 1f, 1f, 1f);
             dst.DrawRect(60, 470, 20, 20, 1f, 0.5f, 0.5f, 1f);
@@ -225,26 +262,28 @@ public sealed class Prototype2 : IDisposable
             var src = _winSrc.Layer;
             if (src is null || src.IsDisposed) { dst.Render(); return; }
 
-            // --- A) Copy src fully, but through a mostly-desaturating shader ---
             dst.DrawLayer(src, desatCopyShader);
 
-            // --- Now draw the SAME outlines used in _winDst, on top, in full color ---
-            // (This makes it obvious where each crop/placement is coming from.)
             dst.SetBlendMode(BlendMode.SOURCE_OVER_ALPHA);
 
+            // These are SOURCE-SPACE rects (as you already did)
             var regionB = new RectF(0, 0, 800, 500);
-            var srcC = new RectF(0, 0, 400, 250);
-            var srcD = new RectF(0, 0, 800, 120);
-            var srcE = new RectF(300, 150, 200, 200);
-            var srcF = new RectF(400, 250, 400, 250);
+            var srcC    = new RectF(0, 0, 400, 250);
+            var srcD    = new RectF(0, 0, 800, 120);
+            var srcE    = new RectF(300, 150, 200, 200);
+            var srcF    = new RectF(400, 250, 400, 250);
 
-            DrawOutline(dst, regionB, new Rgba(1f, 1f, 1f, 1f), 3);
-            DrawOutline(dst, srcC,    new Rgba(1f, 0.5f, 0.5f, 1f), 3);
-            DrawOutline(dst, srcD,    new Rgba(0.6f, 1f, 0.6f, 1f), 3);
-            DrawOutline(dst, srcE,    new Rgba(0.6f, 0.8f, 1f, 1f), 3);
-            DrawOutline(dst, srcF,    new Rgba(1f, 1f, 0.6f, 1f), 3);
+            var hover = (HoverRegion)Volatile.Read(ref _hoverRegion);
 
-            // Add small corner markers to show "top-left" of each box clearly
+            const int baseT = 3;
+            const int hotT = 20; // thicker when hovered
+
+            DrawOutline(dst, regionB, new Rgba(1f, 1f, 1f, 1f), hover == HoverRegion.B_FULL ? hotT : baseT);
+            DrawOutline(dst, srcC,    new Rgba(1f, 0.5f, 0.5f, 1f), hover == HoverRegion.C_TL_QUADRANT ? hotT : baseT);
+            DrawOutline(dst, srcD,    new Rgba(0.6f, 1f, 0.6f, 1f), hover == HoverRegion.D_BAND ? hotT : baseT);
+            DrawOutline(dst, srcE,    new Rgba(0.6f, 0.8f, 1f, 1f), hover == HoverRegion.E_CENTER ? hotT : baseT);
+            DrawOutline(dst, srcF,    new Rgba(1f, 1f, 0.6f, 1f), hover == HoverRegion.F_BR_QUADRANT ? hotT : baseT);
+
             MarkCorner(dst, regionB, new Rgba(1f, 1f, 1f, 1f));
             MarkCorner(dst, srcC,    new Rgba(1f, 0.5f, 0.5f, 1f));
             MarkCorner(dst, srcD,    new Rgba(0.6f, 1f, 0.6f, 1f));
@@ -280,8 +319,8 @@ public sealed class Prototype2 : IDisposable
 
     private static void DrawGrid(CodeDrawLayer l, int w, int h, int step, Rgba c)
     {
-        for (int x = 0; x < w; x += step) l.DrawRect(x, 0, 1, h, c.R, c.G, c.B, c.A);
-        for (int y = 0; y < h; y += step) l.DrawRect(0, y, w, 1, c.R, c.G, c.B, c.A);
+        for (var x = 0; x < w; x += step) l.DrawRect(x, 0, 1, h, c.R, c.G, c.B, c.A);
+        for (var y = 0; y < h; y += step) l.DrawRect(0, y, w, 1, c.R, c.G, c.B, c.A);
     }
 
     private static void MarkCorner(CodeDrawLayer l, RectF r, Rgba c)
@@ -291,38 +330,4 @@ public sealed class Prototype2 : IDisposable
         l.DrawRect(r.X, r.Y, 14, 6, c.R, c.G, c.B, c.A);
         l.DrawRect(r.X, r.Y, 6, 14, c.R, c.G, c.B, c.A);
     }
-
-    // ----------------------------------------
-    // Custom blit shader: desaturate by uAmount
-    // uAmount = 0 -> original color
-    // uAmount = 1 -> fully grayscale
-    // We will set it to ~0.85 for "mostly decolored".
-    // ----------------------------------------
-    private const string DesatShaderVs = """
-        #version 330 core
-        layout(location=0) in vec2 aPos;
-        layout(location=1) in vec2 aUV;
-        out vec2 vUV;
-        void main(){
-            vUV = aUV;
-            gl_Position = vec4(aPos, 0.0, 1.0);
-        }
-        """;
-
-    private const string DesatShaderFs = """
-        #version 330 core
-        in vec2 vUV;
-        out vec4 FragColor;
-
-        uniform sampler2D uTex;
-        uniform float uAmount = 0.85; // 0..1
-
-        void main(){
-            vec4 c = texture(uTex, vUV);
-            float lum = dot(c.rgb, vec3(0.2126, 0.7152, 0.0722));
-            vec3 gray = vec3(lum);
-            vec3 rgb = mix(c.rgb, gray, uAmount);
-            FragColor = vec4(rgb, c.a);
-        }
-        """;
 }

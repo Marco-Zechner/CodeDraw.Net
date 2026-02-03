@@ -113,6 +113,11 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
 
     public string DebugName { get; }
 
+    private readonly object _extShaderLock = new();
+    private readonly HashSet<ShaderKey> _extKnown = [];
+    private readonly ConcurrentQueue<ShaderKey> _extInitPending = new();
+    private readonly Dictionary<ShaderKey, (AutoProgram prog, AutoUniform uTex)> _extCache = new();
+
 
     public CodeDrawLayer(SharedGlfwHost host, int w = 800, int h = 600, string label = "Unknown Layer")
     {
@@ -188,7 +193,6 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
     /// </summary>
     /// <param name="mode"></param>
     public void SetBlendMode(BlendMode mode) => Enqueue(new CmdSetBlendMode { Mode = mode });
-    public void SetLayerBlitShader(CodeDrawShader? shader) => Enqueue(new CmdSetBlitShader { Shader = shader });
     public void Clear(float r = 0f, float g = 0, float b = 0f, float a = 0f) => Enqueue(new CmdClear(r, g, b, a));
 
     public void DrawRect(float x, float y, float w, float h, float r, float g, float b, float a)
@@ -292,6 +296,19 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
         glfw.MakeContextCurrent(_ctxWin);
 
         EnsureInit();
+
+        while (_extInitPending.TryDequeue(out var key))
+        {
+            // Create cached wrappers once. AutoUniform is lazy; no GL calls here.
+            lock (_extShaderLock)
+            {
+                if (_extCache.ContainsKey(key)) continue;
+
+                var ap = new AutoProgram(this, key);
+                var u  = new AutoUniform(_gl, this, ap, "uTex");
+                _extCache[key] = (ap, u);
+            }
+        }
 
         ShaderStore.CheckHotReload(_gl, this);
 
@@ -451,18 +468,43 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
         gl.UseProgram(0);
     }
 
-    private void ExecLayer(GL gl, CodeDrawLayer src)
+    private void ExecLayer(GL gl, CodeDrawLayer src, LayerCopyShader? shader)
     {
         if (!src.TryGetLatest(out var tex, out _, out _, out _, out _)) return;
 
-        var prog = _customBlitShader?.Program ?? _progBlit;
+        uint prog;
+        int uTexLoc;
+
+        if (shader == null)
+        {
+            prog = _progBlit;
+            uTexLoc = _uBlitTex;
+        }
+        else
+        {
+            // Use cached per-key wrappers (created in pending init step)
+            lock (_extShaderLock)
+            {
+                if (!_extCache.TryGetValue(shader.Key, out (AutoProgram ap, AutoUniform uTex) entry))
+                {
+                    // Fail safe: fall back to internal.
+                    prog = _progBlit;
+                    uTexLoc = _uBlitTex;
+                }
+                else
+                {
+                    prog = entry.ap;
+                    uTexLoc = entry.uTex;
+                }
+            }
+        }
+        if (prog == 0) return;
 
         gl.UseProgram(prog);
         gl.BindVertexArray(_vao);
         gl.ActiveTexture(GLEnum.Texture0);
         gl.BindTexture(GLEnum.Texture2D, tex);
 
-        var uTexLoc = (prog == _progBlit) ? _uBlitTex : gl.GetUniformLocation(prog, "uTex");
         if (uTexLoc >= 0) gl.Uniform1(uTexLoc, 0);
 
         gl.DrawElements(GLEnum.Triangles, 6, GLEnum.UnsignedInt, null);
@@ -470,5 +512,17 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
         gl.BindTexture(GLEnum.Texture2D, 0);
         gl.BindVertexArray(0);
         gl.UseProgram(0);
+    }
+
+    private void ScheduleExternalShader(LayerCopyShader? shader)
+    {
+        if (shader == null) return;
+
+        // This must be thread-safe and GL-free.
+        lock (_extShaderLock)
+        {
+            if (_extKnown.Add(shader.Key))
+                _extInitPending.Enqueue(shader.Key);
+        }
     }
 }

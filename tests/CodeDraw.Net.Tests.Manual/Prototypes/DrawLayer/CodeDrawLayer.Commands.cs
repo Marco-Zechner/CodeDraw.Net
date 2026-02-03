@@ -1,4 +1,5 @@
-﻿using Silk.NET.OpenGL;
+﻿using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.Shaders;
+using Silk.NET.OpenGL;
 
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.DrawLayer;
 
@@ -10,12 +11,6 @@ public sealed unsafe partial class CodeDrawLayer
     {
         public BlendMode Mode;
         public void Exec(GL gl, CodeDrawLayer self) { self._blendMode = Mode; self.ApplyBlendMode(); }
-    }
-
-    private sealed class CmdSetBlitShader : ICmd
-    {
-        public CodeDrawShader? Shader;
-        public void Exec(GL gl, CodeDrawLayer self) => self._customBlitShader = Shader is { IsDisposed: false } ? Shader : null;
     }
 
     private sealed class CmdClear(float r, float g, float b, float a) : ICmd
@@ -38,11 +33,13 @@ public sealed unsafe partial class CodeDrawLayer
     private sealed class CmdLayer : ICmd
     {
         public CodeDrawLayer? Src;
+        public LayerCopyShader? Shader;
+
         public void Exec(GL gl, CodeDrawLayer self)
         {
             var s = Src;
             if (s is null || s._disposed) return;
-            self.ExecLayer(gl, s);
+            self.ExecLayer(gl, s, Shader);
         }
     }
 

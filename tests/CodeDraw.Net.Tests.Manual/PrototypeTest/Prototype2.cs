@@ -1,5 +1,6 @@
 ﻿using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes;
 using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.DrawLayer;
+using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.Shaders;
 using Silk.NET.GLFW;
 using CodeDrawLayer = MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.DrawLayer.CodeDrawLayer;
 
@@ -26,7 +27,7 @@ public sealed class Prototype2 : IDisposable
     private readonly CodeDrawWindow _winDst;
     private readonly CodeDrawWindow _winFull;
 
-    private readonly CodeDrawLayer.CodeDrawShader _desatShader;
+    private readonly LayerCopyShader _desatCopyShader;
 
     private float _t;
 
@@ -36,7 +37,7 @@ public sealed class Prototype2 : IDisposable
         _winDst = new CodeDrawWindow(host, 800, 500, 850, 120, "2B: Dest (Crop/Place Tests)");
         _winFull = new CodeDrawWindow(host, 800, 500, 1650, 120, "2B: Full (Copy Src fully, mostly desaturated)");
 
-        _desatShader = new CodeDrawLayer.CodeDrawShader(host, DesatShaderVs, DesatShaderFs);
+        _desatCopyShader = LayerCopyShader.CsProject("desat", "PrototypeTest/shaders");
 
         _winSrc.OnStart = w => Console.WriteLine($"2B Src started (id={w.WindowId})");
         _winDst.OnStart = w => Console.WriteLine($"2B Dst started (id={w.WindowId})");
@@ -196,9 +197,7 @@ public sealed class Prototype2 : IDisposable
             if (src is null || src.IsDisposed) { dst.Render(); return; }
 
             // --- A) Copy src fully, but through a mostly-desaturating shader ---
-            dst.SetLayerBlitShader(_desatShader);
-            dst.DrawLayer(src);
-            dst.SetLayerBlitShader(null);
+            dst.DrawLayer(src, _desatCopyShader);
 
             // --- Now draw the SAME outlines used in _winDst, on top, in full color ---
             // (This makes it obvious where each crop/placement is coming from.)
@@ -232,7 +231,6 @@ public sealed class Prototype2 : IDisposable
         _winSrc.Dispose();
         _winDst.Dispose();
         _winFull.Dispose();
-        _desatShader.Dispose();
     }
 
     private void WaitForClose()

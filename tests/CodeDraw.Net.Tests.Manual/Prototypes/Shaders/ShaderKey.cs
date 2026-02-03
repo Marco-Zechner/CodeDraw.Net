@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.Shaders;
+﻿namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.Shaders;
 
 /// <summary>
 /// Identifies a shader program by its vertex+fragment "base paths" (absolute, without extension).

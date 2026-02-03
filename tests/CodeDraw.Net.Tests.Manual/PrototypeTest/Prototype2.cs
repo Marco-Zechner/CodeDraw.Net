@@ -103,7 +103,7 @@ public sealed class Prototype2 : IDisposable
             const int W = 800;
             const int H = 500;
 
-            layer.EnsureCanvas(W, H);
+            layer.RequestLayerSize(W, H);
             layer.Clear(0.02f, 0.02f, 0.02f, 1f);
 
             // --- 1) Quadrants (unique colors) ---
@@ -190,22 +190,17 @@ public sealed class Prototype2 : IDisposable
             const int W = 800;
             const int H = 500;
 
-            dst.EnsureCanvas(W, H);
+            dst.RequestLayerSize(W, H);
             dst.Clear(0.06f, 0.06f, 0.06f, 1f);
 
             var src = _winSrc.Layer;
             if (src is null || src.IsDisposed) { dst.Render(); return; }
 
-            // --- mouse hover detection ---
-            // If we later have DPI scaling, do something like this:
-            // mxCanvas = (float)(ctx.Input.MouseX * (W / (double)framebufferW));
-            // myCanvas = (float)(ctx.Input.MouseY * (H / (double)framebufferH));
-            // For now: assume 1:1 with canvas.
-            var mxCanvas = (float)ctx.Input.MouseX;
-            var myCanvas = (float)ctx.Input.MouseY;
+            var (mxCanvas, myCanvas) = dst.TransformPointFrom(ctx.Win, (float)ctx.Input.MouseX, (float)ctx.Input.MouseY);
 
             var hover = ComputeHoverInWinDst(mxCanvas, myCanvas);
             Volatile.Write(ref _hoverRegion, (int)hover);
+            Console.WriteLine($"Dst mouse win=({ctx.Input.MouseX:0.0},{ctx.Input.MouseY:0.0}) canvas=({mxCanvas:0.0},{myCanvas:0.0}) winSize=({ctx.Win.Width},{ctx.Win.Height})");
 
             dst.SetBlendMode(BlendMode.NONE);
             DrawGrid(dst, W, H, 40, new Rgba(0.15f, 0.15f, 0.15f, 1f));
@@ -256,7 +251,7 @@ public sealed class Prototype2 : IDisposable
             var dst = ctx.Win.Layer;
             if (dst is null || dst.IsDisposed) return;
 
-            dst.EnsureCanvas(800, 500);
+            dst.RequestLayerSize(800, 500);
             dst.Clear(0.03f, 0.03f, 0.03f, 1f);
 
             var src = _winSrc.Layer;

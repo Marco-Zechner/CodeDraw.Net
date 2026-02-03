@@ -147,5 +147,47 @@ public sealed unsafe partial class CodeDrawLayer
                 BlendOverride = _blendOverride
             });
         }
+
+        public bool TryTransformPointFromDstToSrc(float dstX, float dstY, out float srcX, out float srcY)
+        {
+            srcX = srcY = 0;
+
+            // outside dst rect -> no mapping
+            if (dstX < _dstRectPx.X || dstX > _dstRectPx.X2 ||
+                dstY < _dstRectPx.Y || dstY > _dstRectPx.Y2)
+                return false;
+
+            float du = _dstRectPx.W;
+            float dv = _dstRectPx.H;
+            if (du == 0 || dv == 0) return false;
+
+            float lx = (dstX - _dstRectPx.X) / du; // 0..1
+            float ly = (dstY - _dstRectPx.Y) / dv; // 0..1
+
+            srcX = _srcRectPx.X + lx * _srcRectPx.W;
+            srcY = _srcRectPx.Y + ly * _srcRectPx.H;
+            return true;
+        }
+
+        public bool TryTransformPointFromSrcToDst(float srcX, float srcY, out float dstX, out float dstY)
+        {
+            dstX = dstY = 0;
+
+            // outside src rect -> no mapping
+            if (srcX < _srcRectPx.X || srcX > _srcRectPx.X2 ||
+                srcY < _srcRectPx.Y || srcY > _srcRectPx.Y2)
+                return false;
+
+            float su = _srcRectPx.W;
+            float sv = _srcRectPx.H;
+            if (su == 0 || sv == 0) return false;
+
+            float lx = (srcX - _srcRectPx.X) / su; // 0..1
+            float ly = (srcY - _srcRectPx.Y) / sv; // 0..1
+
+            dstX = _dstRectPx.X + lx * _dstRectPx.W;
+            dstY = _dstRectPx.Y + ly * _dstRectPx.H;
+            return true;
+        }
     }
 }

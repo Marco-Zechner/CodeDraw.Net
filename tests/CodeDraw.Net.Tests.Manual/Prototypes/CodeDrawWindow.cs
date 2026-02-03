@@ -123,6 +123,12 @@ public sealed unsafe class CodeDrawWindow : IDisposable, IShaderConsumer
     public int WindowId { get; }
     private string _title;
 
+    private int _winW;
+    private int _winH;
+
+    public int Width  => Volatile.Read(ref _winW);
+    public int Height => Volatile.Read(ref _winH);
+
     public string Title
     {
         get => _title;
@@ -172,6 +178,8 @@ public sealed unsafe class CodeDrawWindow : IDisposable, IShaderConsumer
     {
         _host = host;
         _title = title;
+        Volatile.Write(ref _winW, w);
+        Volatile.Write(ref _winH, h);
         _win = host.CreateWindow(x, y, w, h, _title);
         _host.RegisterWindowObject(_win, this);
         _winLock = host.GetWindowLock(_win);
@@ -328,6 +336,17 @@ public sealed unsafe class CodeDrawWindow : IDisposable, IShaderConsumer
 
             while (!ShouldClose)
             {
+                int winW, winH;
+                lock (_winLock) glfw.GetWindowSize(_win, out winW, out winH);
+                if (winW <= 0 || winH <= 0)
+                {
+                    lock (_winLock) glfw.SwapBuffers(_win);
+                    Thread.Sleep(16);
+                    continue;
+                }
+                Volatile.Write(ref _winW, winW);
+                Volatile.Write(ref _winH, winH);
+
                 int fbW, fbH;
                 lock (_winLock) glfw.GetFramebufferSize(_win, out fbW, out fbH);
 

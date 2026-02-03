@@ -61,7 +61,7 @@ public sealed class Prototype1 : IDisposable
             var layer = ctx.Win.Layer;
             if (layer is null || layer.IsDisposed) return;
 
-            layer.EnsureCanvas(800, 500);
+            layer.RequestLayerSize(800, 500);
             layer.Clear();
 
             layer.DrawRect(60 + 120 * MathF.Sin(_tA), 80, 220, 140, 0.2f, 1.0f, 0.6f, 1f);
@@ -82,7 +82,7 @@ public sealed class Prototype1 : IDisposable
             var layer = ctx.Win.Layer;
             if (layer is null || layer.IsDisposed) return;
 
-            layer.EnsureCanvas(800, 500);
+            layer.RequestLayerSize(800, 500);
             layer.Clear();
             layer.DrawRect(10, 5, 240, 40, 0.8f, 0.2f, 0.5f, 0.5f + 0.5f * MathF.Sin(_tOverlay * 2f));
             layer.DrawRect(400 + 100 * MathF.Sin(_tOverlay * 2f), 250 + 100 * MathF.Cos(_tOverlay * 2f), 20 + 10 * MathF.Cos(_tOverlay * 5f), 20 + 10 * MathF.Sin(_tOverlay * 5f), 0.8f, 0.2f, 0.5f, 1f);
@@ -94,7 +94,7 @@ public sealed class Prototype1 : IDisposable
             var layer = ctx.Win.Layer;
             if (layer is null || layer.IsDisposed) return;
 
-            layer.EnsureCanvas(800, 500);
+            layer.RequestLayerSize(800, 500);
             layer.Clear(0.05f, 0.05f, 0.05f, 1f);
 
             if (_winLayerA is { IsDisposed: false, ShouldClose: false, Layer.IsDisposed: false })

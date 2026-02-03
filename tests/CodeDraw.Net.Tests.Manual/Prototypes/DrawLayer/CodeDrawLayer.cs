@@ -69,7 +69,6 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
     }
 
     private BlendMode _blendMode = BlendMode.SOURCE_OVER_ALPHA;
-    private CodeDrawShader? _customBlitShader;
 
     private readonly SharedGlfwHost _host;
     private readonly WindowHandle* _ctxWin;

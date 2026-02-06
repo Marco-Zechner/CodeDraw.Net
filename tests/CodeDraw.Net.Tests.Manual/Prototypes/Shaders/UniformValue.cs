@@ -24,15 +24,6 @@ public readonly struct UniformValue
         if (string.IsNullOrWhiteSpace(name))
             throw new ArgumentException("Uniform name must not be null/empty.", nameof(name));
 
-        // Engine-wins policy: these are off-limits for user-provided uniforms.
-        if (IsReserved(name))
-        {
-            throw new ArgumentException(
-                $"Uniform '{name}' is reserved (built-in) and cannot be set by user. " +
-                "Use a different name (e.g. 'uTime2').",
-                nameof(name));
-        }
-
         Name = name;
         Type = type;
         A = a; B = b; C = c; D = d;
@@ -49,7 +40,4 @@ public readonly struct UniformValue
 
     public static UniformValue Float4(string name, float x, float y, float z, float w)
         => new(name, UniformType.FLOAT4, x, y, z, w);
-
-    private static bool IsReserved(string name)
-        => name is "uPosSize" or "uRes" or "uTime" or "uColor" or "uTex";
 }

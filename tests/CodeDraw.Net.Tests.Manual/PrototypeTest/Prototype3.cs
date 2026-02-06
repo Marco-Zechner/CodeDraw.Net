@@ -1,0 +1,71 @@
+﻿using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes;
+using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.DrawLayer;
+using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.Shaders;
+
+namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.PrototypeTest;
+
+[Prototype(3)]
+public class Prototype3 : IDisposable
+{
+    [StaticPrototype]
+    public static void RunTest()
+    {
+        var host = SharedGlfwHost.Instance;
+        host.Start();
+
+        using (var session = new Prototype3(host))
+        {
+            session.WaitForClose();
+        }
+
+        host.Stop();
+    }
+
+    private void WaitForClose()
+    {
+        win.WaitForClose();
+    }
+
+    private CodeDrawWindow win;
+
+
+    public Prototype3(SharedGlfwHost host)
+    {
+        win = new CodeDrawWindow(host, 400, 400 , "Prototype3");
+        var orbitShader = CustomShader.CsProject("orbitDots", "PrototypeTest/shaders");
+
+        win.OnUpdate += context =>
+        {
+            var layer = context.Win.Layer;
+
+            layer.Clear();
+            DrawOrbitingDots(layer, 200, 200, 10, 50, 2, 0, new Rgba(0.5f, 0, 0, 1f));
+            layer.Render();
+        };
+
+        return;
+
+        void DrawOrbitingDots(CodeDrawLayer layer, float centerX, float centerY, float radiusDot, float radiusOrbit, float period, float timeOffset, Rgba color)
+        {
+            layer.CustomDrawRect(
+                shader: orbitShader,
+                uniforms: Uniforms.Of(
+                    UniformValue.Float2("uPos", centerX, centerY),
+                    UniformValue.Float2("uSize", layer.Width, layer.Height),
+                    UniformValue.Float("uTime", layer.LayerAliveForSeconds()),
+                    UniformValue.Float4("uColor", color.R, color.G, color.B, color.A),
+                    UniformValue.Float("uRadius1", radiusDot),
+                    UniformValue.Float("uRadius2", radiusOrbit),
+                    UniformValue.Float("uPeriod",  period),
+                    UniformValue.Float("uOffset",  timeOffset)
+                )
+            );
+        }
+    }
+
+
+    public void Dispose()
+    {
+        win.Dispose();
+    }
+}

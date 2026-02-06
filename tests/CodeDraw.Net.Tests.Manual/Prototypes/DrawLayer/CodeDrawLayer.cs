@@ -21,7 +21,7 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
     // --- time base for uTime ---
     private readonly long _timeStartTicks = Stopwatch.GetTimestamp();
 
-    private float GetTimeSeconds()
+    public float LayerAliveForSeconds() //TODO stop if disposed?
     {
         var now = Stopwatch.GetTimestamp();
         var dt = (now - _timeStartTicks) / (double)Stopwatch.Frequency;
@@ -488,22 +488,15 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
 
         private void ExecCustomRect(
         GL gl,
-        float x, float y, float w, float h,
-        float r, float g, float b, float a,
         CustomShader? shader,
         Uniforms uniforms)
     {
         uint prog;
-        int uPosSize, uRes, uTime, uColor;
 
         if (shader == null)
         {
             // Default to engine rect
             prog = _progRect;
-            uPosSize = _uRectPosSize;
-            uRes = _uRectRes;
-            uTime = -1; // engine rect doesn't need time (but harmless if you add it later)
-            uColor = _uRectColor;
         }
         else
         {
@@ -516,18 +509,10 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
             if (entry == null)
             {
                 prog = _progRect;
-                uPosSize = _uRectPosSize;
-                uRes = _uRectRes;
-                uTime = -1;
-                uColor = _uRectColor;
             }
             else
             {
                 prog = entry.Prog;
-                uPosSize = entry.UPosSize;
-                uRes = entry.URes;
-                uTime = entry.UTime;
-                uColor = entry.UColor;
             }
         }
 
@@ -535,12 +520,6 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
 
         gl.UseProgram(prog);
         gl.BindVertexArray(_vao);
-
-        // Built-ins (engine wins)
-        if (uPosSize >= 0) Uniform4F(gl, uPosSize, x, y, w, h);
-        if (uRes >= 0) Uniform2F(gl, uRes, _w, _h);
-        if (uTime >= 0) gl.Uniform1(uTime, GetTimeSeconds());
-        if (uColor >= 0) Uniform4F(gl, uColor, r, g, b, a);
 
         // User uniforms
         if (shader != null && uniforms.Values.Length > 0)

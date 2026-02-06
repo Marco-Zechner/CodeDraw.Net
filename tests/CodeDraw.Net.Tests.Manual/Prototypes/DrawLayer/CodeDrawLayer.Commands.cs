@@ -57,9 +57,6 @@ public sealed unsafe partial class CodeDrawLayer
 
     private sealed class CmdCustomRect : ICmd
     {
-        public float X, Y, W, H;
-        public float R, G, B, A;
-
         public CustomShader? Shader;
         public Uniforms Uniforms;
 
@@ -70,8 +67,6 @@ public sealed unsafe partial class CodeDrawLayer
 
             self.ExecCustomRect(
                 gl,
-                X, Y, W, H,
-                R, G, B, A,
                 s,
                 Uniforms);
         }

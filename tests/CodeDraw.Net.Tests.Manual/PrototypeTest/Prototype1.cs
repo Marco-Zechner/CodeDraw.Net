@@ -24,15 +24,18 @@ public sealed class Prototype1 : IDisposable
     private readonly CodeDrawWindow _winLayerA;
     private readonly CodeDrawWindow _winLayerB;
     private readonly CodeDrawWindow _winCombined;
+    // private readonly CodeDrawWindow _winCombined2;
 
     private float _tA;
     private float _tOverlay;
 
     public Prototype1(SharedGlfwHost host)
     {
-        _winLayerA = new CodeDrawWindow(host, 800, 500, "LayerA");
         _winCombined = new CodeDrawWindow(host, 800, 500, "Combined");
+        _winLayerA = new CodeDrawWindow(host, 800, 500, "LayerA");
         _winLayerB = new CodeDrawWindow(host, 800, 500, "LayerB");
+        // _winCombined2 = new CodeDrawWindow(host, 800, 500, "Combined");
+        // _winCombined2.SetPresentedLayer(_winCombined.Layer);
 
         _winLayerA.OnStart = w => Console.WriteLine($"A started (id={w.WindowId})");
         _winLayerB.OnStart = w => Console.WriteLine($"B started (id={w.WindowId})");

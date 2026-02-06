@@ -151,10 +151,12 @@ public sealed class Prototype2 : IDisposable
             layer.DrawRect(mx + 3, my + 3, 10, 10, 1f, 1f, 1f, 1f);
 
             layer.CustomDrawRect(
-                200, 150, 800, 500,
-                1,1,1,1f,
                 shader: orbitShader,
                 uniforms: Uniforms.Of(
+                    UniformValue.Float2("uPos", 200, 150),
+                    UniformValue.Float2("uSize", 800, 500),
+                    UniformValue.Float("uTime", layer.LayerAliveForSeconds()),
+                    UniformValue.Float4("uColor", 1,1,1,1),
                     UniformValue.Float("uRadius1", 20),
                     UniformValue.Float("uRadius2", 200f),
                     UniformValue.Float("uPeriod",  20),
@@ -170,10 +172,12 @@ public sealed class Prototype2 : IDisposable
         void DrawOrbitingDots(CodeDrawLayer layer, float centerX, float centerY, float radiusDot, float radiusOrbit, float period, float timeOffset, Rgba color)
         {
             layer.CustomDrawRect(
-                centerX, centerY, layer.Width, layer.Height,
-                color.R, color.G, color.B, color.A,
                 shader: orbitShader,
                 uniforms: Uniforms.Of(
+                    UniformValue.Float2("uPos", centerX, centerY),
+                    UniformValue.Float2("uSize", layer.Width, layer.Height),
+                    UniformValue.Float("uTime", layer.LayerAliveForSeconds()),
+                    UniformValue.Float4("uColor", color.R, color.G, color.B, color.A),
                     UniformValue.Float("uRadius1", radiusDot),
                     UniformValue.Float("uRadius2", radiusOrbit),
                     UniformValue.Float("uPeriod",  period),
@@ -200,7 +204,7 @@ public sealed class Prototype2 : IDisposable
 
             var hover = ComputeHoverInWinDst(mxCanvas, myCanvas);
             Volatile.Write(ref _hoverRegion, (int)hover);
-            Console.WriteLine($"Dst mouse win=({ctx.Input.MouseX:0.0},{ctx.Input.MouseY:0.0}) canvas=({mxCanvas:0.0},{myCanvas:0.0}) winSize=({ctx.Win.Width},{ctx.Win.Height})");
+            // Console.WriteLine($"Dst mouse win=({ctx.Input.MouseX:0.0},{ctx.Input.MouseY:0.0}) canvas=({mxCanvas:0.0},{myCanvas:0.0}) winSize=({ctx.Win.Width},{ctx.Win.Height})");
 
             dst.SetBlendMode(BlendMode.NONE);
             DrawGrid(dst, W, H, 40, new Rgba(0.15f, 0.15f, 0.15f, 1f));

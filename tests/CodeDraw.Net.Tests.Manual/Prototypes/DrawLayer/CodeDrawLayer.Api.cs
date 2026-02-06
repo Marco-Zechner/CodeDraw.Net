@@ -101,8 +101,6 @@ public sealed unsafe partial class CodeDrawLayer
 
 
     public void CustomDrawRect(
-        float x, float y, float w, float h,
-        float r, float g, float b, float a,
         CustomShader shader,
         Uniforms uniforms)
     {
@@ -117,19 +115,15 @@ public sealed unsafe partial class CodeDrawLayer
 
         Enqueue(new CmdCustomRect
         {
-            X = x, Y = y, W = w, H = h,
-            R = r, G = g, B = b, A = a,
             Shader = shader,
             Uniforms = new Uniforms(copy)
         });
     }
 
     public void CustomDrawRect(
-        float x, float y, float w, float h,
-        float r, float g, float b, float a,
         CustomShader shader,
         params UniformValue[] uniforms)
-        => CustomDrawRect(x, y, w, h, r, g, b, a, shader, new Uniforms(uniforms));
+        => CustomDrawRect(shader, new Uniforms(uniforms));
 
     #region Transform Point Helpers
 

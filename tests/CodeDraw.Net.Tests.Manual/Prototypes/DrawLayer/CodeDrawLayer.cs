@@ -522,20 +522,28 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
         gl.BindVertexArray(_vao);
 
         // User uniforms
+        int usedTexUnits = 0;
         if (shader != null && uniforms.Values.Length > 0)
         {
-            ApplyUserUniforms(gl, prog, shader.Key, uniforms);
+            ApplyUserUniforms(gl, prog, shader.Key, uniforms, out usedTexUnits);
         }
 
         gl.DrawElements(GLEnum.Triangles, 6, GLEnum.UnsignedInt, null);
 
+        for (int i = 0; i < usedTexUnits; i++)
+        {
+            gl.ActiveTexture(GLEnum.Texture0 + i);
+            gl.BindTexture(GLEnum.Texture2D, 0);
+        }
+        gl.ActiveTexture(GLEnum.Texture0);
         gl.BindVertexArray(0);
         gl.UseProgram(0);
     }
 
-    private void ApplyUserUniforms(GL gl, uint prog, ShaderKey key, Uniforms uniforms)
+    private void ApplyUserUniforms(GL gl, uint prog, ShaderKey key, Uniforms uniforms, out int usedTexUnits)
     {
         Dictionary<string, int>? map;
+        usedTexUnits = 0;
 
         lock (_extShaderLock)
         {
@@ -550,6 +558,9 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
         }
 
         // No locks while doing GL calls
+
+        int nextTexUnit = 0;
+
         foreach (var u in uniforms.Values)
         {
             if (!map.TryGetValue(u.Name, out var loc))
@@ -566,7 +577,17 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
                 case UniformType.FLOAT2: gl.Uniform2(loc, u.A, u.B); break;
                 case UniformType.FLOAT3: gl.Uniform3(loc, u.A, u.B, u.C); break;
                 case UniformType.FLOAT4: gl.Uniform4(loc, u.A, u.B, u.C, u.D); break;
+                case UniformType.TEX_2D:
+                    if (u.TexRef is null) break;
+                    gl.ActiveTexture(GLEnum.Texture0 + nextTexUnit);
+                    gl.BindTexture(GLEnum.Texture2D, u.TexRef.Value.Tex);
+                    gl.Uniform1(loc, nextTexUnit);
+                    nextTexUnit++;
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
             }
         }
+        usedTexUnits = nextTexUnit;
     }
 }

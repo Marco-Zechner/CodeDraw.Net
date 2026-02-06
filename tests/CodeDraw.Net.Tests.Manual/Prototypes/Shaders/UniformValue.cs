@@ -1,4 +1,6 @@
-﻿namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.Shaders;
+﻿using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.DrawLayer;
+
+namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.Shaders;
 
 public enum UniformType
 {
@@ -6,6 +8,7 @@ public enum UniformType
     FLOAT2,
     FLOAT3,
     FLOAT4,
+    TEX_2D
 }
 
 /// <summary>
@@ -18,8 +21,9 @@ public readonly struct UniformValue
     public readonly string Name;
     public readonly UniformType Type;
     public readonly float A, B, C, D;
+    public readonly CodeDrawLayer.LayerTextureRef? TexRef;
 
-    private UniformValue(string name, UniformType type, float a, float b, float c, float d)
+    private UniformValue(string name, UniformType type, float a, float b, float c, float d, CodeDrawLayer.LayerTextureRef? texRef)
     {
         if (string.IsNullOrWhiteSpace(name))
             throw new ArgumentException("Uniform name must not be null/empty.", nameof(name));
@@ -27,17 +31,21 @@ public readonly struct UniformValue
         Name = name;
         Type = type;
         A = a; B = b; C = c; D = d;
+        TexRef = texRef;
     }
 
     public static UniformValue Float(string name, float v)
-        => new(name, UniformType.FLOAT1, v, 0, 0, 0);
+        => new(name, UniformType.FLOAT1, v, 0, 0, 0, null);
 
     public static UniformValue Float2(string name, float x, float y)
-        => new(name, UniformType.FLOAT2, x, y, 0, 0);
+        => new(name, UniformType.FLOAT2, x, y, 0, 0, null);
 
     public static UniformValue Float3(string name, float x, float y, float z)
-        => new(name, UniformType.FLOAT3, x, y, z, 0);
+        => new(name, UniformType.FLOAT3, x, y, z, 0, null);
 
     public static UniformValue Float4(string name, float x, float y, float z, float w)
-        => new(name, UniformType.FLOAT4, x, y, z, w);
+        => new(name, UniformType.FLOAT4, x, y, z, w, null);
+
+    public static UniformValue Tex2D(string name, CodeDrawLayer.LayerTextureRef texRef)
+        => new(name, UniformType.TEX_2D, 0, 0, 0, 0, texRef);
 }

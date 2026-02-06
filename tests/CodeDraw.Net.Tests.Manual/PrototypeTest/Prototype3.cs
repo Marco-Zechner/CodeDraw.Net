@@ -23,23 +23,49 @@ public class Prototype3 : IDisposable
 
     private void WaitForClose()
     {
-        win.WaitForClose();
+        _win.WaitForClose();
+        _win2.WaitForClose();
     }
 
-    private CodeDrawWindow win;
+    private readonly CodeDrawWindow _win;
+    private readonly CodeDrawWindow _win2;
 
 
     public Prototype3(SharedGlfwHost host)
     {
-        win = new CodeDrawWindow(host, 400, 400 , "Prototype3");
+        _win = new CodeDrawWindow(host, 400, 400 , "Prototype3");
         var orbitShader = CustomShader.CsProject("orbitDots", "PrototypeTest/shaders");
+        _win2 = new CodeDrawWindow(host, 400, 400 , "Prototype3 - Copy");
+        var colorShiftShader = CustomShader.CsProject("colorShift", "PrototypeTest/shaders");
 
-        win.OnUpdate += context =>
+        _win.OnUpdate += context =>
         {
             var layer = context.Win.Layer;
 
-            layer.Clear();
+            layer.Clear(1,1,1,1);
             DrawOrbitingDots(layer, 200, 200, 10, 50, 2, 0, new Rgba(0.5f, 0, 0, 1f));
+            DrawOrbitingDots(layer, 200, 200, 10, 80, 2*80/50f, 0, new Rgba(0.0f, 1, 1, 1f));
+            layer.Render();
+        };
+
+        _win2.OnUpdate += context =>
+        {
+            var layer = context.Win.Layer;
+
+            if (!_win.Layer.TryGetLastRenderTexture(out var lastRenderTexture))
+            {
+                Console.WriteLine("No render texture available yet.");
+                return;
+            }
+
+            layer.Clear();
+            layer.CustomDrawRect(
+                shader: colorShiftShader,
+                uniforms: Uniforms.Of(
+                    UniformValue.Tex2D("uTex", lastRenderTexture),
+                    UniformValue.Float("uTime", layer.LayerAliveForSeconds())
+                )
+            );
             layer.Render();
         };
 
@@ -66,6 +92,6 @@ public class Prototype3 : IDisposable
 
     public void Dispose()
     {
-        win.Dispose();
+        _win.Dispose();
     }
 }

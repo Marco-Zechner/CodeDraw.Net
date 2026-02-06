@@ -5,7 +5,7 @@ out vec4 FragColor;
 uniform sampler2D uTex;
 uniform float uTime;
 
-vec3 ToHSV(vec3 rgb){ //TODO: find a way to throw an error if i use a function before declaring it.
+vec3 ToHSV(vec3 rgb){
     float cMax = max(rgb.r, max(rgb.g, rgb.b));
     float cMin = min(rgb.r, min(rgb.g, rgb.b));
     float delta = cMax - cMin;

@@ -15,6 +15,7 @@ public static class ShaderCompiler
         if (ok != 0) return s;
 
         var log = gl.GetShaderInfoLog(s);
+        Console.WriteLine(log);
         gl.DeleteShader(s);
 
         var lineNr = TryExtractLine(log);
@@ -99,6 +100,7 @@ public static class ShaderCompiler
         if (ok != 0) return p;
 
         var log = gl.GetProgramInfoLog(p);
+        gl.DeleteProgram(p);
         throw new Exception($"Program link failed [{label}]: {log}");
     }
 

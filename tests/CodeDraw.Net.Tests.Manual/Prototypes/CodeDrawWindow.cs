@@ -135,7 +135,7 @@ public sealed unsafe class CodeDrawWindow : IDisposable, IShaderConsumer
         set
         {
             _title = value;
-            _host.EnqueueUi(() => _host.Glfw.SetWindowTitle(_win, _title));
+            _host.InvokeHostAsync(() => _host.Glfw.SetWindowTitle(_win, _title));
         }
     }
 
@@ -210,7 +210,7 @@ public sealed unsafe class CodeDrawWindow : IDisposable, IShaderConsumer
         _closing = true;
 
         var win = _win;
-        _host.EnqueueUi(() =>
+        _host.InvokeHostAsync(() =>
         {
             if (!_host.IsWindowAlive(win)) return;
             _host.Glfw.SetWindowShouldClose(win, true);
@@ -246,7 +246,7 @@ public sealed unsafe class CodeDrawWindow : IDisposable, IShaderConsumer
             _closing = true;
 
             var win = _win;
-            _host.EnqueueUi(() =>
+            _host.InvokeHostAsync(() =>
             {
                 if (!_host.IsWindowAlive(win)) return;
                 _host.Glfw.SetWindowShouldClose(win, true);

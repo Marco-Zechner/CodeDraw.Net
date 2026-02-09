@@ -156,12 +156,12 @@ public sealed unsafe class SharedGlfwHost : IDisposable
     public Glfw Glfw => _glfw!;
     public WindowHandle* ShareRoot => _shareRoot;
 
-    private Thread? _uiThread;
+    private Thread? _hostThread;
     private Glfw? _glfw;
     private volatile bool _running;
     private readonly AutoResetEvent _started = new(false);
     private readonly AutoResetEvent _work = new(false);
-    private readonly ConcurrentQueue<Action> _uiJobs = new();
+    private readonly ConcurrentQueue<Action> _hostJobs = new();
 
     private WindowHandle* _shareRoot = null;
 
@@ -181,8 +181,8 @@ public sealed unsafe class SharedGlfwHost : IDisposable
     {
         if (_running) return;
         _running = true;
-        _uiThread = new Thread(UiThreadMain) { IsBackground = true, Name = "GLFW-UI" };
-        _uiThread.Start();
+        _hostThread = new Thread(HostThreadMain) { IsBackground = true, Name = "GLFW-HOST" };
+        _hostThread.Start();
         _started.WaitOne();
     }
 
@@ -195,15 +195,31 @@ public sealed unsafe class SharedGlfwHost : IDisposable
         if (!_winToId.IsEmpty)
             Console.WriteLine($"[Host] Stop called with {_winToId.Count} windows still alive.");
 
-        EnqueueUi(() => _running = false);
-        _uiThread?.Join();
-        _uiThread = null;
+        InvokeHostAsync(() => _running = false);
+        _hostThread?.Join();
+        _hostThread = null;
     }
 
-    public void EnqueueUi(Action job)
+    public void InvokeHostAsync(Action job)
     {
-        _uiJobs.Enqueue(job);
+        _hostJobs.Enqueue(job);
         _work.Set();
+    }
+
+    private void InvokeHostSync(Action action)
+    {
+        if (!_running) throw new InvalidOperationException("Host is not running.");
+
+        var tcs = new TaskCompletionSource<object?>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        InvokeHostAsync(() =>
+        {
+            try { action(); tcs.TrySetResult(null); }
+            catch (Exception ex) { tcs.TrySetException(ex); }
+        });
+
+        tcs.Task.GetAwaiter().GetResult();
     }
 
     internal void DrainWindowInput(int windowId, Action<object> handle, int max = 50_000)
@@ -227,7 +243,7 @@ public sealed unsafe class SharedGlfwHost : IDisposable
     public WindowHandle* CreateWindow(int x, int y, int w, int h, string title)
     {
         WindowHandle* result = null;
-        InvokeUi(() =>
+        InvokeHostSync(() =>
         {
             ApplyCommonHints(_glfw!);
             result = _glfw!.CreateWindow(w, h, title, null, _shareRoot);
@@ -252,7 +268,7 @@ public sealed unsafe class SharedGlfwHost : IDisposable
     public WindowHandle* CreateHiddenWindow(int w, int h, string title = "hidden")
     {
         WindowHandle* result = null;
-        InvokeUi(() =>
+        InvokeHostSync(() =>
         {
             ApplyCommonHints(_glfw!);
             _glfw!.WindowHint(WindowHintBool.Visible, false);
@@ -273,7 +289,7 @@ public sealed unsafe class SharedGlfwHost : IDisposable
     public void DestroyWindow(WindowHandle* win)
     {
         if (win == null) return;
-        InvokeUi(() =>
+        InvokeHostSync(() =>
         {
             _callbacks.TryRemove((nint)win, out _);
             UnregisterWindowObject(win);
@@ -297,30 +313,30 @@ public sealed unsafe class SharedGlfwHost : IDisposable
 
     public void SetMaximizeBorderlessSafe(WindowHandle* win, bool enabled)
     {
-        InvokeUi(() =>
+        InvokeHostSync(() =>
         {
             if (!IsWindowAlive(win)) return;
-            var mi = FindBestMonitorIndexForWindow_UIThreadUnsafe(win);
-            SetMaximizeBorderlessInternal_UIThreadUnsafe(win, enabled, mi);
+            var mi = FindBestMonitorIndexForWindow_HostThreadUnsafe(win);
+            SetMaximizeBorderlessInternal_HostThreadUnsafe(win, enabled, mi);
         });
     }
 
     public void SetMaximizeBorderlessSafe(WindowHandle* win, bool enabled, int monitorIndex)
     {
-        InvokeUi(() =>
+        InvokeHostSync(() =>
         {
             if (!IsWindowAlive(win)) return;
-            SetMaximizeBorderlessInternal_UIThreadUnsafe(win, enabled, monitorIndex);
+            SetMaximizeBorderlessInternal_HostThreadUnsafe(win, enabled, monitorIndex);
         });
     }
 
-    private void SetMaximizeBorderlessInternal_UIThreadUnsafe(WindowHandle* win, bool enabled, int monitorIndex)
+    private void SetMaximizeBorderlessInternal_HostThreadUnsafe(WindowHandle* win, bool enabled, int monitorIndex)
     {
         var l = GetWindowLock(win);
         lock (l)
         {
             var glfw = _glfw!;
-            var mons = GetMonitorsInternal_UIThreadUnsafe(glfw);
+            var mons = GetMonitorsInternal_HostThreadUnsafe(glfw);
             if (mons.Count == 0) return;
             if (monitorIndex < 0 || monitorIndex >= mons.Count) monitorIndex = 0;
 
@@ -358,7 +374,7 @@ public sealed unsafe class SharedGlfwHost : IDisposable
         }
     }
 
-    private static List<MonitorInfo> GetMonitorsInternal_UIThreadUnsafe(Glfw glfw)
+    private static List<MonitorInfo> GetMonitorsInternal_HostThreadUnsafe(Glfw glfw)
     {
         var monitors = new List<MonitorInfo>();
         var monitorPointers = glfw.GetMonitors(out var count);
@@ -379,7 +395,7 @@ public sealed unsafe class SharedGlfwHost : IDisposable
         return monitors;
     }
 
-    private int FindBestMonitorIndexForWindow_UIThreadUnsafe(WindowHandle* win)
+    private int FindBestMonitorIndexForWindow_HostThreadUnsafe(WindowHandle* win)
     {
         _glfw!.GetWindowPos(win, out var wx, out var wy);
         _glfw.GetWindowSize(win, out var ww, out var wh);
@@ -387,7 +403,7 @@ public sealed unsafe class SharedGlfwHost : IDisposable
         var cx = wx + ww / 2;
         var cy = wy + wh / 2;
 
-        var mons = GetMonitorsInternal_UIThreadUnsafe(_glfw!);
+        var mons = GetMonitorsInternal_HostThreadUnsafe(_glfw!);
         if (mons.Count == 0) return 0;
 
         for (var i = 0; i < mons.Count; i++)
@@ -428,7 +444,7 @@ public sealed unsafe class SharedGlfwHost : IDisposable
 
     // --------------------------
 
-    private void UiThreadMain()
+    private void HostThreadMain()
     {
         _glfw = Glfw.GetApi();
         if (!_glfw.Init()) throw new Exception("GLFW init failed");
@@ -446,20 +462,20 @@ public sealed unsafe class SharedGlfwHost : IDisposable
 
         while (_running)
         {
-            while (_uiJobs.TryDequeue(out var j))
+            while (_hostJobs.TryDequeue(out var j))
             {
                 try { j(); }
-                catch (Exception ex) { Console.WriteLine($"[UI job error] {ex}"); }
+                catch (Exception ex) { Console.WriteLine($"[Host job error] {ex}"); }
             }
 
             _glfw.PollEvents();
             _work.WaitOne(1);
         }
 
-        while (_uiJobs.TryDequeue(out var j))
+        while (_hostJobs.TryDequeue(out var j))
         {
             try { j(); }
-            catch (Exception ex) { Console.WriteLine($"[UI drain error] {ex}"); }
+            catch (Exception ex) { Console.WriteLine($"[Host drain error] {ex}"); }
         }
 
         if (_shareRoot != null)
@@ -541,21 +557,5 @@ public sealed unsafe class SharedGlfwHost : IDisposable
             if (_inputQueues.TryGetValue(id, out var q))
                 q.Enqueue(e);
         }
-    }
-
-    private void InvokeUi(Action action)
-    {
-        if (!_running) throw new InvalidOperationException("Host is not running.");
-
-        var tcs = new TaskCompletionSource<object?>(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-
-        EnqueueUi(() =>
-        {
-            try { action(); tcs.TrySetResult(null); }
-            catch (Exception ex) { tcs.TrySetException(ex); }
-        });
-
-        tcs.Task.GetAwaiter().GetResult();
     }
 }

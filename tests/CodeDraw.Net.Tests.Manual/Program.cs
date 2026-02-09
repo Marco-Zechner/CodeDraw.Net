@@ -108,7 +108,11 @@ public static class Program
                 ? allPrototypes.FirstOrDefault(t => t.Id == selectedId)
                 : allPrototypes.First();
 
-            if (target.Type is null) return;
+            if (target.Type is null)
+            {
+                Console.WriteLine("No prototype found with id " + selectedId);
+                return;
+            }
 
             try
             {

@@ -130,6 +130,9 @@ public sealed unsafe class SharedGlfwHost : IDisposable
         public GlfwCallbacks.KeyCallback? Key;
         public GlfwCallbacks.CharCallback? Char;
         public GlfwCallbacks.WindowCloseCallback? Close;
+        public GlfwCallbacks.WindowPosCallback? WindowPos;
+        public GlfwCallbacks.WindowSizeCallback? WindowSize;
+        public GlfwCallbacks.FramebufferSizeCallback? FramebufferSize;
     }
 
     private readonly ConcurrentDictionary<nint, WindowCallbacks> _callbacks = new();
@@ -140,6 +143,10 @@ public sealed unsafe class SharedGlfwHost : IDisposable
     public readonly record struct KeyEvent(int WindowId, Keys Key, int Scancode, InputAction Action, KeyModifiers Mods);
     public readonly record struct CharEvent(int WindowId, uint Codepoint);
     public readonly record struct WindowCloseRequestedEvent(int WindowId);
+    public readonly record struct WindowPosEvent(int WindowId, int X, int Y);
+    public readonly record struct WindowSizeEvent(int WindowId, int W, int H);
+    public readonly record struct FramebufferSizeEvent(int WindowId, int W, int H);
+
 
     public readonly record struct MonitorInfo(
         nint GlfwHandle,
@@ -538,7 +545,10 @@ public sealed unsafe class SharedGlfwHost : IDisposable
             {
                 if (_winToId.TryGetValue((nint)w, out var wid))
                     Enq(new WindowCloseRequestedEvent(wid));
-            }
+            },
+            WindowPos = (w, x, y) => Enq(new WindowPosEvent(id, x, y)),
+            WindowSize = (w, wpx, hpx) => Enq(new WindowSizeEvent(id, wpx, hpx)),
+            FramebufferSize = (w, wpx, hpx) => Enq(new FramebufferSizeEvent(id, wpx, hpx)),
         };
 
         _callbacks[(nint)win] = cbs;
@@ -549,6 +559,9 @@ public sealed unsafe class SharedGlfwHost : IDisposable
         _glfw.SetKeyCallback(win, cbs.Key);
         _glfw.SetCharCallback(win, cbs.Char);
         _glfw.SetWindowCloseCallback(win, cbs.Close);
+        _glfw.SetWindowPosCallback(win, cbs.WindowPos);
+        _glfw.SetWindowSizeCallback(win, cbs.WindowSize);
+        _glfw.SetFramebufferSizeCallback(win, cbs.FramebufferSize);
 
         return;
 

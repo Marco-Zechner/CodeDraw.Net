@@ -273,6 +273,26 @@ public sealed unsafe class CodeDrawWindow : IDisposable, IShaderConsumer
             return;
         }
 
+        // Update settings based on OS-driven changes (drag/resize).
+        // This is "current state" and should not mark dirty.
+        switch (evt)
+        {
+            case SharedGlfwHost.WindowPosEvent wp when wp.WindowId == WindowId:
+                WindowSettings.UpdateFromOs(newWindowPos: new Vector2(wp.X, wp.Y));
+                break;
+
+            case SharedGlfwHost.WindowSizeEvent ws when ws.WindowId == WindowId:
+                Volatile.Write(ref _winW, ws.W);
+                Volatile.Write(ref _winH, ws.H);
+                WindowSettings.UpdateFromOs(newSize: new Vector2(ws.W, ws.H));
+                break;
+
+
+            case SharedGlfwHost.FramebufferSizeEvent fb when fb.WindowId == WindowId:
+                // We don't store fb size here yet; later we'll cache it in host runtime state.
+                break;
+        }
+
         Input.Apply(evt);
     }
 

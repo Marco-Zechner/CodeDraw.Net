@@ -68,6 +68,7 @@ public class Prototype3 : IDisposable
                 )
             );
             layer.Render();
+            Console.WriteLine(_win.WindowSettings.CurrentSnapshot().WindowPosition);
         };
 
         return;

@@ -1,4 +1,5 @@
 ﻿using System.Collections.Concurrent;
+using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.Window;
 using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
 

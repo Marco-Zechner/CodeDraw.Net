@@ -1,5 +1,6 @@
 ﻿using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes;
 using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.DrawLayer;
+using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.Window;
 using Silk.NET.GLFW;
 
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.PrototypeTest;

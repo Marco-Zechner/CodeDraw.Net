@@ -1,9 +1,10 @@
 ﻿using System.Diagnostics;
+using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.DrawLayer;
 using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.Shaders;
 using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
 
-namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes;
+namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.Window;
 
 public sealed unsafe class CodeDrawWindow : IDisposable, IShaderConsumer
 {
@@ -117,8 +118,8 @@ public sealed unsafe class CodeDrawWindow : IDisposable, IShaderConsumer
     public bool IsDisposed => Volatile.Read(ref _disposed) != 0;
     private int _windowDestroyed; // 0 = not yet, 1 = done
 
-    private DrawLayer.CodeDrawLayer? _layer;
-    public DrawLayer.CodeDrawLayer? Layer => _layer;
+    private CodeDrawLayer? _layer;
+    public CodeDrawLayer? Layer => _layer;
 
     public int WindowId { get; }
     private string _title;
@@ -166,7 +167,7 @@ public sealed unsafe class CodeDrawWindow : IDisposable, IShaderConsumer
 
     private bool _startFired;
 
-    public void SetPresentedLayer(DrawLayer.CodeDrawLayer? layer, bool keepLastFrameUntilReady = true)
+    public void SetPresentedLayer(CodeDrawLayer? layer, bool keepLastFrameUntilReady = true)
     {
         _layer = layer;
         _keepLastFrameUntilReady = keepLastFrameUntilReady;
@@ -185,7 +186,7 @@ public sealed unsafe class CodeDrawWindow : IDisposable, IShaderConsumer
         _winLock = host.GetWindowLock(_win);
         WindowId = host.GetWindowId(_win);
 
-        _layer = new DrawLayer.CodeDrawLayer(host, w, h, "WindowLayer:" + WindowId);
+        _layer = new CodeDrawLayer(host, w, h, "WindowLayer:" + WindowId);
 
         _presentThread = new Thread(PresentLoop) { IsBackground = true, Name = $"Presenter:{_title}" };
         _updateThread  = new Thread(UpdateLoop)  { IsBackground = true, Name = $"Update:{_title}" };
@@ -312,14 +313,11 @@ public sealed unsafe class CodeDrawWindow : IDisposable, IShaderConsumer
             gl.Enable(GLEnum.DebugOutput);
             gl.Enable(GLEnum.DebugOutputSynchronous);
 
-            unsafe
+            gl.DebugMessageCallback((source, type, id, severity, length, message, userParam) =>
             {
-                gl.DebugMessageCallback((source, type, id, severity, length, message, userParam) =>
-                {
-                    var msg = new string((sbyte*)message, 0, (int)length);
-                    Console.WriteLine($"GL Debug Message: Source={source}, Type={type}, ID={id}, Severity={severity}, Message={msg}");
-                }, null);
-            }
+                var msg = new string((sbyte*)message, 0, length);
+                Console.WriteLine($"GL Debug Message: Source={source}, Type={type}, ID={id}, Severity={severity}, Message={msg}");
+            }, null);
             gl.DebugMessageControl(GLEnum.DontCare, GLEnum.DontCare, GLEnum.DebugSeverityNotification, 0, null, false);
 
 
@@ -332,7 +330,7 @@ public sealed unsafe class CodeDrawWindow : IDisposable, IShaderConsumer
 
             uint lastTex = 0;
             long lastSeq = 0;
-            DrawLayer.CodeDrawLayer? lastLayerRef = null;
+            CodeDrawLayer? lastLayerRef = null;
 
             while (!ShouldClose)
             {

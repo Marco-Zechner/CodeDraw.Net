@@ -572,4 +572,32 @@ public sealed unsafe class SharedGlfwHost : IDisposable
                 q.Enqueue(e);
         }
     }
+
+    internal void ApplyBasicWindowSettingsAsync(WindowHandle* win, int windowId, WindowSettingsSnapshot desired, WindowDirty dirty)
+    {
+        if (win == null) return;
+
+        InvokeHostAsync(() =>
+        {
+            if (!IsWindowAlive(win)) return;
+
+            var glfw = _glfw!;
+            var l = GetWindowLock(win);
+
+            lock (l)
+            {
+                // Title
+                if ((dirty & WindowDirty.Title) != 0)
+                    glfw.SetWindowTitle(win, desired.Title ?? "");
+
+                // Position
+                if ((dirty & WindowDirty.WindowPos) != 0)
+                    glfw.SetWindowPos(win, (int)desired.WindowPosition.X, (int)desired.WindowPosition.Y);
+
+                // Size (CanvasSize)
+                if ((dirty & WindowDirty.CanvasSize) != 0)
+                    glfw.SetWindowSize(win, (int)desired.Size.X, (int)desired.Size.Y);
+            }
+        });
+    }
 }

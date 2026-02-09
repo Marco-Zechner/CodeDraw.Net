@@ -49,8 +49,16 @@ public class Prototype3 : IDisposable
             layer.Render();
         };
 
+        float timer = 0;
         _win2.OnUpdate += context =>
         {
+            timer += context.DeltaSeconds;
+            if (timer >= 2)
+            {
+                timer = 0;
+                _win.PosX += 10;
+                _win.PosY += 1;
+            }
             var layer = context.Win.Layer;
 
             if (!_win.Layer.TryGetLastRenderTexture(out var lastRenderTexture))

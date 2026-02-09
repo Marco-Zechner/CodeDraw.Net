@@ -198,8 +198,9 @@ public unsafe class RawFullscreenRecreateDemo
                 glfw.WindowHint(WindowHintBool.Resizable, false);
                 glfw.WindowHint(WindowHintBool.AutoIconify, false);
                 glfw.WindowHint(WindowHintBool.FocusOnShow, true);
+                glfw.WindowHint(WindowHintBool.Floating, true);
 
-                win = glfw.CreateWindow(vm->Width, vm->Height - 1, "Fullscreen Toggle Demo (Borderless -1px)", null, null);
+                win = glfw.CreateWindow(vm->Width+1, vm->Height, "Fullscreen Toggle Demo (Borderless -1px)", null, null);
                 if (win != null)
                 {
                     glfw.SetWindowPos(win, mx, my);

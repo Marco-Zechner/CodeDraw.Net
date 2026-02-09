@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.DrawLayer;
 using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.Shaders;
+using MarcoZechner.MathDotNet;
 using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
 
@@ -122,6 +123,9 @@ public sealed unsafe class CodeDrawWindow : IDisposable, IShaderConsumer
     public CodeDrawLayer? Layer => _layer;
 
     public int WindowId { get; }
+
+    public WindowSettingsHandle WindowSettings { get; }
+
     private string _title;
 
     private int _winW;
@@ -181,6 +185,20 @@ public sealed unsafe class CodeDrawWindow : IDisposable, IShaderConsumer
         _title = title;
         Volatile.Write(ref _winW, w);
         Volatile.Write(ref _winH, h);
+
+        // Desired/current settings snapshot for user-facing API.
+        // NOTE: This step does NOT apply anything yet. It's just state tracking.
+        WindowSettings = new WindowSettingsHandle(new WindowSettingsSnapshot(
+            WindowPosition: new Vector2(x, y),
+            Size: new Vector2(w, h),
+            Title: title,
+            AlwaysOnTop: false,
+            Border: WindowBorder.Resizable,
+            State: WindowState.Normal,
+            ClickThrough: false,
+            TransparentAlpha: true
+        ));
+
         _win = host.CreateWindow(x, y, w, h, _title);
         _host.RegisterWindowObject(_win, this);
         _winLock = host.GetWindowLock(_win);

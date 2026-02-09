@@ -131,8 +131,59 @@ public sealed unsafe class CodeDrawWindow : IDisposable, IShaderConsumer
     private int _winW;
     private int _winH;
 
-    public int Width  => Volatile.Read(ref _winW);
-    public int Height => Volatile.Read(ref _winH);
+    public Vector2 WindowPosition
+    {
+        get => WindowSettings.WindowPosition;
+        set => WindowSettings.WindowPosition = value;
+    }
+
+    public int Width
+    {
+        get => (int)WindowSettings.Size.X;
+        set => WindowSettings.Size = new Vector2(value, WindowSettings.Size.Y);
+    }
+
+    public int Height
+    {
+        get => (int)WindowSettings.Size.Y;
+        set => WindowSettings.Size = new Vector2(WindowSettings.Size.X, value);
+    }
+
+    public int PosX
+    {
+        get => (int)WindowSettings.WindowPosition.X;
+        set => WindowSettings.WindowPosition = new Vector2(value, WindowSettings.WindowPosition.Y);
+    }
+
+    public int PosY
+    {
+        get => (int)WindowSettings.WindowPosition.Y;
+        set => WindowSettings.WindowPosition = new Vector2(WindowSettings.WindowPosition.X, value);
+    }
+
+    public Vector2 Size
+    {
+        get => WindowSettings.Size;
+        set => WindowSettings.Size = value;
+    }
+
+    public bool AlwaysOnTop
+    {
+        get => WindowSettings.AlwaysOnTop;
+        set => WindowSettings.AlwaysOnTop = value;
+    }
+
+    public WindowBorder Border
+    {
+        get => WindowSettings.Border;
+        set => WindowSettings.Border = value;
+    }
+
+    public WindowState State
+    {
+        get => WindowSettings.State;
+        set => WindowSettings.State = value;
+    }
 
     public string Title
     {

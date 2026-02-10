@@ -9,6 +9,8 @@ namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.Window;
 
 public sealed unsafe class CodeDrawWindow : IDisposable, IShaderConsumer
 {
+    //TODO: add a "IsFocused" property that reflects whether this window is currently focused/active in the OS, so users know if mousePos is valid for example.
+
     public sealed class WindowInput
     {
         private readonly HashSet<Keys> _keysHeld = [];
@@ -19,8 +21,7 @@ public sealed unsafe class CodeDrawWindow : IDisposable, IShaderConsumer
         private readonly HashSet<MouseButton> _mouseDown = [];
         private readonly HashSet<MouseButton> _mouseUp = [];
 
-        private readonly Dictionary<Keys, KeyModifiers> _keyMods = [];
-        private readonly Dictionary<MouseButton, KeyModifiers> _mouseMods = [];
+        private ModifierKeys _modsDown = ModifierKeys.NONE;
 
         public double MouseX { get; private set; }
         public double MouseY { get; private set; }
@@ -28,16 +29,70 @@ public sealed unsafe class CodeDrawWindow : IDisposable, IShaderConsumer
         public double WheelDx { get; private set; }
         public double WheelDy { get; private set; }
 
-        public bool GetKey(Keys k) => _keysHeld.Contains(k);
-        public bool GetKeyDown(Keys k) => _keysDown.Contains(k);
-        public bool GetKeyUp(Keys k) => _keysUp.Contains(k);
+        /// <summary>
+        /// Checks if the specified modifier key(s) are currently toggled on (CapsLock, NumpadLock) or held down (Shift, Ctrl, Alt, Super).
+        ///
+        /// </summary>
+        /// <param name="mod"></param>
+        /// <returns></returns>
+        public bool GetModifierState(ModifierKeys mod) => _modsDown.HasFlag(mod);
+
+        public bool GetKey(Keys key) => _keysHeld.Contains(key);
+        public bool GetKeyDown(Keys key) => _keysDown.Contains(key);
+        public bool GetKeyUp(Keys key) => _keysUp.Contains(key);
+
+        /// <summary>
+        /// <para>
+        /// Checks if the specified combination of modifier keys is currently held down.
+        /// This works by converting the ModifierKeys into their corresponding Keys (e.g., Shift -> ShiftLeft and ShiftRight) and checking if any of those keys are currently held down.
+        /// </para>
+        /// <b>NOTE:</b> Sticky-Keys like CapsLock will reflect if they are held down, NOT their toggled state.
+        /// To check the toggled state of sticky keys, use <see cref="GetModifierState"/> instead.
+        /// </summary>
+        /// <param name="mods"></param>
+        /// <returns></returns>
+        public bool GetKey(ModifierKeys mods) => _keysHeld.Overlaps(mods.ToKeys());
+        /// <summary>
+        /// <para>
+        /// Checks if the specified combination of modifier keys was pressed down in the current frame.
+        /// This works by converting the ModifierKeys into their corresponding Keys (e.g., Shift -> ShiftLeft and ShiftRight) and checking if any of those keys were pressed down in the current frame.
+        /// </para>
+        /// <b>NOTE:</b> Sticky-Keys like CapsLock will reflect if they are held down, NOT their toggled state.
+        /// To check the toggled state of sticky keys, use <see cref="GetModifierState"/> instead.
+        /// </summary>
+        /// <param name="mods"></param>
+        /// <returns></returns>
+        public bool GetKeyDown(ModifierKeys mods) => _keysDown.IsSupersetOf(mods.ToKeys());
+        /// <summary>
+        /// <para>
+        /// Checks if the specified combination of modifier keys was released in the current frame.
+        /// This works by converting the ModifierKeys into their corresponding Keys (e.g., Shift -> ShiftLeft and ShiftRight) and checking if any of those keys were released in the current frame.
+        /// </para>
+        /// <b>NOTE:</b> Sticky-Keys like CapsLock will reflect if they are held down, NOT their toggled state.
+        /// To check the toggled state of sticky keys, use <see cref="GetModifierState"/> instead.
+        /// </summary>
+        /// <param name="mods"></param>
+        /// <returns></returns>
+        public bool GetKeyUp(ModifierKeys mods) => _keysUp.IsSupersetOf(mods.ToKeys());
 
         public bool GetMouseButton(MouseButton b) => _mouseHeld.Contains(b);
         public bool GetMouseButtonDown(MouseButton b) => _mouseDown.Contains(b);
         public bool GetMouseButtonUp(MouseButton b) => _mouseUp.Contains(b);
 
-        public KeyModifiers GetKeyMods(Keys k) => _keyMods.TryGetValue(k, out var m) ? m : 0;
-        public KeyModifiers GetMouseMods(MouseButton b) => _mouseMods.TryGetValue(b, out var m) ? m : 0;
+        /// <summary>
+        /// Returns the current state of modifier keys (Shift, Ctrl, Alt, Super, CapsLock, NumLock).
+        /// These are updated on any key or mouse button event, and reflect the state at the time of that event.
+        /// </summary>
+        /// <returns></returns>
+        public ModifierKeys GetModifiers() => _modsDown;
+
+        public HashSet<Keys> GetAllKeys() => _keysHeld.ToHashSet();
+        public HashSet<Keys> GetAllKeysDown() => _keysDown.ToHashSet();
+        public HashSet<Keys> GetAllKeysUp() => _keysUp.ToHashSet();
+
+        public HashSet<MouseButton> GetAllMouseButtons() => _mouseHeld.ToHashSet();
+        public HashSet<MouseButton> GetAllMouseButtonsDown() => _mouseDown.ToHashSet();
+        public HashSet<MouseButton> GetAllMouseButtonsUp() => _mouseUp.ToHashSet();
 
         internal void BeginUpdateFrame()
         {
@@ -61,36 +116,42 @@ public sealed unsafe class CodeDrawWindow : IDisposable, IShaderConsumer
 
                 case SharedGlfwHost.MouseButtonEvent mb:
                 {
-                    _mouseMods[mb.Button] = mb.Mods;
-                    if (mb.Action == InputAction.Press)
+                    _modsDown = mb.Mods;
+                    switch (mb.Action)
                     {
-                        _mouseHeld.Add(mb.Button);
-                        _mouseDown.Add(mb.Button);
-                    }
-                    else if (mb.Action == InputAction.Release)
-                    {
-                        _mouseHeld.Remove(mb.Button);
-                        _mouseUp.Add(mb.Button);
+                        case InputAction.Press:
+                            _mouseHeld.Add(mb.Button);
+                            _mouseDown.Add(mb.Button);
+                            break;
+                        default:
+                        case InputAction.Release:
+                            _mouseHeld.Remove(mb.Button);
+                            _mouseUp.Add(mb.Button);
+                            break;
+                        case InputAction.Repeat:
+                            // not triggered for mouse buttons.
+                            break;
                     }
                     break;
                 }
 
                 case SharedGlfwHost.KeyEvent ke:
                 {
-                    _keyMods[ke.Key] = ke.Mods;
-                    if (ke.Action == InputAction.Press)
+                    _modsDown = ke.Mods;
+                    switch (ke.Action)
                     {
-                        _keysHeld.Add(ke.Key);
-                        _keysDown.Add(ke.Key);
-                    }
-                    else if (ke.Action == InputAction.Release)
-                    {
-                        _keysHeld.Remove(ke.Key);
-                        _keysUp.Add(ke.Key);
-                    }
-                    else if (ke.Action == InputAction.Repeat)
-                    {
-                        _keysHeld.Add(ke.Key);
+                        case InputAction.Press:
+                            _keysHeld.Add(ke.Key);
+                            _keysDown.Add(ke.Key);
+                            break;
+                        default:
+                        case InputAction.Release:
+                            _keysHeld.Remove(ke.Key);
+                            _keysUp.Add(ke.Key);
+                            break;
+                        case InputAction.Repeat:
+                            _keysHeld.Add(ke.Key);
+                            break;
                     }
                     break;
                 }
@@ -131,7 +192,7 @@ public sealed unsafe class CodeDrawWindow : IDisposable, IShaderConsumer
     private int _winW;
     private int _winH;
 
-    public Vector2 WindowPosition
+    public Vector2<int> WindowPosition
     {
         get => WindowSettings.WindowPosition;
         set => WindowSettings.WindowPosition = value;
@@ -140,28 +201,28 @@ public sealed unsafe class CodeDrawWindow : IDisposable, IShaderConsumer
     public int Width
     {
         get => (int)WindowSettings.Size.X;
-        set => WindowSettings.Size = new Vector2(value, WindowSettings.Size.Y);
+        set => WindowSettings.Size = new Vector2<int>(value, WindowSettings.Size.Y);
     }
 
     public int Height
     {
         get => (int)WindowSettings.Size.Y;
-        set => WindowSettings.Size = new Vector2(WindowSettings.Size.X, value);
+        set => WindowSettings.Size = new Vector2<int>(WindowSettings.Size.X, value);
     }
 
     public int PosX
     {
         get => (int)WindowSettings.WindowPosition.X;
-        set => WindowSettings.WindowPosition = new Vector2(value, WindowSettings.WindowPosition.Y);
+        set => WindowSettings.WindowPosition = new Vector2<int>(value, WindowSettings.WindowPosition.Y);
     }
 
     public int PosY
     {
         get => (int)WindowSettings.WindowPosition.Y;
-        set => WindowSettings.WindowPosition = new Vector2(WindowSettings.WindowPosition.X, value);
+        set => WindowSettings.WindowPosition = new Vector2<int>(WindowSettings.WindowPosition.X, value);
     }
 
-    public Vector2 Size
+    public Vector2<int> Size
     {
         get => WindowSettings.Size;
         set => WindowSettings.Size = value;
@@ -173,16 +234,34 @@ public sealed unsafe class CodeDrawWindow : IDisposable, IShaderConsumer
         set => WindowSettings.AlwaysOnTop = value;
     }
 
-    public WindowBorder Border
+    public WindowFrameMode FrameMode
     {
-        get => WindowSettings.Border;
-        set => WindowSettings.Border = value;
+        get => WindowSettings.FrameMode;
+        set => WindowSettings.FrameMode = value;
+    }
+
+    public WindowResizeMode ResizeMode
+    {
+        get => WindowSettings.ResizeMode;
+        set => WindowSettings.ResizeMode = value;
     }
 
     public WindowState State
     {
         get => WindowSettings.State;
         set => WindowSettings.State = value;
+    }
+
+    public bool ClickThrough
+    {
+        get => WindowSettings.ClickThrough;
+        set => WindowSettings.ClickThrough = value;
+    }
+
+    public bool TransparentAlpha
+    {
+        get => WindowSettings.TransparentAlpha;
+        set => WindowSettings.TransparentAlpha = value;
     }
 
     public string Title
@@ -240,14 +319,18 @@ public sealed unsafe class CodeDrawWindow : IDisposable, IShaderConsumer
         // Desired/current settings snapshot for user-facing API.
         // NOTE: This step does NOT apply anything yet. It's just state tracking.
         WindowSettings = new WindowSettingsHandle(new WindowSettingsSnapshot(
-            WindowPosition: new Vector2(x, y),
-            Size: new Vector2(w, h),
-            MinSize: new Vector2(10,10),
-            MaxSize: new Vector2(1280, 720),
+            WindowPosition: new Vector2<int>(x, y),
+            Size: new Vector2<int>(w, h),
             Title: title,
             AlwaysOnTop: false,
-            Border: WindowBorder.Resizable,
-            State: WindowState.Normal,
+
+            FrameMode: WindowFrameMode.Decorated,
+            ResizeMode: WindowResizeMode.Resizable,
+            MinSize: Vector2<int>.Zero,
+            MaxSize: Vector2<int>.Zero,
+            AspectRatio: Vector2<int>.Zero,
+
+            State: WindowState.Windowed,
             ClickThrough: false,
             TransparentAlpha: true
         ));
@@ -335,6 +418,10 @@ public sealed unsafe class CodeDrawWindow : IDisposable, IShaderConsumer
                 break;
 
             case SharedGlfwHost.WindowSizeEvent ws when ws.WindowId == WindowId:
+                var snap = WindowSettings.DesiredSnapshot();
+                if (snap.State == WindowState.Fullscreen)
+                    break; // ignore physical +1
+
                 Volatile.Write(ref _winW, ws.W);
                 Volatile.Write(ref _winH, ws.H);
                 WindowSettings.UpdateFromOs(newSize: new Vector2(ws.W, ws.H));
@@ -416,6 +503,7 @@ public sealed unsafe class CodeDrawWindow : IDisposable, IShaderConsumer
 
             var progBlit = new AutoProgram(this, ShaderPath.Engine("layerShader"));
             var uBlitTex = new AutoUniform(gl, this, progBlit, "uTex");
+            var uForceOpaque = new AutoUniform(gl, this, progBlit, "uForceOpaque");
 
             gl.Disable(GLEnum.Blend);
 
@@ -428,45 +516,40 @@ public sealed unsafe class CodeDrawWindow : IDisposable, IShaderConsumer
                 var (desired, dirty) = WindowSettings.ConsumeDirty();
                 if (dirty != WindowDirty.None)
                 {
-                    const WindowDirty supported = WindowDirty.Title |
-                                                  WindowDirty.WindowPos |
-                                                  WindowDirty.CanvasSize |
-                                                  WindowDirty.AlwaysOnTop |
-                                                  WindowDirty.Border |
-                                                  WindowDirty.WindowState;
+                    // Host applies Title/Pos/Size/Border/State/AlwaysOnTop/ClickThrough
+                    var hostDirty = dirty & (
+                        WindowDirty.Title |
+                        WindowDirty.WindowPos |
+                        WindowDirty.CanvasSize |
+                        WindowDirty.Border |
+                        WindowDirty.WindowState |
+                        WindowDirty.AlwaysOnTop |
+                        WindowDirty.ClickThrough
+                    );
 
-                    var apply = dirty & supported;
-                    if (apply != WindowDirty.None)
-                        _host.ApplyBasicWindowSettingsAsync(_win, WindowId, desired, apply, WindowSettings);
-                }
+                    if (hostDirty != WindowDirty.None)
+                        _host.ApplyWindowSettingsAsync(_win, WindowId, desired, hostDirty, WindowSettings);
 
-                int winW, winH;
-                lock (_winLock) glfw.GetWindowSize(_win, out winW, out winH);
-                if (winW <= 0 || winH <= 0)
-                {
-                    lock (_winLock) glfw.SwapBuffers(_win);
-                    Thread.Sleep(16);
-                    continue;
-                }
-                Volatile.Write(ref _winW, winW);
-                Volatile.Write(ref _winH, winH);
-
-                int fbW, fbH;
-                lock (_winLock) glfw.GetFramebufferSize(_win, out fbW, out fbH);
-
-                if (fbW == 0 || fbH == 0)
-                {
-                    lock (_winLock) glfw.SwapBuffers(_win);
-                    Thread.Sleep(16);
-                    continue;
+                    // TransparentAlpha is render-side only in our "force alpha=1" strategy
+                    // Mark it applied immediately (no host roundtrip needed)
+                    if ((dirty & WindowDirty.TransparentAlpha) != 0)
+                    {
+                        // render-side apply is immediate
+                        var snap = WindowSettings.DesiredSnapshot();
+                        WindowSettings.SyncCurrentFromHost(snap, WindowDirty.TransparentAlpha);
+                    }
                 }
 
                 ShaderStore.CheckHotReload(gl, this);
 
-                gl.BindFramebuffer(GLEnum.Framebuffer, 0);
-                gl.Viewport(0, 0, (uint)fbW, (uint)fbH);
+                var logical = WindowSettings.DesiredSnapshot().Size;
+                if (logical.X < 1) logical = logical.WithX(1);
+                if (logical.Y < 1) logical = logical.WithY(1);
+                gl.Viewport(0, 0, (uint)logical.X, (uint)logical.Y);
 
-                gl.ClearColor(0f, 0f, 0f, 0f);
+                var opaque = !WindowSettings.DesiredSnapshot().TransparentAlpha;
+
+                gl.ClearColor(0f, 0f, 0f, opaque ? 1f : 0f);
                 gl.Clear((uint)ClearBufferMask.ColorBufferBit);
 
                 var layer = _layer;
@@ -500,6 +583,7 @@ public sealed unsafe class CodeDrawWindow : IDisposable, IShaderConsumer
                     gl.ActiveTexture(GLEnum.Texture0);
                     gl.BindTexture(GLEnum.Texture2D, lastTex);
                     if (uBlitTex >= 0) gl.Uniform1(uBlitTex, 0);
+                    if (uForceOpaque >= 0) gl.Uniform1(uForceOpaque, opaque ? 1 : 0);
                     gl.DrawElements(GLEnum.Triangles, 6, GLEnum.UnsignedInt, null);
                     gl.BindTexture(GLEnum.Texture2D, 0);
                     gl.BindVertexArray(0);

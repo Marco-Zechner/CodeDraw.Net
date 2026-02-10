@@ -1,11 +1,12 @@
 ﻿using System.Collections.Concurrent;
 using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.Window;
+using MarcoZechner.MathDotNet;
 using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
 
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes;
 
-public sealed unsafe class SharedGlfwHost : IDisposable
+public sealed unsafe partial class SharedGlfwHost : IDisposable
 {
     private readonly ConcurrentDictionary<nint, object> _windowLocks = new();
 
@@ -51,10 +52,10 @@ public sealed unsafe class SharedGlfwHost : IDisposable
     // ---------- event types ----------
     internal abstract record HostInputEvent(nint WindowHandle);
 
-    private sealed record HostKeyEvent(nint WindowHandle, Keys Key, int Scancode, InputAction Action, KeyModifiers Mods)
+    private sealed record HostKeyEvent(nint WindowHandle, Keys Key, int Scancode, InputAction Action, ModifierKeys Mods)
         : HostInputEvent(WindowHandle);
 
-    private sealed record HostMouseButtonEvent(nint WindowHandle, MouseButton Button, InputAction Action, KeyModifiers Mods)
+    private sealed record HostMouseButtonEvent(nint WindowHandle, MouseButton Button, InputAction Action, ModifierKeys Mods)
         : HostInputEvent(WindowHandle);
 
     private sealed record HostScrollEvent(nint WindowHandle, double Dx, double Dy)
@@ -67,13 +68,13 @@ public sealed unsafe class SharedGlfwHost : IDisposable
     public sealed class HostInputHub
     {
         // Key
-        public event Action<CodeDrawWindow, Keys, KeyModifiers>? OnKeyDown;
-        public event Action<CodeDrawWindow, Keys, KeyModifiers>? OnKeyUp;
-        public event Action<CodeDrawWindow, Keys, KeyModifiers>? OnKeyRepeat;
+        public event Action<CodeDrawWindow, Keys, ModifierKeys>? OnKeyDown;
+        public event Action<CodeDrawWindow, Keys, ModifierKeys>? OnKeyUp;
+        public event Action<CodeDrawWindow, Keys, ModifierKeys>? OnKeyRepeat;
 
         // Mouse
-        public event Action<CodeDrawWindow, MouseButton, KeyModifiers>? OnMouseDown;
-        public event Action<CodeDrawWindow, MouseButton, KeyModifiers>? OnMouseUp;
+        public event Action<CodeDrawWindow, MouseButton, ModifierKeys>? OnMouseDown;
+        public event Action<CodeDrawWindow, MouseButton, ModifierKeys>? OnMouseUp;
 
         // Wheel / move
         public event Action<CodeDrawWindow, double, double>? OnScroll;
@@ -139,9 +140,9 @@ public sealed unsafe class SharedGlfwHost : IDisposable
     private readonly ConcurrentDictionary<nint, WindowCallbacks> _callbacks = new();
 
     public readonly record struct MouseMoveEvent(int WindowId, double X, double Y);
-    public readonly record struct MouseButtonEvent(int WindowId, MouseButton Button, InputAction Action, KeyModifiers Mods);
+    public readonly record struct MouseButtonEvent(int WindowId, MouseButton Button, InputAction Action, ModifierKeys Mods);
     public readonly record struct MouseWheelEvent(int WindowId, double Dx, double Dy);
-    public readonly record struct KeyEvent(int WindowId, Keys Key, int Scancode, InputAction Action, KeyModifiers Mods);
+    public readonly record struct KeyEvent(int WindowId, Keys Key, int Scancode, InputAction Action, ModifierKeys Mods);
     public readonly record struct CharEvent(int WindowId, uint Codepoint);
     public readonly record struct WindowCloseRequestedEvent(int WindowId);
     public readonly record struct WindowPosEvent(int WindowId, int X, int Y);
@@ -179,6 +180,7 @@ public sealed unsafe class SharedGlfwHost : IDisposable
 
     // stores original rect while a window is "maximized borderless"
     private readonly ConcurrentDictionary<int, (int x, int y, int w, int h, bool valid)> _restoreRects = new();
+    private readonly ConcurrentDictionary<int, (int x, int y, int w, int h, bool valid)> _fullscreenRestoreRects = new();
 
     private SharedGlfwHost() { }
 
@@ -528,8 +530,9 @@ public sealed unsafe class SharedGlfwHost : IDisposable
             },
             MouseButton = (w, button, action, mods) =>
             {
-                Enq(new MouseButtonEvent(id, button, action, mods));
-                EnqueueHostInput(new HostMouseButtonEvent((nint)w, button, action, mods));
+                var keyMods = (ModifierKeys)mods;
+                Enq(new MouseButtonEvent(id, button, action, keyMods));
+                EnqueueHostInput(new HostMouseButtonEvent((nint)w, button, action, keyMods));
             },
             Scroll = (w, dx, dy) =>
             {
@@ -538,8 +541,9 @@ public sealed unsafe class SharedGlfwHost : IDisposable
             },
             Key = (w, key, scancode, action, mods) =>
             {
-                Enq(new KeyEvent(id, key, scancode, action, mods));
-                EnqueueHostInput(new HostKeyEvent((nint)w, key, scancode, action, mods));
+                var keyMods = (ModifierKeys)mods;
+                Enq(new KeyEvent(id, key, scancode, action, keyMods));
+                EnqueueHostInput(new HostKeyEvent((nint)w, key, scancode, action, keyMods));
             },
             Char = (w, codepoint) => Enq(new CharEvent(id, codepoint)),
             Close = (w) =>
@@ -574,7 +578,7 @@ public sealed unsafe class SharedGlfwHost : IDisposable
         }
     }
 
-    internal void ApplyBasicWindowSettingsAsync(
+    internal void ApplyWindowSettingsAsync(
         WindowHandle* win,
         int windowId,
         WindowSettingsSnapshot desired,
@@ -598,11 +602,7 @@ public sealed unsafe class SharedGlfwHost : IDisposable
 
                 // Position
                 if ((dirty & WindowDirty.WindowPos) != 0)
-                    glfw.SetWindowPos(win, (int)desired.WindowPosition.X, (int)desired.WindowPosition.Y);
-
-                // Size
-                if ((dirty & WindowDirty.CanvasSize) != 0)
-                    glfw.SetWindowSize(win, (int)desired.Size.X, (int)desired.Size.Y);
+                    glfw.SetWindowPos(win, desired.WindowPosition.X, desired.WindowPosition.Y);
 
                 // AlwaysOnTop
                 if ((dirty & WindowDirty.AlwaysOnTop) != 0)
@@ -611,128 +611,250 @@ public sealed unsafe class SharedGlfwHost : IDisposable
                 // Border
                 if ((dirty & WindowDirty.Border) != 0)
                 {
-                    switch (desired.Border)
-                    {
-                        case WindowBorder.Resizable:
-                        default:
-                            glfw.SetWindowAttrib(win, WindowAttributeSetter.Decorated, true);
-                            glfw.SetWindowAttrib(win, WindowAttributeSetter.Resizable, true);
-                            glfw.SetWindowSizeLimits(win, Glfw.DontCare, Glfw.DontCare, Glfw.DontCare, Glfw.DontCare);
-                            break;
-
-                        case WindowBorder.Limited:
-                            glfw.SetWindowAttrib(win, WindowAttributeSetter.Decorated, true);
-                            glfw.SetWindowAttrib(win, WindowAttributeSetter.Resizable, true);
-                            // Limits applied below
-                            break;
-
-                        case WindowBorder.Fixed:
-                            glfw.SetWindowAttrib(win, WindowAttributeSetter.Decorated, true);
-                            glfw.SetWindowAttrib(win, WindowAttributeSetter.Resizable, false);
-                            // No size limits for Fixed
-                            glfw.SetWindowSizeLimits(win, Glfw.DontCare, Glfw.DontCare, Glfw.DontCare, Glfw.DontCare);
-                            break;
-
-                        case WindowBorder.Hidden:
-                            glfw.SetWindowAttrib(win, WindowAttributeSetter.Decorated, false);
-                            // Resizable true is fine even if hidden; WM behavior varies.
-                            glfw.SetWindowAttrib(win, WindowAttributeSetter.Resizable, true);
-                            // Clear limits in Hidden (limits are only meaningful in Limited mode)
-                            glfw.SetWindowSizeLimits(win, Glfw.DontCare, Glfw.DontCare, Glfw.DontCare, Glfw.DontCare);
-                            break;
-                    }
+                    ApplyFrameAndResizability_HostThreadUnsafe(glfw, win, desired);
+                    ApplyConstraintsIfWindowed_HostThreadUnsafe(glfw, win, desired);
                 }
 
-                if ((dirty & WindowDirty.SizeLimits) != 0 || (dirty & WindowDirty.WindowState) != 0 || (dirty & WindowDirty.Border) != 0)
-                {
-                    if (desired is { Border: WindowBorder.Limited, State: WindowState.Normal })
-                    {
-                        glfw.SetWindowSizeLimits(
-                            win,
-                            (int)desired.MinSize.X, (int)desired.MinSize.Y,
-                            (int)desired.MaxSize.X, (int)desired.MaxSize.Y
-                        );
-                    }
-                    else
-                    {
-                        // Bypass limits in maximized/fullscreen/fixed/hidden/normal-nolimits
-                        glfw.SetWindowSizeLimits(win, Glfw.DontCare, Glfw.DontCare, Glfw.DontCare, Glfw.DontCare);
-                    }
-                }
+                // Size
+                if ((dirty & WindowDirty.CanvasSize) != 0)
+                    glfw.SetWindowSize(win, desired.Size.X, desired.Size.Y);
+
+                //TODO: check if jumping back form fullscreen to normal while a limit is active now, will apply that limit
 
                 // State (ignore Fullscreen for now)
                 if ((dirty & WindowDirty.WindowState) != 0)
-                {
-                    switch (desired.State)
-                    {
-                        case WindowState.Minimized:
-                            glfw.IconifyWindow(win);
-                            break;
+                    ApplyWindowState_HostThreadUnsafe(glfw, win, windowId, desired, settings);
 
-                        default:
-                        case WindowState.Normal:
-                            glfw.RestoreWindow(win);
-                            RestoreRectIfAvailable_HostThreadUnsafe(win);
-                            break;
+                // ClickThrough
+                if ((dirty & WindowDirty.ClickThrough) != 0)
+                    TryApplyClickThrough_HostThreadUnsafe(glfw, win, desired.ClickThrough);
 
-                        case WindowState.Maximized:
-                            StoreRestoreRectIfMissing_HostThreadUnsafe(win);
-
-                            if (desired.Border == WindowBorder.Fixed) // covers taskbar otherwise?
-                            {
-                                var mi = FindBestMonitorIndexForWindow_HostThreadUnsafe(win);
-                                SetToWorkArea_HostThreadUnsafe(win, mi);
-                            }
-                            else
-                            {
-                                // normal behavior for resizable window
-                                glfw.MaximizeWindow(win);
-                            }
-                            break;
-
-
-                        case WindowState.Fullscreen:
-                            break;
-                    }
-                }
-
-                // ClickThrough / TransparentAlpha
-
-                settings.MarkApplied(dirty);
+                settings.MarkApplied(dirty & ~(WindowDirty.WindowPos | WindowDirty.CanvasSize));
+                settings.SyncCurrentFromHost(desired, dirty);
             }
         });
     }
 
-    private void StoreRestoreRectIfMissing_HostThreadUnsafe(WindowHandle* win)
+    private void ApplyFrameAndResizability_HostThreadUnsafe(Glfw glfw, WindowHandle* win, WindowSettingsSnapshot d)
     {
-        var id = GetWindowId(win);
-        if (_restoreRects.TryGetValue(id, out var rr) && rr.valid) return;
+        // Decorations
+        glfw.SetWindowAttrib(win, WindowAttributeSetter.Decorated, d.FrameMode == WindowFrameMode.Decorated);
 
-        _glfw!.GetWindowPos(win, out var x, out var y);
-        _glfw!.GetWindowSize(win, out var w, out var h);
-        _restoreRects[id] = (x, y, w, h, true);
+        // Resizable flag only depends on resize mode (not frame)
+        var resizable = d.ResizeMode != WindowResizeMode.Fixed;
+        glfw.SetWindowAttrib(win, WindowAttributeSetter.Resizable, resizable);
     }
 
-    private void RestoreRectIfAvailable_HostThreadUnsafe(WindowHandle* win)
+    private void ClearAllConstraints_HostThreadUnsafe(Glfw glfw, WindowHandle* win)
     {
-        var id = GetWindowId(win);
-        if (_restoreRects.TryGetValue(id, out var rr) && rr.valid)
+        glfw.SetWindowSizeLimits(win, Glfw.DontCare, Glfw.DontCare, Glfw.DontCare, Glfw.DontCare);
+        glfw.SetWindowAspectRatio(win, Glfw.DontCare, Glfw.DontCare);
+    }
+
+    private void ApplyConstraintsIfWindowed_HostThreadUnsafe(Glfw glfw, WindowHandle* win, WindowSettingsSnapshot d)
+    {
+        ClearAllConstraints_HostThreadUnsafe(glfw, win);
+
+        if (d.State != WindowState.Windowed)
+            return;
+
+        switch (d.ResizeMode)
         {
-            _glfw!.SetWindowPos(win, rr.x, rr.y);
-            _glfw!.SetWindowSize(win, rr.w, rr.h);
-            _restoreRects.TryRemove(id, out _);
+            case WindowResizeMode.Limited:
+                glfw.SetWindowSizeLimits(win, d.MinSize.X, d.MinSize.Y, d.MaxSize.X, d.MaxSize.Y);
+                break;
+
+            case WindowResizeMode.Aspect:
+                glfw.SetWindowAspectRatio(win, d.AspectRatio.X, d.AspectRatio.Y);
+                break;
+
+            default:
+                // Resizable/Fixed => no constraints
+                break;
         }
     }
 
-    private void SetToWorkArea_HostThreadUnsafe(WindowHandle* win, int monitorIndex)
+    private void ApplyWindowState_HostThreadUnsafe(Glfw glfw, WindowHandle* win, int windowId, WindowSettingsSnapshot desired, WindowSettingsHandle settings)
     {
-        var mons = GetMonitorsInternal_HostThreadUnsafe(_glfw!);
-        if (mons.Count == 0) return;
-        if (monitorIndex < 0 || monitorIndex >= mons.Count) monitorIndex = 0;
+        switch (desired.State)
+        {
+            case WindowState.Windowed:
+            {
+                // If we were fullscreen, restore from monitor mode back to windowed rect
+                ExitFullscreenIfNeeded(glfw, win, windowId);
+                glfw.RestoreWindow(win);
+                break;
+            }
 
-        var m = mons[monitorIndex];
-        _glfw!.SetWindowPos(win, m.WorkX, m.WorkY);
-        _glfw!.SetWindowSize(win, m.WorkWidth, m.WorkHeight);
+            case WindowState.Minimized:
+            {
+                ExitFullscreenIfNeeded(glfw, win, windowId);
+                glfw.IconifyWindow(win);
+                break;
+            }
+
+            case WindowState.Maximized:
+            {
+                ExitFullscreenIfNeeded(glfw, win, windowId);
+
+                if (desired.ResizeMode is not WindowResizeMode.Fixed)
+                    Console.WriteLine($"[Host] INVALID maximize attempt for ResizeMode {desired.ResizeMode}, applying normal maximize.");
+
+                // Windows quirk you found: when you remove resize border (Fixed) maximize can cover taskbar.
+                // Workaround: for Fixed/Hidden, do "workarea maximize" manually.
+                if (desired.FrameMode is WindowFrameMode.Decorated)
+                {
+                    var mi = FindBestMonitorIndexForWindow_HostThreadUnsafe(win);
+                    var mons = GetMonitorsInternal_HostThreadUnsafe(glfw);
+                    if (mons.Count == 0) { glfw.MaximizeWindow(win); return; } //TODO: unsafe fallback. use EnterFullscreen instead
+                    var m = mons[Math.Clamp(mi, 0, mons.Count - 1)];
+                    glfw.SetWindowPos(win, m.WorkX, m.WorkY);
+                    glfw.SetWindowSize(win, m.WorkWidth, m.WorkHeight);
+                    break;
+                }
+
+                {
+                    // we need to move it up by the height of the topbar and increase its height by that much.
+                    var mi = FindBestMonitorIndexForWindow_HostThreadUnsafe(win);
+                    var mons = GetMonitorsInternal_HostThreadUnsafe(glfw);
+                    if (mons.Count == 0) { glfw.MaximizeWindow(win); return; }  //TODO: unsafe fallback. use EnterFullscreen instead
+                    var m = mons[Math.Clamp(mi, 0, mons.Count - 1)];
+                    const int offset = 20; // idk yet where to get the actual height.
+                    glfw.SetWindowPos(win, m.WorkX, m.WorkY - offset);
+                    glfw.SetWindowSize(win, m.WorkWidth, m.WorkHeight + offset);
+                }
+
+                break;
+            }
+
+            case WindowState.Fullscreen:
+            {
+                EnterFullscreen(glfw, win, windowId, settings);
+                break;
+            }
+        }
     }
 
+    private void ApplyMaximizeWorkarea_HostThreadUnsafe(Glfw glfw, WindowHandle* win)
+    {
+        var mi = FindBestMonitorIndexForWindow_HostThreadUnsafe(win);
+        var mons = GetMonitorsInternal_HostThreadUnsafe(glfw);
+        if (mons.Count == 0) { glfw.MaximizeWindow(win); return; }
+        var m = mons[Math.Clamp(mi, 0, mons.Count - 1)];
+        glfw.SetWindowPos(win, m.WorkX, m.WorkY);
+        glfw.SetWindowSize(win, m.WorkWidth, m.WorkHeight);
+    }
+
+    private void EnterFullscreen(Glfw glfw, WindowHandle* win, int windowId, WindowSettingsHandle settings)
+    {
+        // save restore rect once
+        if (!_fullscreenRestoreRects.TryGetValue(windowId, out var rr) || !rr.valid)
+        {
+            glfw.GetWindowPos(win, out var x, out var y);
+            glfw.GetWindowSize(win, out var w, out var h);
+            _fullscreenRestoreRects[windowId] = (x, y, w, h, true);
+        }
+
+        // clear constraints
+        glfw.SetWindowSizeLimits(win, Glfw.DontCare, Glfw.DontCare, Glfw.DontCare, Glfw.DontCare);
+        glfw.SetWindowAspectRatio(win, Glfw.DontCare, Glfw.DontCare);
+
+        var mi = FindBestMonitorIndexForWindow_HostThreadUnsafe(win);
+        var monitors = glfw.GetMonitors(out var count);
+        if (count <= 0 || monitors == null) return;
+        mi = Math.Clamp(mi, 0, count - 1);
+        var m = monitors[mi];
+
+        glfw.GetMonitorPos(m, out var mx, out var my);
+        var mode = glfw.GetVideoMode(m);
+        if (mode == null) return;
+
+        var logicalW = mode->Width;
+        var logicalH = mode->Height;
+
+        // Workaround: +1 px width physical
+        var physicalW = logicalW + 1;
+        var physicalH = logicalH;
+
+        glfw.SetWindowAttrib(win, WindowAttributeSetter.Decorated, false);
+        glfw.SetWindowAttrib(win, WindowAttributeSetter.Resizable, false);
+
+        glfw.SetWindowPos(win, mx, my);
+        glfw.SetWindowSize(win, physicalW, physicalH);
+
+        // Lie to user: update settings size to logical
+        settings.SyncSizeFromHost(new Vector2<int>(logicalW, logicalH));
+
+        glfw.FocusWindow(win);
+    }
+
+    private void ExitFullscreenIfNeeded(Glfw glfw, WindowHandle* win, int windowId)
+    {
+        if (!_fullscreenRestoreRects.TryGetValue(windowId, out var rr) || !rr.valid)
+            return;
+
+        glfw.SetWindowAttrib(win, WindowAttributeSetter.Decorated, true);
+        glfw.SetWindowAttrib(win, WindowAttributeSetter.Resizable, true);
+
+        glfw.SetWindowPos(win, rr.x, rr.y);
+        glfw.SetWindowSize(win, rr.w, rr.h);
+
+        _fullscreenRestoreRects.TryRemove(windowId, out _);
+    }
+
+#region Windows only (ClickThrough)
+
+    private static void TryApplyClickThrough_HostThreadUnsafe(Glfw glfw, WindowHandle* win, bool enabled)
+    {
+        if (!OperatingSystem.IsWindows()) return;
+
+        // We need HWND; if your Silk.NET doesn't expose glfwGetWin32Window,
+        // use the DllImport fallback.
+        var hwnd = Win32ClickThrough.GetHwndOrZero(win);
+        if (hwnd == nint.Zero) return;
+
+        Win32ClickThrough.SetClickThrough(hwnd, enabled);
+    }
+
+    private static partial class Win32ClickThrough
+    {
+        [System.Runtime.InteropServices.LibraryImport("glfw3.dll", EntryPoint = "glfwGetWin32Window")]
+        private static partial nint glfwGetWin32Window(WindowHandle* window);
+
+        public static nint GetHwndOrZero(WindowHandle* win)
+        {
+            try { return glfwGetWin32Window(win); }
+            catch { return nint.Zero; }
+        }
+
+        private const int GWL_EXSTYLE = -20;
+        private const int WS_EX_TRANSPARENT = 0x00000020;
+        private const int WS_EX_LAYERED = 0x00080000;
+
+        [System.Runtime.InteropServices.LibraryImport("user32.dll", EntryPoint = "GetWindowLongPtrW")]
+        private static partial nint GetWindowLongPtr(nint hWnd, int nIndex);
+
+        [System.Runtime.InteropServices.LibraryImport("user32.dll", EntryPoint = "SetWindowLongPtrW")]
+        private static partial nint SetWindowLongPtr(nint hWnd, int nIndex, nint dwNewLong);
+
+        public static void SetClickThrough(nint hwnd, bool enabled)
+        {
+            var ex = GetWindowLongPtr(hwnd, GWL_EXSTYLE).ToInt64();
+            if (enabled)
+            {
+                ex |= WS_EX_LAYERED;
+                ex |= WS_EX_TRANSPARENT;
+            }
+            else
+            {
+                ex &= ~WS_EX_TRANSPARENT;
+                // keep LAYERED if you want other layered uses; otherwise clear it too:
+                // ex &= ~WS_EX_LAYERED;
+            }
+
+            SetWindowLongPtr(hwnd, GWL_EXSTYLE, new nint(ex));
+        }
+    }
+
+#endregion
 }

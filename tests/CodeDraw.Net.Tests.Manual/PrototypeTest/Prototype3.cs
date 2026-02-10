@@ -2,6 +2,7 @@
 using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.DrawLayer;
 using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.Shaders;
 using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.Window;
+using MarcoZechner.MathDotNet;
 using Silk.NET.GLFW;
 
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.PrototypeTest;
@@ -44,39 +45,76 @@ public class Prototype3 : IDisposable
         {
             var layer = context.Win.Layer;
 
-            layer.Clear(1,1,1,1);
+            layer.Clear(1,1,1,0.5f);
             DrawOrbitingDots(layer, 200, 200, 10, 50, 2, 0, new Rgba(0.5f, 0, 0, 1f));
             DrawOrbitingDots(layer, 200, 200, 10, 80, 2*80/50f, 0, new Rgba(0.0f, 1, 1, 1f));
             layer.Render();
         };
 
+        var set = _win2.WindowSettings;
+        set.MinSize = new Vector2<int>(200, 200);
+        set.MaxSize = new Vector2<int>(600, 600);
+        set.AspectRatio = new Vector2<int>(1, 1);
+
+
+        string lastMsg = "";
         _win2.OnUpdate += context =>
         {
             var win = context.Win;
             var input = win.Input;
+
+            var ctrl = input.GetModifierState(ModifierKeys.CONTROL);
+            var delta = Vector2<int>.Zero;
             if (input.GetKeyDown(Keys.Left))
-                win.PosX -= 10;
+                delta = delta.WithX(delta.X - 10);
             if (input.GetKeyDown(Keys.Right))
-                win.PosX += 10;
+                delta = delta.WithX(delta.X + 10);
             if (input.GetKeyDown(Keys.Up))
-                win.PosY -= 10;
+                delta = delta.WithY(delta.Y - 10);
             if (input.GetKeyDown(Keys.Down))
-                win.PosY += 10;
+                delta = delta.WithY(delta.Y + 10);
+
+            if (delta != Vector2<int>.Zero)
+            {
+                if (ctrl)
+                    win.Size += delta;
+                else
+                    win.WindowPosition += delta;
+            }
+
+
+            if (win.WindowSettings.ToString() != lastMsg)
+            {
+                Console.WriteLine($"\n------------------------------------------------------------------------------\n{DateTime.Now:HH:mm:ss}\n{win.WindowSettings}");
+                lastMsg = win.WindowSettings.ToString();
+            }
 
             if (input.GetKeyDown(Keys.T))
                 _win2.AlwaysOnTop = !_win2.AlwaysOnTop;
 
-            if (input.GetKeyDown(Keys.B))
-                _win2.Border = _win2.Border == WindowBorder.Resizable ? WindowBorder.Fixed : WindowBorder.Resizable;
+            if (input.GetKeyDown(Keys.F))
+                _win2.ResizeMode = _win2.ResizeMode != WindowResizeMode.Fixed ? WindowResizeMode.Fixed : WindowResizeMode.Resizable;
 
             if (input.GetKeyDown(Keys.L))
-                _win2.Border = _win2.Border == WindowBorder.Resizable ? WindowBorder.Limited : WindowBorder.Resizable;
+                _win2.ResizeMode = _win2.ResizeMode != WindowResizeMode.Limited ? WindowResizeMode.Limited : WindowResizeMode.Resizable;
+
+            if (input.GetKeyDown(Keys.R))
+                _win2.ResizeMode = _win2.ResizeMode != WindowResizeMode.Aspect ? WindowResizeMode.Aspect : WindowResizeMode.Resizable;
 
             if (input.GetKeyDown(Keys.H))
-                _win2.Border = _win2.Border == WindowBorder.Hidden ? WindowBorder.Resizable : WindowBorder.Hidden;
+                _win2.FrameMode = _win2.FrameMode != WindowFrameMode.Hidden ? WindowFrameMode.Hidden : WindowFrameMode.Decorated;
 
             if (input.GetKeyDown(Keys.S))
-                _win2.State = _win2.State == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+                _win2.State = _win2.State != WindowState.Maximized ? WindowState.Maximized : WindowState.Windowed;
+
+            if (input.GetKeyDown(Keys.M))
+                _win2.State = _win2.State != WindowState.Fullscreen ? WindowState.Fullscreen : WindowState.Windowed;
+
+            if (input.GetKeyDown(Keys.C))
+                _win2.ClickThrough = !_win2.ClickThrough;
+
+            if (input.GetKeyDown(Keys.A))
+                _win2.TransparentAlpha = !_win2.TransparentAlpha;
 
             var layer = win.Layer;
 
@@ -87,6 +125,7 @@ public class Prototype3 : IDisposable
             }
 
             layer.Clear();
+            layer.SetBlendMode(BlendMode.NONE);
             layer.CustomDrawRect(
                 shader: colorShiftShader,
                 uniforms: Uniforms.Of(

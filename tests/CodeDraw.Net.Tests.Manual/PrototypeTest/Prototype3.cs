@@ -69,6 +69,9 @@ public class Prototype3 : IDisposable
             if (input.GetKeyDown(Keys.B))
                 _win2.Border = _win2.Border == WindowBorder.Resizable ? WindowBorder.Fixed : WindowBorder.Resizable;
 
+            if (input.GetKeyDown(Keys.L))
+                _win2.Border = _win2.Border == WindowBorder.Resizable ? WindowBorder.Limited : WindowBorder.Resizable;
+
             if (input.GetKeyDown(Keys.H))
                 _win2.Border = _win2.Border == WindowBorder.Hidden ? WindowBorder.Resizable : WindowBorder.Hidden;
 

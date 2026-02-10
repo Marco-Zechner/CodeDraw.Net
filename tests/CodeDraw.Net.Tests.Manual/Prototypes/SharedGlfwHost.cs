@@ -554,6 +554,7 @@ public sealed unsafe class SharedGlfwHost : IDisposable
 
         _callbacks[(nint)win] = cbs;
 
+        Glfw.SetInputMode(win, (StickyAttributes)0x00033004, true); //capslock support (https://www.glfw.org/docs/3.3/glfw3_8h.html#a07b84de0b52143e1958f88a7d9105947)
         _glfw!.SetCursorPosCallback(win, cbs.CursorPos);
         _glfw.SetMouseButtonCallback(win, cbs.MouseButton);
         _glfw.SetScrollCallback(win, cbs.Scroll);
@@ -573,88 +574,165 @@ public sealed unsafe class SharedGlfwHost : IDisposable
         }
     }
 
-internal void ApplyBasicWindowSettingsAsync(
-    WindowHandle* win,
-    int windowId,
-    WindowSettingsSnapshot desired,
-    WindowDirty dirty,
-    WindowSettingsHandle settings)
-{
-    if (win == null) return;
-
-    InvokeHostAsync(() =>
+    internal void ApplyBasicWindowSettingsAsync(
+        WindowHandle* win,
+        int windowId,
+        WindowSettingsSnapshot desired,
+        WindowDirty dirty,
+        WindowSettingsHandle settings)
     {
-        if (!IsWindowAlive(win)) return;
+        if (win == null) return;
 
-        var glfw = _glfw!;
-        var l = GetWindowLock(win);
-
-        lock (l)
+        InvokeHostAsync(() =>
         {
-            // Title
-            if ((dirty & WindowDirty.Title) != 0)
-                glfw.SetWindowTitle(win, desired.Title ?? "");
+            if (!IsWindowAlive(win)) return;
 
-            // Position
-            if ((dirty & WindowDirty.WindowPos) != 0)
-                glfw.SetWindowPos(win, (int)desired.WindowPosition.X, (int)desired.WindowPosition.Y);
+            var glfw = _glfw!;
+            var l = GetWindowLock(win);
 
-            // Size
-            if ((dirty & WindowDirty.CanvasSize) != 0)
-                glfw.SetWindowSize(win, (int)desired.Size.X, (int)desired.Size.Y);
-
-            // AlwaysOnTop
-            if ((dirty & WindowDirty.AlwaysOnTop) != 0)
-                glfw.SetWindowAttrib(win, WindowAttributeSetter.Floating, desired.AlwaysOnTop);
-
-            // Border
-            if ((dirty & WindowDirty.Border) != 0)
+            lock (l)
             {
-                switch (desired.Border)
+                // Title
+                if ((dirty & WindowDirty.Title) != 0)
+                    glfw.SetWindowTitle(win, desired.Title ?? "");
+
+                // Position
+                if ((dirty & WindowDirty.WindowPos) != 0)
+                    glfw.SetWindowPos(win, (int)desired.WindowPosition.X, (int)desired.WindowPosition.Y);
+
+                // Size
+                if ((dirty & WindowDirty.CanvasSize) != 0)
+                    glfw.SetWindowSize(win, (int)desired.Size.X, (int)desired.Size.Y);
+
+                // AlwaysOnTop
+                if ((dirty & WindowDirty.AlwaysOnTop) != 0)
+                    glfw.SetWindowAttrib(win, WindowAttributeSetter.Floating, desired.AlwaysOnTop);
+
+                // Border
+                if ((dirty & WindowDirty.Border) != 0)
                 {
-                    case WindowBorder.Hidden:
-                        glfw.SetWindowAttrib(win, WindowAttributeSetter.Decorated, false);
-                        break;
+                    switch (desired.Border)
+                    {
+                        case WindowBorder.Resizable:
+                        default:
+                            glfw.SetWindowAttrib(win, WindowAttributeSetter.Decorated, true);
+                            glfw.SetWindowAttrib(win, WindowAttributeSetter.Resizable, true);
+                            glfw.SetWindowSizeLimits(win, Glfw.DontCare, Glfw.DontCare, Glfw.DontCare, Glfw.DontCare);
+                            break;
 
-                    case WindowBorder.Fixed:
-                        glfw.SetWindowAttrib(win, WindowAttributeSetter.Decorated, true);
-                        glfw.SetWindowAttrib(win, WindowAttributeSetter.Resizable, false);
-                        break;
+                        case WindowBorder.Limited:
+                            glfw.SetWindowAttrib(win, WindowAttributeSetter.Decorated, true);
+                            glfw.SetWindowAttrib(win, WindowAttributeSetter.Resizable, true);
+                            // Limits applied below
+                            break;
 
-                    case WindowBorder.Resizable:
-                        glfw.SetWindowAttrib(win, WindowAttributeSetter.Decorated, true);
-                        glfw.SetWindowAttrib(win, WindowAttributeSetter.Resizable, true);
-                        break;
+                        case WindowBorder.Fixed:
+                            glfw.SetWindowAttrib(win, WindowAttributeSetter.Decorated, true);
+                            glfw.SetWindowAttrib(win, WindowAttributeSetter.Resizable, false);
+                            // No size limits for Fixed
+                            glfw.SetWindowSizeLimits(win, Glfw.DontCare, Glfw.DontCare, Glfw.DontCare, Glfw.DontCare);
+                            break;
+
+                        case WindowBorder.Hidden:
+                            glfw.SetWindowAttrib(win, WindowAttributeSetter.Decorated, false);
+                            // Resizable true is fine even if hidden; WM behavior varies.
+                            glfw.SetWindowAttrib(win, WindowAttributeSetter.Resizable, true);
+                            // Clear limits in Hidden (limits are only meaningful in Limited mode)
+                            glfw.SetWindowSizeLimits(win, Glfw.DontCare, Glfw.DontCare, Glfw.DontCare, Glfw.DontCare);
+                            break;
+                    }
                 }
-            }
 
-            // State (ignore Fullscreen for now)
-            if ((dirty & WindowDirty.WindowState) != 0)
-            {
-                switch (desired.State)
+                if ((dirty & WindowDirty.SizeLimits) != 0 || (dirty & WindowDirty.WindowState) != 0 || (dirty & WindowDirty.Border) != 0)
                 {
-                    case WindowState.Minimized:
-                        glfw.IconifyWindow(win);
-                        break;
-
-                    case WindowState.Maximized:
-                        glfw.MaximizeWindow(win);
-                        break;
-
-                    case WindowState.Normal:
-                        glfw.RestoreWindow(win);
-                        break;
-
-                    case WindowState.Fullscreen:
-                        break;
+                    if (desired is { Border: WindowBorder.Limited, State: WindowState.Normal })
+                    {
+                        glfw.SetWindowSizeLimits(
+                            win,
+                            (int)desired.MinSize.X, (int)desired.MinSize.Y,
+                            (int)desired.MaxSize.X, (int)desired.MaxSize.Y
+                        );
+                    }
+                    else
+                    {
+                        // Bypass limits in maximized/fullscreen/fixed/hidden/normal-nolimits
+                        glfw.SetWindowSizeLimits(win, Glfw.DontCare, Glfw.DontCare, Glfw.DontCare, Glfw.DontCare);
+                    }
                 }
+
+                // State (ignore Fullscreen for now)
+                if ((dirty & WindowDirty.WindowState) != 0)
+                {
+                    switch (desired.State)
+                    {
+                        case WindowState.Minimized:
+                            glfw.IconifyWindow(win);
+                            break;
+
+                        default:
+                        case WindowState.Normal:
+                            glfw.RestoreWindow(win);
+                            RestoreRectIfAvailable_HostThreadUnsafe(win);
+                            break;
+
+                        case WindowState.Maximized:
+                            StoreRestoreRectIfMissing_HostThreadUnsafe(win);
+
+                            if (desired.Border == WindowBorder.Fixed) // covers taskbar otherwise?
+                            {
+                                var mi = FindBestMonitorIndexForWindow_HostThreadUnsafe(win);
+                                SetToWorkArea_HostThreadUnsafe(win, mi);
+                            }
+                            else
+                            {
+                                // normal behavior for resizable window
+                                glfw.MaximizeWindow(win);
+                            }
+                            break;
+
+
+                        case WindowState.Fullscreen:
+                            break;
+                    }
+                }
+
+                // ClickThrough / TransparentAlpha
+
+                settings.MarkApplied(dirty);
             }
+        });
+    }
 
-            // ClickThrough / TransparentAlpha
+    private void StoreRestoreRectIfMissing_HostThreadUnsafe(WindowHandle* win)
+    {
+        var id = GetWindowId(win);
+        if (_restoreRects.TryGetValue(id, out var rr) && rr.valid) return;
 
-            settings.MarkApplied(dirty);
+        _glfw!.GetWindowPos(win, out var x, out var y);
+        _glfw!.GetWindowSize(win, out var w, out var h);
+        _restoreRects[id] = (x, y, w, h, true);
+    }
+
+    private void RestoreRectIfAvailable_HostThreadUnsafe(WindowHandle* win)
+    {
+        var id = GetWindowId(win);
+        if (_restoreRects.TryGetValue(id, out var rr) && rr.valid)
+        {
+            _glfw!.SetWindowPos(win, rr.x, rr.y);
+            _glfw!.SetWindowSize(win, rr.w, rr.h);
+            _restoreRects.TryRemove(id, out _);
         }
-    });
-}
+    }
+
+    private void SetToWorkArea_HostThreadUnsafe(WindowHandle* win, int monitorIndex)
+    {
+        var mons = GetMonitorsInternal_HostThreadUnsafe(_glfw!);
+        if (mons.Count == 0) return;
+        if (monitorIndex < 0 || monitorIndex >= mons.Count) monitorIndex = 0;
+
+        var m = mons[monitorIndex];
+        _glfw!.SetWindowPos(win, m.WorkX, m.WorkY);
+        _glfw!.SetWindowSize(win, m.WorkWidth, m.WorkHeight);
+    }
 
 }

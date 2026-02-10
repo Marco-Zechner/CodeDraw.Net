@@ -242,6 +242,8 @@ public sealed unsafe class CodeDrawWindow : IDisposable, IShaderConsumer
         WindowSettings = new WindowSettingsHandle(new WindowSettingsSnapshot(
             WindowPosition: new Vector2(x, y),
             Size: new Vector2(w, h),
+            MinSize: new Vector2(10,10),
+            MaxSize: new Vector2(1280, 720),
             Title: title,
             AlwaysOnTop: false,
             Border: WindowBorder.Resizable,

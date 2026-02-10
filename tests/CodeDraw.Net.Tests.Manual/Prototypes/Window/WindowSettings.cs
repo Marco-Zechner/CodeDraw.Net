@@ -14,9 +14,15 @@ internal enum WindowDirty : uint
     WindowState      = 1u << 5,
     ClickThrough     = 1u << 6,
     TransparentAlpha = 1u << 7,
+    SizeLimits       = 1u << 8,
 }
 
-public enum WindowBorder { Resizable, Fixed, Hidden }
+public enum WindowBorder{
+    Resizable,   // resizable, no limits
+    Limited,  // resizable + min/max limits
+    Fixed,    // resizable=false (no limits)
+    Hidden,   // decorated=false
+}
 public enum WindowState  { Normal, Minimized, Maximized, Fullscreen }
 
 /// <summary>
@@ -24,7 +30,9 @@ public enum WindowState  { Normal, Minimized, Maximized, Fullscreen }
 /// </summary>
 public readonly record struct WindowSettingsSnapshot(
     Vector2 WindowPosition,
-    Vector2 Size,           // == CanvasSize (your decision)
+    Vector2 Size,
+    Vector2 MinSize,
+    Vector2 MaxSize,
     string  Title,
     bool    AlwaysOnTop,
     WindowBorder Border,
@@ -39,7 +47,7 @@ public readonly record struct WindowSettingsSnapshot(
 /// </summary>
 public sealed class WindowSettingsHandle
 {
-    private readonly object _lock = new();
+    private readonly Lock _lock = new();
 
     private WindowSettingsSnapshot _current;
     private WindowSettingsSnapshot _desired;
@@ -57,6 +65,43 @@ public sealed class WindowSettingsHandle
     }
 
     // What user expects: return desired.
+    public Vector2 MinSize
+    {
+        get { lock (_lock) return _desired.MinSize; }
+        set
+        {
+            lock (_lock)
+            {
+                var s = _desired with { MinSize = SanitizeSize(value) };
+                s = FixLimitsAndMaybeClamp(s, clampSizeIfLimited: true);
+
+                _desired = s;
+                Mark(WindowDirty.SizeLimits);
+
+                // If clamping changed Size, we must also push CanvasSize
+                // (FixLimitsAndMaybeClamp already adjusted Size)
+                MarkIfSizeChangedComparedToCurrentDesired();
+            }
+        }
+    }
+
+    public Vector2 MaxSize
+    {
+        get { lock (_lock) return _desired.MaxSize; }
+        set
+        {
+            lock (_lock)
+            {
+                var s = _desired with { MaxSize = SanitizeSize(value) };
+                s = FixLimitsAndMaybeClamp(s, clampSizeIfLimited: true);
+
+                _desired = s;
+                Mark(WindowDirty.SizeLimits);
+                MarkIfSizeChangedComparedToCurrentDesired();
+            }
+        }
+    }
+
     public Vector2 WindowPosition
     {
         get { lock (_lock) return _desired.WindowPosition; }
@@ -66,7 +111,20 @@ public sealed class WindowSettingsHandle
     public Vector2 Size
     {
         get { lock (_lock) return _desired.Size; }
-        set { lock (_lock) { _desired = _desired with { Size = value }; Mark(WindowDirty.CanvasSize); } }
+        set
+        {
+            lock (_lock)
+            {
+                var s = _desired with { Size = value };
+
+                // If Limited, clamp requested size immediately so the API feels deterministic.
+                if (s.Border == WindowBorder.Limited)
+                    s = ClampSizeToLimits(s);
+
+                _desired = s;
+                Mark(WindowDirty.CanvasSize);
+            }
+        }
     }
 
     public string Title
@@ -84,7 +142,25 @@ public sealed class WindowSettingsHandle
     public WindowBorder Border
     {
         get { lock (_lock) return _desired.Border; }
-        set { lock (_lock) { _desired = _desired with { Border = value }; Mark(WindowDirty.Border); } }
+        set
+        {
+            lock (_lock)
+            {
+                var before = _desired;
+                var after = _desired with { Border = value };
+
+                // If switching into Limited, enforce valid limits + clamp size
+                // If switching out of Limited, keep min/max stored but don’t clamp size.
+                after = FixLimitsAndMaybeClamp(after, clampSizeIfLimited: value == WindowBorder.Limited);
+
+                _desired = after;
+                Mark(WindowDirty.Border);
+
+                // Switching into Limited may clamp Size
+                if (value == WindowBorder.Limited && after.Size != before.Size)
+                    Mark(WindowDirty.CanvasSize);
+            }
+        }
     }
 
     public WindowState State
@@ -161,6 +237,50 @@ public sealed class WindowSettingsHandle
         {
             _pending &= ~applied;
         }
+    }
+
+    private static Vector2 SanitizeSize(Vector2 v)
+        => new Vector2(MathF.Max(1, v.X), MathF.Max(1, v.Y));
+
+    private static WindowSettingsSnapshot FixLimitsAndMaybeClamp(WindowSettingsSnapshot s, bool clampSizeIfLimited)
+    {
+        var min = SanitizeSize(s.MinSize);
+        var max = SanitizeSize(s.MaxSize);
+
+        // Ensure min <= max component-wise
+        if (min.X > max.X) max = max.WithX(min.X);
+        if (min.Y > max.Y) max = max.WithY(min.Y);
+
+        // Also if max < min (when setting max), bring min down? No: your rule says
+        // “if min>max, change max and vice versa.”
+        // We’ll implement that symmetrically by also fixing min if max was made smaller:
+        if (max.X < min.X) min = min.WithX(max.X);
+        if (max.Y < min.Y) min = min.WithY(max.Y);
+
+        s = s with { MinSize = min, MaxSize = max };
+
+        if (clampSizeIfLimited && s.Border == WindowBorder.Limited)
+            s = ClampSizeToLimits(s);
+
+        return s;
+    }
+
+    private static WindowSettingsSnapshot ClampSizeToLimits(WindowSettingsSnapshot s)
+    {
+        var clamped = new Vector2(
+            MathF.Min(MathF.Max(s.Size.X, s.MinSize.X), s.MaxSize.X),
+            MathF.Min(MathF.Max(s.Size.Y, s.MinSize.Y), s.MaxSize.Y)
+        );
+        return clamped == s.Size ? s : s with { Size = clamped };
+    }
+
+    private void MarkIfSizeChangedComparedToCurrentDesired()
+    {
+        // We’re inside lock(_lock).
+        // If size is outside limits and got clamped, we must push size change.
+        // Easiest safe behavior: if Border == Limited, always ensure CanvasSize dirty.
+        if (_desired.Border == WindowBorder.Limited)
+            _dirtyToApply |= WindowDirty.CanvasSize;
     }
 
     private void Mark(WindowDirty bit)

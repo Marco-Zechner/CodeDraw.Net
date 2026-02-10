@@ -573,31 +573,88 @@ public sealed unsafe class SharedGlfwHost : IDisposable
         }
     }
 
-    internal void ApplyBasicWindowSettingsAsync(WindowHandle* win, int windowId, WindowSettingsSnapshot desired, WindowDirty dirty)
+internal void ApplyBasicWindowSettingsAsync(
+    WindowHandle* win,
+    int windowId,
+    WindowSettingsSnapshot desired,
+    WindowDirty dirty,
+    WindowSettingsHandle settings)
+{
+    if (win == null) return;
+
+    InvokeHostAsync(() =>
     {
-        if (win == null) return;
+        if (!IsWindowAlive(win)) return;
 
-        InvokeHostAsync(() =>
+        var glfw = _glfw!;
+        var l = GetWindowLock(win);
+
+        lock (l)
         {
-            if (!IsWindowAlive(win)) return;
+            // Title
+            if ((dirty & WindowDirty.Title) != 0)
+                glfw.SetWindowTitle(win, desired.Title ?? "");
 
-            var glfw = _glfw!;
-            var l = GetWindowLock(win);
+            // Position
+            if ((dirty & WindowDirty.WindowPos) != 0)
+                glfw.SetWindowPos(win, (int)desired.WindowPosition.X, (int)desired.WindowPosition.Y);
 
-            lock (l)
+            // Size
+            if ((dirty & WindowDirty.CanvasSize) != 0)
+                glfw.SetWindowSize(win, (int)desired.Size.X, (int)desired.Size.Y);
+
+            // AlwaysOnTop
+            if ((dirty & WindowDirty.AlwaysOnTop) != 0)
+                glfw.SetWindowAttrib(win, WindowAttributeSetter.Floating, desired.AlwaysOnTop);
+
+            // Border
+            if ((dirty & WindowDirty.Border) != 0)
             {
-                // Title
-                if ((dirty & WindowDirty.Title) != 0)
-                    glfw.SetWindowTitle(win, desired.Title ?? "");
+                switch (desired.Border)
+                {
+                    case WindowBorder.Hidden:
+                        glfw.SetWindowAttrib(win, WindowAttributeSetter.Decorated, false);
+                        break;
 
-                // Position
-                if ((dirty & WindowDirty.WindowPos) != 0)
-                    glfw.SetWindowPos(win, (int)desired.WindowPosition.X, (int)desired.WindowPosition.Y);
+                    case WindowBorder.Fixed:
+                        glfw.SetWindowAttrib(win, WindowAttributeSetter.Decorated, true);
+                        glfw.SetWindowAttrib(win, WindowAttributeSetter.Resizable, false);
+                        break;
 
-                // Size (CanvasSize)
-                if ((dirty & WindowDirty.CanvasSize) != 0)
-                    glfw.SetWindowSize(win, (int)desired.Size.X, (int)desired.Size.Y);
+                    case WindowBorder.Resizable:
+                        glfw.SetWindowAttrib(win, WindowAttributeSetter.Decorated, true);
+                        glfw.SetWindowAttrib(win, WindowAttributeSetter.Resizable, true);
+                        break;
+                }
             }
-        });
-    }
+
+            // State (ignore Fullscreen for now)
+            if ((dirty & WindowDirty.WindowState) != 0)
+            {
+                switch (desired.State)
+                {
+                    case WindowState.Minimized:
+                        glfw.IconifyWindow(win);
+                        break;
+
+                    case WindowState.Maximized:
+                        glfw.MaximizeWindow(win);
+                        break;
+
+                    case WindowState.Normal:
+                        glfw.RestoreWindow(win);
+                        break;
+
+                    case WindowState.Fullscreen:
+                        break;
+                }
+            }
+
+            // ClickThrough / TransparentAlpha
+
+            settings.MarkApplied(dirty);
+        }
+    });
+}
+
 }

@@ -2,6 +2,7 @@
 using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.DrawLayer;
 using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.Shaders;
 using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.Window;
+using Silk.NET.GLFW;
 
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.PrototypeTest;
 
@@ -49,17 +50,32 @@ public class Prototype3 : IDisposable
             layer.Render();
         };
 
-        float timer = 0;
         _win2.OnUpdate += context =>
         {
-            timer += context.DeltaSeconds;
-            if (timer >= 2)
-            {
-                timer = 0;
-                _win.PosX += 10;
-                _win.PosY += 1;
-            }
-            var layer = context.Win.Layer;
+            var win = context.Win;
+            var input = win.Input;
+            if (input.GetKeyDown(Keys.Left))
+                win.PosX -= 10;
+            if (input.GetKeyDown(Keys.Right))
+                win.PosX += 10;
+            if (input.GetKeyDown(Keys.Up))
+                win.PosY -= 10;
+            if (input.GetKeyDown(Keys.Down))
+                win.PosY += 10;
+
+            if (input.GetKeyDown(Keys.T))
+                _win2.AlwaysOnTop = !_win2.AlwaysOnTop;
+
+            if (input.GetKeyDown(Keys.B))
+                _win2.Border = _win2.Border == WindowBorder.Resizable ? WindowBorder.Fixed : WindowBorder.Resizable;
+
+            if (input.GetKeyDown(Keys.H))
+                _win2.Border = _win2.Border == WindowBorder.Hidden ? WindowBorder.Resizable : WindowBorder.Hidden;
+
+            if (input.GetKeyDown(Keys.S))
+                _win2.State = _win2.State == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+
+            var layer = win.Layer;
 
             if (!_win.Layer.TryGetLastRenderTexture(out var lastRenderTexture))
             {

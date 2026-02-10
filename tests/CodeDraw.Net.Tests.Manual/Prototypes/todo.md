@@ -16,3 +16,10 @@ draw text via a shader (with custom font support)
 
 rerender current frame with a custom shader (ie. render current frame up to that point, pass it into the shader
 so the user can do something with it, if he wants, and then draw it over the current frame)
+
+
+Welcome to CodeDraw.Net program.
+A wall of lightgray characters randomly changing with a clock ticking sound. (darkgray background)
+Slowly in the center character for character the text "CodeDraw.Net" appears. those colors become a white color.
+We apply a postprocessing shader to give a glowing effect to the text-wall around the cursor position.
+Once CodeDraw.Net is fully visible the other characters stop changing. only when the user moves the cursor then they change again while he moves it.

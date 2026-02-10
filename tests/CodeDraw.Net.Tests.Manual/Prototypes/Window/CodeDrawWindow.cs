@@ -426,15 +426,16 @@ public sealed unsafe class CodeDrawWindow : IDisposable, IShaderConsumer
                 var (desired, dirty) = WindowSettings.ConsumeDirty();
                 if (dirty != WindowDirty.None)
                 {
-                    // For step 8, apply only safe bits:
-                    var basicDirty = dirty & (WindowDirty.Title | WindowDirty.WindowPos | WindowDirty.CanvasSize);
-                    if (basicDirty != WindowDirty.None)
-                        _host.ApplyBasicWindowSettingsAsync(_win, WindowId, desired, basicDirty);
+                    const WindowDirty supported = WindowDirty.Title |
+                                                  WindowDirty.WindowPos |
+                                                  WindowDirty.CanvasSize |
+                                                  WindowDirty.AlwaysOnTop |
+                                                  WindowDirty.Border |
+                                                  WindowDirty.WindowState;
 
-                    // Mark those as applied so UpdateFromOs won't block desired-sync forever.
-                    // (We mark only what we just handled.)
-                    if (basicDirty != WindowDirty.None)
-                        WindowSettings.MarkApplied(basicDirty);
+                    var apply = dirty & supported;
+                    if (apply != WindowDirty.None)
+                        _host.ApplyBasicWindowSettingsAsync(_win, WindowId, desired, apply, WindowSettings);
                 }
 
                 int winW, winH;

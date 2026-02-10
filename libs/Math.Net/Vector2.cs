@@ -16,6 +16,11 @@ public readonly partial record struct Vector2()
     public Vector2<float> AsGeneric() => _v;
     #endregion
 
+    public Vector2 WithX(float x) => new(x, Y);
+    public Vector2 WithY(float y) => new(X, y);
+
+    public void Deconstruct(out float x, out float y) { x = X; y = Y; }
+
     #region Implicit/Explicit Conversions
     public static implicit operator Vector2<float>(Vector2 v) => v._v;
     public static implicit operator Vector2(Vector2<float> v) => new(v);
@@ -49,7 +54,7 @@ public readonly partial record struct Vector2()
     public static Vector2 operator *(float scalar, Vector2 a) => new(a._v * scalar);
     public static Vector2 operator /(Vector2 a, float scalar) => new(a._v / scalar);
     public static Vector2 operator %(Vector2 a, float scalar) => new(a._v % scalar);
-    #endregion  
+    #endregion
 
     #region Unary Operators
     public static Vector2 operator -(Vector2 a) => new(-a._v.X, -a._v.Y);
@@ -68,5 +73,5 @@ public readonly partial record struct Vector2()
     public static Vector2 Clamp(Vector2 value, float min, float max) => new(Vector2<float>.Clamp(value._v, min, max));
     public static Vector2 Lerp(Vector2 start, Vector2 end, float t) => new(Vector2<float>.Lerp(start._v, end._v, t));
     #endregion
-} 
+}
 

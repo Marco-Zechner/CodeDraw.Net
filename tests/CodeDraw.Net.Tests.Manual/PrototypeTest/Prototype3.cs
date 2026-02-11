@@ -160,5 +160,6 @@ public class Prototype3 : IDisposable
     public void Dispose()
     {
         _win.Dispose();
+        _win2.Dispose();
     }
 }

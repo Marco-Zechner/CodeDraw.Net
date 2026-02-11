@@ -32,34 +32,31 @@ public sealed unsafe partial class CodeDrawLayer
         {
             if (Volatile.Read(ref _lastRenderedCmdSeq) >= targetSeq) return;
 
-            var iAmRenderer = false;
             lock (_renderLock)
             {
+                // If nobody is rendering, become the renderer.
                 if (!_rendering)
                 {
                     _rendering = true;
-                    iAmRenderer = true;
+                    break;
                 }
-            }
 
-            if (iAmRenderer)
-            {
-                try { DrainUntil(targetSeq); }
-                finally
-                {
-                    lock (_renderLock)
-                    {
-                        _rendering = false;
-                        Monitor.PulseAll(_renderLock);
-                    }
-                }
-                return;
-            }
-
-            lock (_renderLock)
-            {
+                // Otherwise wait until rendering finishes or our target is done.
                 while (_rendering && Volatile.Read(ref _lastRenderedCmdSeq) < targetSeq)
                     Monitor.Wait(_renderLock);
+            }
+        }
+
+        try
+        {
+            DrainUntil(targetSeq);
+        }
+        finally
+        {
+            lock (_renderLock)
+            {
+                _rendering = false;
+                Monitor.PulseAll(_renderLock);
             }
         }
     }

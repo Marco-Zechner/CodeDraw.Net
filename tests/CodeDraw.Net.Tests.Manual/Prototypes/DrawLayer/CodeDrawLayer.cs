@@ -40,12 +40,6 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
         // Common (layer copy)
         public AutoUniform UTex = null!;
 
-        // Common (custom rect)
-        public AutoUniform UPosSize = null!;
-        public AutoUniform URes = null!;
-        public AutoUniform UTime = null!;
-        public AutoUniform UColor = null!;
-
         // Per-program user uniform location cache:
         // programHandle -> (uniformName -> location)
         public readonly Dictionary<uint, Dictionary<string, int>> UserLocCache = new();
@@ -117,14 +111,15 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
     private Publication _pub;
     private long _frameSeq;
 
-    private volatile bool _disposed;
+    private bool _disposed;
+    public bool IsDisposed => Volatile.Read(ref _disposed);
 
     private readonly ConcurrentQueue<(long seq, ICmd cmd)> _q = new();
     private long _nextCmdSeq;
     private long _lastEnqueuedSeq;
     private long _lastRenderedCmdSeq;
 
-    private readonly object _renderLock = new();
+    private readonly object _renderLock = new(); // Not "Lock" because we use Monitor.Wait/Pulse which isn't compatible with the "Lock" type.
     private bool _rendering;
 
     private readonly ConcurrentQueue<nint> _retireFences = new();
@@ -144,7 +139,7 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
 
     private readonly AutoResetEvent _published = new(false);
 
-    public bool IsDisposed => _disposed;
+
     public string DebugName { get; }
 
     public CodeDrawLayer(SharedGlfwHost host, int w = 800, int h = 600, string label = "Unknown Layer")
@@ -153,15 +148,14 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
         _host = host;
         _ctxWin = host.CreateHiddenWindow(1, 1, "layer-ctx");
 
-        var glfw = host.Glfw;
-        glfw.MakeContextCurrent(_ctxWin);
-        glfw.SwapInterval(0);
-        _gl = GL.GetApi(glfw.GetProcAddress);
+        LockedGlfw.MakeContextCurrent(_ctxWin);
+        LockedGlfw.SwapInterval(0);
+        _gl = GL.GetApi(LockedGlfw.GetProcAddress);
 
         EnsureInit();
         ResizeInternal(w, h);
 
-        glfw.MakeContextCurrent(null);
+        LockedGlfw.MakeContextCurrent(null);
     }
 
     private void EnsureInit()
@@ -188,13 +182,15 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
 
     public void Dispose()
     {
-        if (_disposed) return;
-        _published.Set();
-        Render();
-        _disposed = true;
+        if (Interlocked.Exchange(ref _disposed, true))
+            return;
 
-        var glfw = _host.Glfw;
-        glfw.MakeContextCurrent(_ctxWin);
+        _published.Set();
+
+        // Flush any pending commands once
+        Render();
+
+        LockedGlfw.MakeContextCurrent(_ctxWin);
 
         for (var i = 0; i < 2; i++)
         {
@@ -210,7 +206,7 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
         if (_vbo != 0) _gl.DeleteBuffer(_vbo);
         if (_ebo != 0) _gl.DeleteBuffer(_ebo);
 
-        glfw.MakeContextCurrent(null);
+        LockedGlfw.MakeContextCurrent(null);
         _host.DestroyWindow(_ctxWin);
     }
 
@@ -256,8 +252,7 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
 
     private void DrainUntil(long targetSeq)
     {
-        var glfw = _host.Glfw;
-        glfw.MakeContextCurrent(_ctxWin);
+        LockedGlfw.MakeContextCurrent(_ctxWin);
 
         EnsureInit();
 
@@ -274,10 +269,6 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
                 {
                     Prog    = ap,
                     UTex    = new AutoUniform(_gl, this, ap, "uTex"),
-                    UPosSize= new AutoUniform(_gl, this, ap, "uPosSize"),
-                    URes    = new AutoUniform(_gl, this, ap, "uRes"),
-                    UTime   = new AutoUniform(_gl, this, ap, "uTime"),
-                    UColor  = new AutoUniform(_gl, this, ap, "uColor"),
                 };
             }
         }
@@ -353,7 +344,7 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
         _published.Set();
 
         _gl.BindFramebuffer(GLEnum.Framebuffer, 0);
-        glfw.MakeContextCurrent(null);
+        LockedGlfw.MakeContextCurrent(null);
     }
 
     private void RetireRequestedFences()
@@ -542,31 +533,32 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
 
     private void ApplyUserUniforms(GL gl, uint prog, ShaderKey key, Uniforms uniforms, out int usedTexUnits)
     {
-        Dictionary<string, int>? map;
         usedTexUnits = 0;
 
+        Dictionary<string, int> locMap;
+
+        // Only protect access to _extCache / entry.UserLocCache structure.
         lock (_extShaderLock)
         {
             if (!_extCache.TryGetValue(key, out var entry))
                 return;
 
-            if (!entry.UserLocCache.TryGetValue(prog, out map))
+            if (!entry.UserLocCache.TryGetValue(prog, out locMap!))
             {
-                map = new Dictionary<string, int>(StringComparer.Ordinal);
-                entry.UserLocCache[prog] = map;
+                locMap = new Dictionary<string, int>(StringComparer.Ordinal);
+                entry.UserLocCache[prog] = locMap;
             }
         }
 
-        // No locks while doing GL calls
-
-        int nextTexUnit = 0;
+        // No locks while doing GL calls.
+        var nextTexUnit = 0;
 
         foreach (var u in uniforms.Values)
         {
-            if (!map.TryGetValue(u.Name, out var loc))
+            if (!locMap.TryGetValue(u.Name, out var loc))
             {
                 loc = gl.GetUniformLocation(prog, u.Name);
-                map[u.Name] = loc;
+                locMap[u.Name] = loc;
             }
 
             if (loc < 0) continue;
@@ -584,6 +576,7 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
                     gl.Uniform1(loc, nextTexUnit);
                     nextTexUnit++;
                     break;
+
                 default:
                     throw new ArgumentOutOfRangeException();
             }

@@ -166,8 +166,6 @@ public sealed unsafe class CodeDrawWindow : IDisposable, IShaderConsumer
         long Tick
     );
 
-    private readonly object _winLock;
-
     private readonly SharedGlfwHost _host;
     private readonly WindowHandle* _win;
     internal nint WindowHandle => (nint)_win;
@@ -200,25 +198,25 @@ public sealed unsafe class CodeDrawWindow : IDisposable, IShaderConsumer
 
     public int Width
     {
-        get => (int)WindowSettings.Size.X;
+        get => WindowSettings.Size.X;
         set => WindowSettings.Size = new Vector2<int>(value, WindowSettings.Size.Y);
     }
 
     public int Height
     {
-        get => (int)WindowSettings.Size.Y;
+        get => WindowSettings.Size.Y;
         set => WindowSettings.Size = new Vector2<int>(WindowSettings.Size.X, value);
     }
 
     public int PosX
     {
-        get => (int)WindowSettings.WindowPosition.X;
+        get => WindowSettings.WindowPosition.X;
         set => WindowSettings.WindowPosition = new Vector2<int>(value, WindowSettings.WindowPosition.Y);
     }
 
     public int PosY
     {
-        get => (int)WindowSettings.WindowPosition.Y;
+        get => WindowSettings.WindowPosition.Y;
         set => WindowSettings.WindowPosition = new Vector2<int>(WindowSettings.WindowPosition.X, value);
     }
 
@@ -270,7 +268,7 @@ public sealed unsafe class CodeDrawWindow : IDisposable, IShaderConsumer
         set
         {
             _title = value;
-            _host.InvokeHostAsync(() => _host.Glfw.SetWindowTitle(_win, _title));
+            _host.InvokeHostAsync(() => LockedGlfw.SetWindowTitle(_win, _title));
         }
     }
 
@@ -337,7 +335,6 @@ public sealed unsafe class CodeDrawWindow : IDisposable, IShaderConsumer
 
         _win = host.CreateWindow(x, y, w, h, _title);
         _host.RegisterWindowObject(_win, this);
-        _winLock = host.GetWindowLock(_win);
         WindowId = host.GetWindowId(_win);
 
         _layer = new CodeDrawLayer(host, w, h, "WindowLayer:" + WindowId);
@@ -368,7 +365,7 @@ public sealed unsafe class CodeDrawWindow : IDisposable, IShaderConsumer
         _host.InvokeHostAsync(() =>
         {
             if (!_host.IsWindowAlive(win)) return;
-            _host.Glfw.SetWindowShouldClose(win, true);
+            LockedGlfw.SetWindowShouldClose(win, true);
         });
     }
 
@@ -404,7 +401,7 @@ public sealed unsafe class CodeDrawWindow : IDisposable, IShaderConsumer
             _host.InvokeHostAsync(() =>
             {
                 if (!_host.IsWindowAlive(win)) return;
-                _host.Glfw.SetWindowShouldClose(win, true);
+                LockedGlfw.SetWindowShouldClose(win, true);
             });
             return;
         }
@@ -483,21 +480,19 @@ public sealed unsafe class CodeDrawWindow : IDisposable, IShaderConsumer
     {
         try
         {
-            var glfw = _host.Glfw;
-            lock (_winLock) glfw.MakeContextCurrent(_win);
-            lock (_winLock) glfw.SwapInterval(0);
-            var gl = GL.GetApi(glfw.GetProcAddress);
+            LockedGlfw.MakeContextCurrent(_win);
+            LockedGlfw.SwapInterval(0);
+            var gl = GL.GetApi(LockedGlfw.GetProcAddress);
 
-            gl.Enable(GLEnum.DebugOutput);
-            gl.Enable(GLEnum.DebugOutputSynchronous);
-
-            gl.DebugMessageCallback((source, type, id, severity, length, message, userParam) =>
-            {
-                var msg = new string((sbyte*)message, 0, length);
-                Console.WriteLine($"GL Debug Message: Source={source}, Type={type}, ID={id}, Severity={severity}, Message={msg}");
-            }, null);
-            gl.DebugMessageControl(GLEnum.DontCare, GLEnum.DontCare, GLEnum.DebugSeverityNotification, 0, null, false);
-
+            // gl.Enable(GLEnum.DebugOutput);
+            // gl.Enable(GLEnum.DebugOutputSynchronous);
+            //
+            // gl.DebugMessageCallback((source, type, id, severity, length, message, userParam) =>
+            // {
+            //     var msg = new string((sbyte*)message, 0, length);
+            //     Console.WriteLine($"GL Debug Message: Source={source}, Type={type}, ID={id}, Severity={severity}, Message={msg}");
+            // }, null);
+            // gl.DebugMessageControl(GLEnum.DontCare, GLEnum.DontCare, GLEnum.DebugSeverityNotification, 0, null, false);
 
             var (vao, vbo, ebo) = ShaderCompiler.CreateFullScreenQuad(gl);
 
@@ -513,6 +508,14 @@ public sealed unsafe class CodeDrawWindow : IDisposable, IShaderConsumer
 
             while (!ShouldClose)
             {
+                if (_host.IsWindowInLiveResize(WindowId))
+                {
+                    // skip a frame if the window is currently being resized by the user.
+                    // if we call swapBuffer here at a bad time when the user is resizing, then it can crash the GPU driver... :/
+                    Thread.Sleep(16);
+                    continue;
+                }
+
                 var (desired, dirty) = WindowSettings.ConsumeDirty();
                 if (dirty != WindowDirty.None)
                 {
@@ -590,7 +593,7 @@ public sealed unsafe class CodeDrawWindow : IDisposable, IShaderConsumer
                     gl.UseProgram(0);
                 }
 
-                lock (_winLock) glfw.SwapBuffers(_win);
+                LockedGlfw.SwapBuffers(_win);
 
                 var err = gl.GetError();
                 if (err != GLEnum.NoError)
@@ -605,7 +608,7 @@ public sealed unsafe class CodeDrawWindow : IDisposable, IShaderConsumer
             gl.DeleteBuffer(vbo);
             gl.DeleteBuffer(ebo);
 
-            lock (_winLock) glfw.MakeContextCurrent(null);
+            LockedGlfw.MakeContextCurrent(null);
         }
         finally
         {

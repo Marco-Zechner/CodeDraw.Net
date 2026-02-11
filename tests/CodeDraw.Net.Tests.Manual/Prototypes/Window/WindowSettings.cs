@@ -50,13 +50,13 @@ public readonly record struct WindowSettingsSnapshot(
 {
     public override string ToString()
     {
-        return $"WindowSettingsSnapshot(\n  WindowPosition={WindowPosition},\n  Size={Size},\n  Title=\"{Title}\",\n  AlwaysOnTop={AlwaysOnTop},\n  BorderMode={ResizeMode},\n  MinSize={MinSize},\n  MaxSize={MaxSize},\n  AspectRatio={AspectRatio},\n  State={State},\n  ClickThrough={ClickThrough},\n  TransparentAlpha={TransparentAlpha}\n)";
+        return $"WindowSettingsSnapshot(\n  WindowPosition={WindowPosition},\n  Size={Size},\n  Title=\"{Title}\",\n  AlwaysOnTop={AlwaysOnTop},\n  BorderMode={ResizeMode},\n  MinSize={MinSize},\n  MaxSize={MaxSize},\n  AspectRatio={AspectRatio},\n  State={State}, \n  Frame={FrameMode},\n  ClickThrough={ClickThrough},\n  TransparentAlpha={TransparentAlpha}\n)";
     }
 }
 
-public static class WindowSettingsSnapshotExtensions
+internal static class WindowSettingsSnapshotExtensions
 {
-    private static WindowSettingsSnapshot Normalize(this WindowSettingsSnapshot d)
+    internal static WindowSettingsSnapshot Normalize(this WindowSettingsSnapshot d)
     {
         // Fullscreen hard-forces: Hidden + Fixed
         if (d.State == WindowState.Fullscreen)

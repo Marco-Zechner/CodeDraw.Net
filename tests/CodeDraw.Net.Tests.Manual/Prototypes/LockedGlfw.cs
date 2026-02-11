@@ -289,4 +289,10 @@ public static unsafe class LockedGlfw
         if (!_isInitialized) throw new InvalidOperationException("Glfw instance not set");
         lock (_glfwLock) _glfwInstance.SwapBuffers(win);
     }
+
+    public static bool GetWindowAttrib(WindowHandle* win, WindowAttributeGetter attribute)
+    {
+        if (!_isInitialized) throw new InvalidOperationException("Glfw instance not set");
+        lock (_glfwLock) return _glfwInstance.GetWindowAttrib(win, attribute);
+    }
 }

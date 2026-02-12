@@ -22,7 +22,7 @@ public static unsafe class LockedGlfw
 
         lock (_glfwLock)
         {
-            _glfwInstance = glfw!;
+            _glfwInstance = glfw;
             _isInitialized = true;
         }
     }
@@ -163,6 +163,12 @@ public static unsafe class LockedGlfw
         if (!_isInitialized) throw new InvalidOperationException("Glfw instance not set");
         lock (_glfwLock) _glfwInstance.SetWindowRefreshCallback(win, cbsWindowRefresh);
     }
+    
+    public static void SetMonitorCallback(MonitorCallback cbsMonitor)
+    {
+        if (!_isInitialized) throw new InvalidOperationException("Glfw instance not set");
+        lock (_glfwLock) _glfwInstance.SetMonitorCallback(cbsMonitor);
+    }
 
     public static void GetWindowPos(WindowHandle* win, out int x, out int y)
     {
@@ -294,5 +300,29 @@ public static unsafe class LockedGlfw
     {
         if (!_isInitialized) throw new InvalidOperationException("Glfw instance not set");
         lock (_glfwLock) return _glfwInstance.GetWindowAttrib(win, attribute);
+    }
+
+    public static void MaximizeWindow(WindowHandle* win)
+    {
+        if (!_isInitialized) throw new InvalidOperationException("Glfw instance not set");
+        lock (_glfwLock) _glfwInstance.MaximizeWindow(win);
+    }
+
+    public static Monitor* GetPrimaryMonitor()
+    {
+        if (!_isInitialized) throw new InvalidOperationException("Glfw instance not set");
+        lock (_glfwLock) return _glfwInstance.GetPrimaryMonitor();
+    }
+
+    public static void SetWindowMaximizeCallback(WindowHandle* win, WindowMaximizeCallback cbsMaximize)
+    {
+        if (!_isInitialized) throw new InvalidOperationException("Glfw instance not set");
+        lock (_glfwLock) _glfwInstance.SetWindowMaximizeCallback(win, cbsMaximize);
+    }
+
+    public static void SetWindowIconifyCallback(WindowHandle* win, WindowIconifyCallback cbsIconify)
+    {
+        if (!_isInitialized) throw new InvalidOperationException("Glfw instance not set");
+        lock (_glfwLock) _glfwInstance.SetWindowIconifyCallback(win, cbsIconify);
     }
 }

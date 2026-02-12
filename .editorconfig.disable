@@ -58,14 +58,15 @@ dotnet_naming_symbols.classes.applicable_kinds = class
 #####################################################
 # 5. Constants → ALL_CAPS
 #####################################################
-dotnet_naming_rule.constants_must_be_all_caps.severity = warning
-dotnet_naming_rule.constants_must_be_all_caps.symbols = constants
-dotnet_naming_rule.constants_must_be_all_caps.style = all_caps
-
-dotnet_naming_symbols.constants.applicable_kinds = field
-dotnet_naming_symbols.constants.required_modifiers = const
-
-dotnet_naming_style.all_caps.capitalization = all_upper
+# Also affects enums...
+# dotnet_naming_rule.constants_must_be_all_caps.severity = warning
+# dotnet_naming_rule.constants_must_be_all_caps.symbols = constants
+# dotnet_naming_rule.constants_must_be_all_caps.style = all_caps
+# 
+# dotnet_naming_symbols.constants.applicable_kinds = field
+# dotnet_naming_symbols.constants.required_modifiers = const
+# 
+# dotnet_naming_style.all_caps.capitalization = all_upper
 
 
 #####################################################
@@ -95,12 +96,12 @@ dotnet_naming_style.camel_case_style.capitalization = camel_case
 #####################################################
 # 8. Enum Types → PascalCase
 #####################################################
-dotnet_naming_rule.enum_types_must_be_pascal_case.severity = warning
-dotnet_naming_rule.enum_types_must_be_pascal_case.symbols = enum_types
-dotnet_naming_rule.enum_types_must_be_pascal_case.style = pascal_case
-
-dotnet_naming_symbols.enum_types.applicable_kinds = enum
-dotnet_naming_symbols.enum_types.applicable_accessibilities = public, internal, protected, private
+# dotnet_naming_rule.enum_types_must_be_pascal_case.severity = warning
+# dotnet_naming_rule.enum_types_must_be_pascal_case.symbols = enum_types
+# dotnet_naming_rule.enum_types_must_be_pascal_case.style = pascal_case
+# 
+# dotnet_naming_symbols.enum_types.applicable_kinds = enum
+# dotnet_naming_symbols.enum_types.applicable_accessibilities = public, internal, protected, private
 
 #####################################################
 # 9. readonly required if possible

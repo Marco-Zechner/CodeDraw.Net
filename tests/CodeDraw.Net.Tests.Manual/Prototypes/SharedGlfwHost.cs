@@ -1,13 +1,12 @@
 ﻿using System.Collections.Concurrent;
 using System.Diagnostics;
 using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.Window;
-using MarcoZechner.MathDotNet;
 using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
 
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes;
 
-public sealed unsafe partial class SharedGlfwHost : IDisposable
+public sealed unsafe class SharedGlfwHost : IDisposable
 {
     public HostInputHub Input { get; } = new();
 
@@ -129,6 +128,8 @@ public sealed unsafe partial class SharedGlfwHost : IDisposable
         public GlfwCallbacks.WindowPosCallback? WindowPos;
         public GlfwCallbacks.WindowSizeCallback? WindowSize;
         public GlfwCallbacks.FramebufferSizeCallback? FramebufferSize;
+        public GlfwCallbacks.WindowMaximizeCallback? Maximize;
+        public GlfwCallbacks.WindowIconifyCallback? Iconify;
     }
 
     private readonly ConcurrentDictionary<nint, WindowCallbacks> _callbacks = new();
@@ -142,6 +143,8 @@ public sealed unsafe partial class SharedGlfwHost : IDisposable
     public readonly record struct WindowPosEvent(int WindowId, int X, int Y);
     public readonly record struct WindowSizeEvent(int WindowId, int W, int H);
     public readonly record struct FramebufferSizeEvent(int WindowId, int W, int H);
+    public readonly record struct WindowMaximizedEvent(int WindowId, bool IsMaximized);
+    public readonly record struct WindowIconifiedEvent(int WindowId, bool IsIconified);
 
 
     public readonly record struct MonitorInfo(
@@ -156,7 +159,7 @@ public sealed unsafe partial class SharedGlfwHost : IDisposable
 
     public static SharedGlfwHost Instance { get; } = new();
 
-    public WindowHandle* ShareRoot => _shareRoot;
+    public WindowHandle* ShareRoot { get; private set; } = null;
 
     private Thread? _hostThread;
     private int _hostThreadId;
@@ -166,18 +169,19 @@ public sealed unsafe partial class SharedGlfwHost : IDisposable
     private readonly AutoResetEvent _work = new(false);
     private readonly ConcurrentQueue<Action> _hostJobs = new();
 
-    private WindowHandle* _shareRoot = null;
-
     private int _nextWindowId;
     private readonly ConcurrentDictionary<nint, int> _winToId = new();
     private readonly ConcurrentDictionary<int, ConcurrentQueue<object>> _inputQueues = new();
 
-    // stores original rect while a window is "maximized borderless"
-    private readonly ConcurrentDictionary<int, (int x, int y, int w, int h, bool valid)> _restoreRects = new();
-    private readonly ConcurrentDictionary<int, (int x, int y, int w, int h, bool valid)> _fullscreenRestoreRects = new();
+    private readonly WindowStateMachine _stateMachine = new();
     private readonly ConcurrentDictionary<int, long> _lastResizeTick = new();
     private readonly ConcurrentDictionary<int, int> _isLiveResize = new(); // 0/1
 
+    private List<MonitorInfo> _monitorsCache = [];
+    private int _monitorsDirty = 1; // start dirty so we build once
+
+    private GlfwCallbacks.MonitorCallback? _monitorCallback; // keep delegate alive
+    
     private static long NowTicks() => Stopwatch.GetTimestamp();
     private static double TicksToMs(long dt) => dt * 1000.0 / Stopwatch.Frequency;
 
@@ -261,7 +265,7 @@ public sealed unsafe partial class SharedGlfwHost : IDisposable
         InvokeHostSync(() =>
         {
             ApplyCommonHints();
-            result = LockedGlfw.CreateWindow(w, h, title, null, _shareRoot);
+            result = LockedGlfw.CreateWindow(w, h, title, null, ShareRoot);
             if (result == null) throw new Exception("CreateWindow failed");
             EnsureHostQueue(result);
 
@@ -287,7 +291,7 @@ public sealed unsafe partial class SharedGlfwHost : IDisposable
             ApplyCommonHints();
             LockedGlfw.WindowHint(WindowHintBool.Visible, false);
 
-            result = LockedGlfw.CreateWindow(w, h, title, null, _shareRoot);
+            result = LockedGlfw.CreateWindow(w, h, title, null, ShareRoot);
             if (result == null) throw new Exception("CreateHiddenWindow failed");
             EnsureHostQueue(result);
 
@@ -311,7 +315,6 @@ public sealed unsafe partial class SharedGlfwHost : IDisposable
             if (_winToId.TryRemove((nint)win, out var id))
             {
                 _inputQueues.TryRemove(id, out _);
-                _restoreRects.TryRemove(id, out _);
             }
 
             LockedGlfw.MakeContextCurrent(null);
@@ -320,70 +323,18 @@ public sealed unsafe partial class SharedGlfwHost : IDisposable
         });
     }
 
-    // --------------------------
-    // MaximizeBorderless API
-    // --------------------------
-
-    public void SetMaximizeBorderlessSafe(WindowHandle* win, bool enabled)
+    private List<MonitorInfo> GetMonitorsCached_HostThreadUnsafe()
     {
-        InvokeHostSync(() =>
-        {
-            if (!IsWindowAlive(win)) return;
-            var mi = FindBestMonitorIndexForWindow_HostThreadUnsafe(win);
-            SetMaximizeBorderlessInternal_HostThreadUnsafe(win, enabled, mi);
-        });
+        // host thread only (PollEvents + jobs), so no heavy locking needed
+        if (Volatile.Read(ref _monitorsDirty) == 0)
+            return _monitorsCache;
+
+        Volatile.Write(ref _monitorsDirty, 0);
+        _monitorsCache = BuildMonitorsList_HostThreadUnsafe();
+        return _monitorsCache;
     }
 
-    public void SetMaximizeBorderlessSafe(WindowHandle* win, bool enabled, int monitorIndex)
-    {
-        InvokeHostSync(() =>
-        {
-            if (!IsWindowAlive(win)) return;
-            SetMaximizeBorderlessInternal_HostThreadUnsafe(win, enabled, monitorIndex);
-        });
-    }
-
-    private void SetMaximizeBorderlessInternal_HostThreadUnsafe(WindowHandle* win, bool enabled, int monitorIndex)
-    {
-        var mons = GetMonitorsInternal_HostThreadUnsafe();
-        if (mons.Count == 0) return;
-        if (monitorIndex < 0 || monitorIndex >= mons.Count) monitorIndex = 0;
-
-        var m = mons[monitorIndex];
-        var id = GetWindowId(win);
-
-        if (enabled)
-        {
-            if (!_restoreRects.TryGetValue(id, out var rr) || !rr.valid)
-            {
-                LockedGlfw.GetWindowPos(win, out var x, out var y);
-                LockedGlfw.GetWindowSize(win, out var w, out var h);
-                _restoreRects[id] = (x, y, w, h, true);
-            }
-
-            LockedGlfw.SetWindowAttrib(win, WindowAttributeSetter.Decorated, false);
-
-            LockedGlfw.SetWindowPos(win, m.WorkX, m.WorkY);
-            LockedGlfw.SetWindowSize(win, m.WorkWidth, m.WorkHeight);
-        }
-        else
-        {
-            LockedGlfw.SetWindowAttrib(win, WindowAttributeSetter.Decorated, true);
-
-            if (_restoreRects.TryGetValue(id, out var rr) && rr.valid)
-            {
-                LockedGlfw.SetWindowPos(win, rr.x, rr.y);
-                LockedGlfw.SetWindowSize(win, rr.w, rr.h);
-            }
-
-            _restoreRects.TryRemove(id, out _);
-        }
-
-        LockedGlfw.FocusWindow(win);
-
-    }
-
-    private static List<MonitorInfo> GetMonitorsInternal_HostThreadUnsafe()
+    private static List<MonitorInfo> BuildMonitorsList_HostThreadUnsafe()
     {
         var monitors = new List<MonitorInfo>();
         var monitorPointers = LockedGlfw.GetMonitors(out var count);
@@ -396,59 +347,11 @@ public sealed unsafe partial class SharedGlfwHost : IDisposable
             var refreshRate = modePtr->RefreshRate;
 
             LockedGlfw.GetMonitorWorkarea(mPtr, out var wx, out var wy, out var ww, out var wh);
-
             LockedGlfw.GetMonitorContentScale(mPtr, out var scaleX, out var scaleY);
 
             monitors.Add(new MonitorInfo((nint)mPtr, name, wx, wy, ww, wh, scaleX, scaleY, refreshRate));
         }
         return monitors;
-    }
-
-    private int FindBestMonitorIndexForWindow_HostThreadUnsafe(WindowHandle* win)
-    {
-        LockedGlfw.GetWindowPos(win, out var wx, out var wy);
-        LockedGlfw.GetWindowSize(win, out var ww, out var wh);
-
-        var cx = wx + ww / 2;
-        var cy = wy + wh / 2;
-
-        var mons = GetMonitorsInternal_HostThreadUnsafe();
-        if (mons.Count == 0) return 0;
-
-        for (var i = 0; i < mons.Count; i++)
-        {
-            var m = mons[i];
-            if (cx >= m.WorkX && cx < m.WorkX + m.WorkWidth &&
-                cy >= m.WorkY && cy < m.WorkY + m.WorkHeight)
-                return i;
-        }
-
-        long bestArea = -1;
-        var best = 0;
-
-        int x1 = wx, y1 = wy, x2 = wx + ww, y2 = wy + wh;
-
-        for (var i = 0; i < mons.Count; i++)
-        {
-            var m = mons[i];
-            int mx1 = m.WorkX, my1 = m.WorkY, mx2 = m.WorkX + m.WorkWidth, my2 = m.WorkY + m.WorkHeight;
-
-            var ix1 = Math.Max(x1, mx1);
-            var iy1 = Math.Max(y1, my1);
-            var ix2 = Math.Min(x2, mx2);
-            var iy2 = Math.Min(y2, my2);
-
-            var iw = Math.Max(0, ix2 - ix1);
-            var ih = Math.Max(0, iy2 - iy1);
-
-            var area = (long)iw * ih;
-            if (area <= bestArea) continue;
-
-            bestArea = area;
-            best = i;
-        }
-
-        return best;
     }
 
     // --------------------------
@@ -460,14 +363,20 @@ public sealed unsafe partial class SharedGlfwHost : IDisposable
         if (!LockedGlfw.Init()) throw new Exception("GLFW init failed");
 
         ApplyCommonHints();
-        _shareRoot = LockedGlfw.CreateWindow(1, 1, "share-root", null, null);
-        if (_shareRoot == null) throw new Exception("Failed to create share root");
-        LockedGlfw.HideWindow(_shareRoot);
+        ShareRoot = LockedGlfw.CreateWindow(1, 1, "share-root", null, null);
+        if (ShareRoot == null) throw new Exception("Failed to create share root");
+        LockedGlfw.HideWindow(ShareRoot);
 
-        LockedGlfw.MakeContextCurrent(_shareRoot);
+        LockedGlfw.MakeContextCurrent(ShareRoot);
         _ = GL.GetApi(LockedGlfw.GetProcAddress);
         LockedGlfw.MakeContextCurrent(null);
 
+        _monitorCallback = (mon, state) =>
+        {
+            _monitorsDirty = 1;
+        };
+        LockedGlfw.SetMonitorCallback(_monitorCallback);
+        
         _started.Set();
 
         while (_running)
@@ -488,12 +397,14 @@ public sealed unsafe partial class SharedGlfwHost : IDisposable
             catch (Exception ex) { Console.WriteLine($"[Host drain error] {ex}"); }
         }
 
-        if (_shareRoot != null)
+        if (ShareRoot != null)
         {
             LockedGlfw.MakeContextCurrent(null);
-            LockedGlfw.DestroyWindow(_shareRoot);
-            _shareRoot = null;
+            LockedGlfw.DestroyWindow(ShareRoot);
+            ShareRoot = null;
         }
+        
+        _monitorCallback = null;
 
         LockedGlfw.Terminate();
         LockedGlfw.SetGlfwInstance(null);
@@ -562,6 +473,15 @@ public sealed unsafe partial class SharedGlfwHost : IDisposable
                 NotifyWindowResized(id);
                 Enq(new FramebufferSizeEvent(id, wpx, hpx));
             },
+            Maximize = (w, maximized) =>
+            {
+                Enq(new WindowMaximizedEvent(id, maximized));
+            },
+
+            Iconify = (w, iconified) =>
+            {
+                Enq(new WindowIconifiedEvent(id, iconified));
+            },
         };
 
         _callbacks[(nint)win] = cbs;
@@ -576,6 +496,8 @@ public sealed unsafe partial class SharedGlfwHost : IDisposable
         LockedGlfw.SetWindowPosCallback(win, cbs.WindowPos);
         LockedGlfw.SetWindowSizeCallback(win, cbs.WindowSize);
         LockedGlfw.SetFramebufferSizeCallback(win, cbs.FramebufferSize);
+        LockedGlfw.SetWindowMaximizeCallback(win, cbs.Maximize);
+        LockedGlfw.SetWindowIconifyCallback(win, cbs.Iconify);
 
         return;
 
@@ -594,194 +516,16 @@ public sealed unsafe partial class SharedGlfwHost : IDisposable
         {
             if (!IsWindowAlive(win)) return;
 
-            desired = desired.Normalize();
+            var monitors = GetMonitorsCached_HostThreadUnsafe();
 
-            // Title
-            if ((dirty & WindowDirty.Title) != 0)
-                LockedGlfw.SetWindowTitle(win, desired.Title);
-
-            // AlwaysOnTop
-            if ((dirty & WindowDirty.AlwaysOnTop) != 0)
-                LockedGlfw.SetWindowAttrib(win, WindowAttributeSetter.Floating, desired.AlwaysOnTop);
-
-            // ClickThrough
-            if ((dirty & WindowDirty.ClickThrough) != 0)
-                TryApplyClickThrough_HostThreadUnsafe(win, desired.ClickThrough);
-
-            // State first (because it can force border/constraints behavior)
-            if ((dirty & WindowDirty.WindowState) != 0)
-                ApplyWindowState_HostThreadUnsafe(win, windowId, desired);
-
-            // Frame/resizability + constraints
-            if ((dirty & WindowDirty.Border) != 0)
-            {
-                ApplyFrameAndResizability_HostThreadUnsafe(win, desired);
-                ApplyConstraintsIfWindowed_HostThreadUnsafe(win, desired);
-            }
-
-            // Pos/Size only if Windowed
-            if (desired.State == WindowState.Windowed)
-            {
-                if ((dirty & WindowDirty.WindowPos) != 0)
-                    LockedGlfw.SetWindowPos(win, desired.WindowPosition.X, desired.WindowPosition.Y);
-
-                if ((dirty & WindowDirty.CanvasSize) != 0)
-                    LockedGlfw.SetWindowSize(win, desired.Size.X, desired.Size.Y);
-            }
-
-            LockedGlfw.FocusWindow(win);
+            _stateMachine.Apply(
+                win,
+                windowId,
+                desired,
+                dirty,
+                monitors
+            );
         });
-    }
-
-    private void ApplyFrameAndResizability_HostThreadUnsafe(WindowHandle* win, WindowSettingsSnapshot d)
-    {
-        // Decorations
-        LockedGlfw.SetWindowAttrib(win, WindowAttributeSetter.Decorated, d.FrameMode == WindowFrameMode.Decorated);
-
-        // Resizable flag only depends on resize mode (not frame)
-        var resizable = d.ResizeMode != WindowResizeMode.Fixed;
-        LockedGlfw.SetWindowAttrib(win, WindowAttributeSetter.Resizable, resizable);
-    }
-
-    private void ClearAllConstraints_HostThreadUnsafe(WindowHandle* win)
-    {
-        LockedGlfw.SetWindowSizeLimits(win, Glfw.DontCare, Glfw.DontCare, Glfw.DontCare, Glfw.DontCare);
-        LockedGlfw.SetWindowAspectRatio(win, Glfw.DontCare, Glfw.DontCare);
-    }
-
-    private void ApplyConstraintsIfWindowed_HostThreadUnsafe(WindowHandle* win, WindowSettingsSnapshot d)
-    {
-        ClearAllConstraints_HostThreadUnsafe(win);
-
-        if (d.State != WindowState.Windowed || d.ResizeMode == WindowResizeMode.Fixed || d.ResizeMode == WindowResizeMode.Resizable)
-            return;
-
-        // Resizable/Fixed => no constraints
-        switch (d.ResizeMode)
-        {
-            default:
-            case WindowResizeMode.Limited:
-                LockedGlfw.SetWindowSizeLimits(win, d.MinSize.X, d.MinSize.Y, d.MaxSize.X, d.MaxSize.Y);
-                break;
-            case WindowResizeMode.Aspect:
-                LockedGlfw.SetWindowAspectRatio(win, d.AspectRatio.X, d.AspectRatio.Y);
-                break;
-        }
-    }
-
-    private void ApplyWindowState_HostThreadUnsafe(WindowHandle* win, int windowId, WindowSettingsSnapshot desired)
-    {
-        switch (desired.State)
-        {
-            case WindowState.Windowed:
-                ExitFullscreenIfNeeded(win, windowId);
-                LockedGlfw.RestoreWindow(win);
-                break;
-
-            case WindowState.Minimized:
-                ExitFullscreenIfNeeded(win, windowId);
-                LockedGlfw.IconifyWindow(win);
-                break;
-
-            case WindowState.Maximized:
-                ExitFullscreenIfNeeded(win, windowId);
-                ClearAllConstraints_HostThreadUnsafe(win);
-                ApplyFrameAndResizability_HostThreadUnsafe(win, desired);
-                ApplyMaximizeWorkarea_HostThreadUnsafe(win, decorated: desired.FrameMode == WindowFrameMode.Decorated);
-                break;
-
-            case WindowState.Fullscreen:
-                EnterFullscreen(win, windowId);
-                break;
-        }
-    }
-
-    private void ApplyMaximizeWorkarea_HostThreadUnsafe(WindowHandle* win, bool decorated)
-    {
-        var mi = FindBestMonitorIndexForWindow_HostThreadUnsafe(win);
-        var mons = GetMonitorsInternal_HostThreadUnsafe();
-        if (mons.Count == 0)
-            return;
-
-        var m = mons[Math.Clamp(mi, 0, mons.Count - 1)];
-
-        // Base target: workarea
-        var x = m.WorkX;
-        var y = m.WorkY;
-        var w = m.WorkWidth;
-        var h = m.WorkHeight;
-
-        if (decorated)
-        {
-            // IMPORTANT: compensate for window chrome so the client fills the workarea.
-            LockedGlfw.GetWindowFrameSize(win, out var left, out var top, out var right, out var bottom);
-
-            x -= left;
-            y -= top;
-            w += left + right;
-            h += top + bottom;
-        }
-
-        // Make sure we're not in an OS-maximized state; we are doing manual maximize.
-        LockedGlfw.RestoreWindow(win);
-
-        LockedGlfw.SetWindowPos(win, x, y);
-        LockedGlfw.SetWindowSize(win, w, h);
-        LockedGlfw.FocusWindow(win);
-    }
-
-    private void EnterFullscreen(WindowHandle* win, int windowId)
-    {
-        // save restore rect once
-        if (!_fullscreenRestoreRects.TryGetValue(windowId, out var rr) || !rr.valid)
-        {
-            LockedGlfw.GetWindowPos(win, out var x, out var y);
-            LockedGlfw.GetWindowSize(win, out var w, out var h);
-            _fullscreenRestoreRects[windowId] = (x, y, w, h, true);
-        }
-
-        // clear constraints
-        LockedGlfw.SetWindowSizeLimits(win, Glfw.DontCare, Glfw.DontCare, Glfw.DontCare, Glfw.DontCare);
-        LockedGlfw.SetWindowAspectRatio(win, Glfw.DontCare, Glfw.DontCare);
-
-        var mi = FindBestMonitorIndexForWindow_HostThreadUnsafe(win);
-        var monitors = LockedGlfw.GetMonitors(out var count);
-        if (count <= 0 || monitors == null) return;
-        mi = Math.Clamp(mi, 0, count - 1);
-        var m = monitors[mi];
-
-        LockedGlfw.GetMonitorPos(m, out var mx, out var my);
-        var mode = LockedGlfw.GetVideoMode(m);
-        if (mode == null) return;
-
-        var logicalW = mode->Width;
-        var logicalH = mode->Height;
-
-        // Workaround: +1 px width physical
-        var physicalW = logicalW + 1;
-        var physicalH = logicalH;
-
-        LockedGlfw.SetWindowAttrib(win, WindowAttributeSetter.Decorated, false);
-        LockedGlfw.SetWindowAttrib(win, WindowAttributeSetter.Resizable, false);
-
-        LockedGlfw.SetWindowPos(win, mx, my);
-        LockedGlfw.SetWindowSize(win, physicalW, physicalH);
-
-        LockedGlfw.FocusWindow(win);
-    }
-
-    private void ExitFullscreenIfNeeded(WindowHandle* win, int windowId)
-    {
-        if (!_fullscreenRestoreRects.TryGetValue(windowId, out var rr) || !rr.valid)
-            return;
-
-        LockedGlfw.SetWindowAttrib(win, WindowAttributeSetter.Decorated, true);
-        LockedGlfw.SetWindowAttrib(win, WindowAttributeSetter.Resizable, true);
-
-        LockedGlfw.SetWindowPos(win, rr.x, rr.y);
-        LockedGlfw.SetWindowSize(win, rr.w, rr.h);
-
-        _fullscreenRestoreRects.TryRemove(windowId, out _);
     }
 
     internal void NotifyWindowResized(int windowId)
@@ -805,60 +549,4 @@ public sealed unsafe partial class SharedGlfwHost : IDisposable
         _isLiveResize[windowId] = 0;
         return false;
     }
-
-#region Windows only (ClickThrough)
-
-    private static void TryApplyClickThrough_HostThreadUnsafe(WindowHandle* win, bool enabled)
-    {
-        if (!OperatingSystem.IsWindows()) return;
-
-        // We need HWND; if your Silk.NET doesn't expose glfwGetWin32Window,
-        // use the DllImport fallback.
-        var hwnd = Win32ClickThrough.GetHwndOrZero(win);
-        if (hwnd == nint.Zero) return;
-
-        Win32ClickThrough.SetClickThrough(hwnd, enabled);
-    }
-
-    private static partial class Win32ClickThrough
-    {
-        [System.Runtime.InteropServices.LibraryImport("glfw3.dll", EntryPoint = "glfwGetWin32Window")]
-        private static partial nint glfwGetWin32Window(WindowHandle* window);
-
-        public static nint GetHwndOrZero(WindowHandle* win)
-        {
-            try { return glfwGetWin32Window(win); }
-            catch { return nint.Zero; }
-        }
-
-        private const int GWL_EXSTYLE = -20;
-        private const int WS_EX_TRANSPARENT = 0x00000020;
-        private const int WS_EX_LAYERED = 0x00080000;
-
-        [System.Runtime.InteropServices.LibraryImport("user32.dll", EntryPoint = "GetWindowLongPtrW")]
-        private static partial nint GetWindowLongPtr(nint hWnd, int nIndex);
-
-        [System.Runtime.InteropServices.LibraryImport("user32.dll", EntryPoint = "SetWindowLongPtrW")]
-        private static partial nint SetWindowLongPtr(nint hWnd, int nIndex, nint dwNewLong);
-
-        public static void SetClickThrough(nint hwnd, bool enabled)
-        {
-            var ex = GetWindowLongPtr(hwnd, GWL_EXSTYLE).ToInt64();
-            if (enabled)
-            {
-                ex |= WS_EX_LAYERED;
-                ex |= WS_EX_TRANSPARENT;
-            }
-            else
-            {
-                ex &= ~WS_EX_TRANSPARENT;
-                // keep LAYERED if you want other layered uses; otherwise clear it too:
-                // ex &= ~WS_EX_LAYERED;
-            }
-
-            SetWindowLongPtr(hwnd, GWL_EXSTYLE, new nint(ex));
-        }
-    }
-
-#endregion
 }

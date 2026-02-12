@@ -178,26 +178,13 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
     public bool IsDisposed => Volatile.Read(ref _disposed) != 0;
     private int _windowDestroyed; // 0 = not yet, 1 = done
 
-    private CodeDrawLayer? _layer;
-    public CodeDrawLayer? Layer => _layer;
+    private WindowState _preMinimizeState = WindowState.Windowed;
+    
+    public CodeDrawLayer? Layer { get; private set; }
 
     public int WindowId { get; }
-
-
-
+    
     public string DebugName => $"[Window id={WindowId} title='{Title}']";
-
-
-    private bool _maximizeBorderless;
-    public bool MaximizeBorderless
-    {
-        get => _maximizeBorderless;
-        set
-        {
-            _maximizeBorderless = value;
-            _host.SetMaximizeBorderlessSafe(_win, value);
-        }
-    }
 
     public WindowInput Input { get; } = new();
 
@@ -214,7 +201,7 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
 
     public void SetPresentedLayer(CodeDrawLayer? layer, bool keepLastFrameUntilReady = true)
     {
-        _layer = layer;
+        Layer = layer;
         _keepLastFrameUntilReady = keepLastFrameUntilReady;
     }
 
@@ -243,7 +230,7 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
         _host.RegisterWindowObject(_win, this);
         WindowId = host.GetWindowId(_win);
 
-        _layer = new CodeDrawLayer(host, w, h, "WindowLayer:" + WindowId);
+        Layer = new CodeDrawLayer(host, w, h, "WindowLayer:" + WindowId);
 
         _presentThread = new Thread(PresentLoop) { IsBackground = true, Name = $"Presenter:{Title}" };
         _updateThread  = new Thread(UpdateLoop)  { IsBackground = true, Name = $"Update:{Title}" };
@@ -293,26 +280,125 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
 
         DestroyWindowOnce();
 
-        _layer?.Dispose();
-        _layer = null;
+        Layer?.Dispose();
+        Layer = null;
     }
 
     private void HandleEvent(object evt)
     {
-        if (evt is SharedGlfwHost.WindowCloseRequestedEvent cl && cl.WindowId == WindowId)
+        switch (evt)
         {
-            _closing = true;
-
-            var win = _win;
-            _host.InvokeHostAsync(() =>
+            case SharedGlfwHost.MouseMoveEvent mm when mm.WindowId == WindowId:
             {
-                if (!_host.IsWindowAlive(win)) return;
-                LockedGlfw.SetWindowShouldClose(win, true);
-            });
-            return;
+                // clamp using client size
+                var cs = Settings.Size; // client size
+                var x = mm.X;
+                var y = mm.Y;
+                if (x < 0) x = 0;
+                if (y < 0) y = 0;
+                if (x > cs.X - 1) x = cs.X - 1;
+                if (y > cs.Y - 1) y = cs.Y - 1;
+                evt = mm with { X = x, Y = y };
+                break;
+            }
+            
+            case SharedGlfwHost.WindowCloseRequestedEvent cl when cl.WindowId == WindowId:
+                _closing = true;
+
+                var win = _win;
+                _host.InvokeHostAsync(() =>
+                {
+                    if (!_host.IsWindowAlive(win)) return;
+                    LockedGlfw.SetWindowShouldClose(win, true);
+                });
+                return;
+                
+            case SharedGlfwHost.WindowPosEvent wp when wp.WindowId == WindowId:
+                ApplyOsPosToSettings(wp.X, wp.Y);
+                break;
+
+            case SharedGlfwHost.WindowSizeEvent ws when ws.WindowId == WindowId:
+                ApplyOsSizeToSettings(ws.W, ws.H);
+                break;
+            
+            case SharedGlfwHost.WindowMaximizedEvent mx when mx.WindowId == WindowId:
+                ApplyOsMaximizedToSettings(mx.IsMaximized);
+                break;
+
+            case SharedGlfwHost.WindowIconifiedEvent ic when ic.WindowId == WindowId:
+                ApplyOsIconifiedToSettings(ic.IsIconified);
+                break;
         }
 
         Input.Apply(evt);
+    }
+
+    private void ApplyOsPosToSettings(int x, int y)
+    {
+        lock (_settingsLock)
+        {
+            // don’t call Settings property setter here
+            _settings = _settings with { WindowPosition = new Vector2<int>(x, y) };
+        }
+    }
+
+    private void ApplyOsSizeToSettings(int w, int h)
+    {
+        if (w < 1) w = 1;
+        if (h < 1) h = 1;
+
+        lock (_settingsLock)
+        {
+            _settings = _settings with { Size = new Vector2<int>(w, h) };
+        }
+    }
+    
+    private void ApplyOsMaximizedToSettings(bool isMaximized)
+    {
+        lock (_settingsLock)
+        {
+            // Only OS-driven for REAL maximize; ignore if you're in manual modes.
+            if (_settings.State is WindowState.BorderlessMaximized or WindowState.BorderlessFullscreen)
+                return;
+
+            if (isMaximized)
+            {
+                _settings = _settings with { State = WindowState.Maximized };
+            }
+            else
+            {
+                // When user drags titlebar out of maximize, Windows un-maximizes -> we must unlock settings
+                if (_settings.State == WindowState.Maximized)
+                    _settings = _settings with { State = WindowState.Windowed };
+            }
+        }
+    }
+
+    private void ApplyOsIconifiedToSettings(bool isIconified)
+    {
+        lock (_settingsLock)
+        {
+            if (_settings.State is WindowState.BorderlessMaximized or WindowState.BorderlessFullscreen)
+                return;
+
+            if (isIconified)
+            {
+                if (_settings.State == WindowState.Minimized)
+                    return;
+
+                _preMinimizeState = _settings.State;
+                _settings = _settings with { State = WindowState.Minimized };
+            }
+            else
+            {
+                if (_settings.State != WindowState.Minimized)
+                    return;
+
+                var target = _preMinimizeState;
+                if (target == WindowState.Minimized) target = WindowState.Windowed;
+                _settings = _settings with { State = target };
+            }
+        }
     }
 
     private void UpdateLoop()
@@ -399,20 +485,25 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
                 }
 
                 var snap = Settings;
+                var raw  = RawSettings; 
 
+                var client = snap.Size;
+                var physical = raw.Size;
+                
                 ShaderStore.CheckHotReload(gl, this);
 
-                var logical = snap.Size;
-                if (logical.X < 1) logical = logical.WithX(1);
-                if (logical.Y < 1) logical = logical.WithY(1);
-                gl.Viewport(0, 0, (uint)logical.X, (uint)logical.Y);
+                gl.Viewport(0, 0, (uint)physical.X, (uint)physical.Y);
 
                 var opaque = !snap.TransparentAlpha;
-
+                gl.Disable(GLEnum.ScissorTest);
                 gl.ClearColor(0f, 0f, 0f, opaque ? 1f : 0f);
                 gl.Clear((uint)ClearBufferMask.ColorBufferBit);
 
-                var layer = _layer;
+                gl.Enable(GLEnum.ScissorTest);
+                gl.Scissor(0, 0, (uint)client.X, (uint)client.Y); // scissor in pixels, origin bottom-left in GL
+                gl.Viewport(0, 0, (uint)client.X, (uint)client.Y);
+                
+                var layer = Layer;
                 var keepLast = _keepLastFrameUntilReady;
 
                 if (!ReferenceEquals(layer, lastLayerRef))
@@ -449,6 +540,8 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
                     gl.BindVertexArray(0);
                     gl.UseProgram(0);
                 }
+                
+                gl.Disable(GLEnum.ScissorTest);
 
                 LockedGlfw.SwapBuffers(_win);
 

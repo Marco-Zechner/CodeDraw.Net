@@ -7,9 +7,24 @@ public partial class CodeDrawWindow
     private WindowSettingsSnapshot _settings;
     private readonly Lock _settingsLock = new();
 
-    public unsafe WindowSettingsSnapshot Settings
+    private WindowSettingsSnapshot RawSettings
     {
         get { lock (_settingsLock) return _settings; }
+    }
+    
+    public unsafe WindowSettingsSnapshot Settings
+    {
+        get
+        {
+            lock (_settingsLock)
+            {
+                var s = _settings;
+                var cs = s.ClientSize;
+
+                // lie to user: Size becomes client size
+                return s with { Size = cs };
+            }
+        }
         set
         {
             WindowSettingsSnapshot oldSnap;
@@ -31,67 +46,67 @@ public partial class CodeDrawWindow
 
     public Vector2<int> WindowPosition
     {
-        get { lock (_settingsLock) return _settings.WindowPosition; }
-        set => Settings = Settings with { WindowPosition = value };
+        get => Settings.WindowPosition;
+        set => Settings = RawSettings with { WindowPosition = value };
     }
 
     public Vector2<int> Size
     {
-        get { lock (_settingsLock) return _settings.Size; }
-        set => Settings = Settings with { Size = value };
+        get => Settings.Size;
+        set => Settings = RawSettings with { Size = value };
     }
 
     public int Width
     {
-        get { lock (_settingsLock) return _settings.Size.X; }
-        set => Settings = Settings with { Size = Settings.Size.WithX(value) };
+        get => Size.X;
+        set => Size = Size.WithX(value);
     }
 
     public int Height
     {
-        get { lock (_settingsLock) return _settings.Size.Y; }
-        set => Settings = Settings with { Size = Settings.Size.WithY(value) };
+        get => Size.Y;
+        set => Size = Size.WithY(value);
     }
 
     public WindowState State
     {
-        get { lock (_settingsLock) return _settings.State; }
-        set => Settings = Settings with { State = value };
+        get => Settings.State;
+        set => Settings = RawSettings with { State = value };
     }
 
     public WindowFrameMode FrameMode
     {
-        get { lock (_settingsLock) return _settings.FrameMode; }
-        set => Settings = Settings with { FrameMode = value };
+        get => Settings.FrameMode;
+        set => Settings = RawSettings with { FrameMode = value };
     }
 
     public WindowResizeMode ResizeMode
     {
-        get { lock (_settingsLock) return _settings.ResizeMode; }
-        set => Settings = Settings with { ResizeMode = value };
+        get => Settings.ResizeMode;
+        set => Settings = RawSettings with { ResizeMode = value };
     }
 
     public bool AlwaysOnTop
     {
-        get { lock (_settingsLock) return _settings.AlwaysOnTop; }
-        set => Settings = Settings with { AlwaysOnTop = value };
+        get => Settings.AlwaysOnTop;
+        set => Settings = RawSettings with { AlwaysOnTop = value };
     }
 
     public bool ClickThrough
     {
-        get { lock (_settingsLock) return _settings.ClickThrough; }
-        set => Settings = Settings with { ClickThrough = value };
+        get => Settings.ClickThrough;
+        set => Settings = RawSettings with { ClickThrough = value };
     }
 
     public bool TransparentAlpha
     {
-        get { lock (_settingsLock) return _settings.TransparentAlpha; }
-        set => Settings = Settings with { TransparentAlpha = value };
+        get => Settings.TransparentAlpha;
+        set => Settings = RawSettings with { TransparentAlpha = value };
     }
 
     public string Title
     {
-        get { lock (_settingsLock) return _settings.Title; }
-        set => Settings = Settings with { Title = value };
+        get => Settings.Title;
+        set => Settings = RawSettings with { Title = value };
     }
 }

@@ -51,12 +51,16 @@ public class Prototype3 : IDisposable
             layer.Render();
         };
 
-        _win2.Settings = _win2.Settings with
+        Console.WriteLine("\ninit: \n" + _win2.Settings);
+        var set = _win2.Settings with
         {
             MinSize = new Vector2<int>(200, 200),
             MaxSize = new Vector2<int>(600, 600),
             AspectRatio = new Vector2<int>(1, 1),
         };
+        Console.WriteLine("\nset: \n"+ set);
+        _win2.Settings = set;
+        Console.WriteLine("\nafter: \n" + _win2.Settings);
 
 
         string lastMsg = "";
@@ -91,6 +95,10 @@ public class Prototype3 : IDisposable
                 lastMsg = win.Settings.ToString();
             }
 
+            var keys = input.GetAllKeysDown();
+            if (keys.Count != 0)
+                Console.WriteLine("Keys down: " + string.Join(", ", keys));
+
             if (input.GetKeyDown(Keys.T))
                 _win2.AlwaysOnTop = !_win2.AlwaysOnTop;
 
@@ -106,17 +114,35 @@ public class Prototype3 : IDisposable
             if (input.GetKeyDown(Keys.H))
                 _win2.FrameMode = _win2.FrameMode != WindowFrameMode.Hidden ? WindowFrameMode.Hidden : WindowFrameMode.Decorated;
 
-            if (input.GetKeyDown(Keys.S))
-                _win2.State = _win2.State != WindowState.Maximized ? WindowState.Maximized : WindowState.Windowed;
+            if (input.GetKeyDown(Keys.S) && !ctrl)
+                _win2.State = _win2.State != WindowState.Maximized ? WindowState.Maximized : WindowState.Windowed;            
+            
+            if (input.GetKeyDown(Keys.S) && ctrl)
+                _win2.State = _win2.State != WindowState.BorderlessMaximized ? WindowState.BorderlessMaximized : WindowState.Windowed;
 
             if (input.GetKeyDown(Keys.M))
-                _win2.State = _win2.State != WindowState.Fullscreen ? WindowState.Fullscreen : WindowState.Windowed;
+                _win2.State = _win2.State != WindowState.BorderlessFullscreen ? WindowState.BorderlessFullscreen : WindowState.Windowed;
+            
+            if (input.GetKeyDown(Keys.I))
+                _win2.State = _win2.State != WindowState.Minimized ? WindowState.Minimized : WindowState.Windowed;
 
             if (input.GetKeyDown(Keys.C))
                 _win2.ClickThrough = !_win2.ClickThrough;
 
             if (input.GetKeyDown(Keys.A))
                 _win2.TransparentAlpha = !_win2.TransparentAlpha;
+            
+            if (input.GetKeyDown(Keys.Escape))
+            {
+                win.Close();
+                return;
+            }
+            
+            if (input.GetKeyDown(Keys.X))
+            {
+                win.Size = new Vector2<int>(1920, 1080);
+                return;
+            }
 
             var layer = win.Layer;
 

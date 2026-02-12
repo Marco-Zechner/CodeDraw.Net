@@ -53,7 +53,7 @@ public sealed class Prototype1 : IDisposable
                     win.Close();
                     break;
                 case Keys.F11:
-                    win.MaximizeBorderless = !win.MaximizeBorderless;
+                    win.Settings = win.Settings with { State = win.Settings.State == WindowState.Windowed ? WindowState.BorderlessFullscreen : WindowState.Windowed };
                     break;
             }
         });

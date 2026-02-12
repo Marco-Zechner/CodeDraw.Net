@@ -1,5 +1,6 @@
 ﻿using System.Collections.Concurrent;
 using System.Diagnostics;
+using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.DrawLayer;
 using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.Window;
 using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
@@ -8,11 +9,19 @@ namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes;
 
 public sealed unsafe class SharedGlfwHost : IDisposable
 {
+    private sealed class LayerRefInfo
+    {
+        public int RefCount;
+        public bool IsAuto;
+    }
+    
     private int _nextWindowId;
     private readonly ConcurrentDictionary<int, nint> _idToWin = new();
     private readonly ConcurrentDictionary<nint, int> _winToId = new();
     private readonly ConcurrentDictionary<int, ConcurrentQueue<object>> _inputQueues = new();
     private readonly ConcurrentDictionary<int, WeakReference<CodeDrawWindow>> _idToObj = new();
+    private readonly ConcurrentDictionary<int, CodeDrawLayer?> _windowToLayer = new();
+    private readonly ConcurrentDictionary<CodeDrawLayer, LayerRefInfo> _layerRefs = new();
     
     public int ReserveWindowId()
     {
@@ -157,6 +166,8 @@ public sealed unsafe class SharedGlfwHost : IDisposable
 
         LockedGlfw.MakeContextCurrent(null);
         LockedGlfw.DestroyWindow(win);
+        
+        OnNativeWindowDestroyed();
     }
     
     internal bool IsWindowAlive(WindowHandle* win)
@@ -293,6 +304,10 @@ public sealed unsafe class SharedGlfwHost : IDisposable
     private readonly ConcurrentDictionary<int, long> _lastResizeTick = new();
     private readonly ConcurrentDictionary<int, int> _isLiveResize = new(); // 0/1
 
+    private int _aliveWindows; // number of native windows currently alive
+    private readonly ManualResetEventSlim _allClosed = new(initialState: true);
+    private long _allClosedSinceTicks;
+    
     private List<MonitorInfo> _monitorsCache = [];
     private int _monitorsDirty = 1; // start dirty so we build once
 
@@ -302,6 +317,46 @@ public sealed unsafe class SharedGlfwHost : IDisposable
     private static double TicksToMs(long dt) => dt * 1000.0 / Stopwatch.Frequency;
 
     private SharedGlfwHost() { }
+    
+    private void OnNativeWindowCreated()
+    {
+        var n = Interlocked.Increment(ref _aliveWindows);
+        if (n == 1)
+            _allClosed.Reset();
+    }
+
+    private void OnNativeWindowDestroyed()
+    {
+        var n = Interlocked.Decrement(ref _aliveWindows);
+        if (n > 0) return;
+
+        Interlocked.Exchange(ref _aliveWindows, 0);
+        _allClosedSinceTicks = Stopwatch.GetTimestamp();
+        _allClosed.Set();
+    }
+    
+    public void WaitUntilAllWindowsClosed(int stableMs = 0, CancellationToken ct = default)
+    {
+        while (true)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            _allClosed.Wait(ct); // blocks with basically no CPU
+
+            if (stableMs <= 0)
+                return;
+
+            // Optional “stability window”: handle close->reopen flicker.
+            var since = Volatile.Read(ref _allClosedSinceTicks);
+            var elapsedMs = (Stopwatch.GetTimestamp() - since) * 1000.0 / Stopwatch.Frequency;
+
+            if (elapsedMs >= stableMs && Volatile.Read(ref _aliveWindows) == 0)
+                return;
+
+            // If we woke up but stability not met, wait a bit WITHOUT spinning hard:
+            Thread.Sleep(Math.Min(5, stableMs));
+        }
+    }
     
     public void Start()
     {
@@ -373,6 +428,7 @@ public sealed unsafe class SharedGlfwHost : IDisposable
             LockedGlfw.WindowHint(WindowHintBool.Focused, false);
 
             win = LockedGlfw.CreateWindow(w, h, title, null, ShareRoot);
+            ApplyCommonHints();
             if (win == null) throw new Exception("CreateHiddenLayerWindow failed");
         });
         return win;
@@ -412,6 +468,8 @@ public sealed unsafe class SharedGlfwHost : IDisposable
             result = LockedGlfw.CreateWindow(w, h, title, null, ShareRoot);
             if (result == null) throw new Exception("CreateWindow failed");
 
+            OnNativeWindowCreated();
+            
             LockedGlfw.SetWindowPos(result, x, y);
 
             // mappings
@@ -429,6 +487,71 @@ public sealed unsafe class SharedGlfwHost : IDisposable
         });
 
         return result;
+    }
+    
+    internal void RegisterAutoLayerOwner(int windowId, CodeDrawLayer layer)
+    {
+        // mark layer as auto (even if shared later)
+        var info = _layerRefs.GetOrAdd(layer, _ => new LayerRefInfo());
+        lock (info)
+        {
+            info.IsAuto = true;
+        }
+
+        // Attach to this window as current layer (increments refcount)
+        AssignWindowLayer(windowId, layer);
+    }
+    
+    internal void AssignWindowLayer(int windowId, CodeDrawLayer? newLayer)
+    {
+        CodeDrawLayer? oldLayer = null;
+
+        // swap mapping window->layer
+        _windowToLayer.AddOrUpdate(
+            windowId,
+            _ => { oldLayer = null; return newLayer; },
+            (_, prev) => { oldLayer = prev; return newLayer; });
+
+        if (ReferenceEquals(oldLayer, newLayer)) return;
+
+        if (oldLayer != null) DecrementLayerRef(oldLayer);
+        if (newLayer != null) IncrementLayerRef(newLayer);
+    }
+    
+    private void IncrementLayerRef(CodeDrawLayer layer)
+    {
+        var info = _layerRefs.GetOrAdd(layer, _ => new LayerRefInfo());
+        lock (info) { info.RefCount++; }
+    }
+
+    private void DecrementLayerRef(CodeDrawLayer layer)
+    {
+        if (!_layerRefs.TryGetValue(layer, out var info)) return;
+
+        bool dispose = false;
+        lock (info)
+        {
+            info.RefCount--;
+            if (info.RefCount <= 0)
+            {
+                // dispose only if it is an auto layer
+                dispose = info.IsAuto;
+            }
+        }
+
+        if (!dispose) return;
+
+        // Remove entry before dispose to avoid reentrancy weirdness
+        _layerRefs.TryRemove(layer, out _);
+
+        try { layer.Dispose(); }
+        catch (Exception ex) { Console.WriteLine($"[Host] Auto layer dispose error: {ex}"); }
+    }
+    
+    internal void NotifyWindowDisposed(int windowId)
+    {
+        if (_windowToLayer.TryRemove(windowId, out var layer) && layer != null)
+            DecrementLayerRef(layer);
     }
 
     private List<MonitorInfo> GetMonitorsCached_HostThreadUnsafe()

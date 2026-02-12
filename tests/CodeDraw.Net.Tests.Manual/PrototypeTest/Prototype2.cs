@@ -16,9 +16,9 @@ public sealed class Prototype2 : IDisposable
         var host = SharedGlfwHost.Instance;
         host.Start();
 
-        using (var session = new Prototype2(host))
+        using (new Prototype2(host))
         {
-            session.WaitForClose();
+            host.WaitUntilAllWindowsClosed();
         }
 
         host.Stop();
@@ -299,13 +299,6 @@ public sealed class Prototype2 : IDisposable
         _winSrc.Dispose();
         _winDst.Dispose();
         _winFull.Dispose();
-    }
-
-    private void WaitForClose()
-    {
-        _winSrc.WaitForClose();
-        _winDst.WaitForClose();
-        _winFull.WaitForClose();
     }
 
     private static void DrawOutline(CodeDrawLayer l, RectF r, Rgba c, float t = 2f)

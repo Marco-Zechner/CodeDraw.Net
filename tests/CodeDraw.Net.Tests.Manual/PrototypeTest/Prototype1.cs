@@ -14,9 +14,9 @@ public sealed class Prototype1 : IDisposable
         var host = SharedGlfwHost.Instance;
         host.Start();
 
-        using (var session = new Prototype1(host))
+        using (new Prototype1(host))
         {
-            session.WaitForClose();
+            host.WaitUntilAllWindowsClosed();
         }
 
         host.Stop();
@@ -113,13 +113,6 @@ public sealed class Prototype1 : IDisposable
 
             layer.Render();
         };
-    }
-
-    public void WaitForClose()
-    {
-        _winLayerA.WaitForClose();
-        _winLayerB.WaitForClose();
-        _winCombined.WaitForClose();
     }
 
     public void Dispose()

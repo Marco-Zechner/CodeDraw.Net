@@ -17,22 +17,17 @@ public class Prototype3 : IDisposable
         var host = SharedGlfwHost.Instance;
         host.Start();
 
-        using (var session = new Prototype3(host))
+        using (new Prototype3(host))
         {
-            session.WaitForClose();
+            host.WaitUntilAllWindowsClosed();
         }
 
         host.Stop();
     }
 
-    private void WaitForClose()
-    {
-        _win.WaitForClose();
-        _win2.WaitForClose();
-    }
-
     private readonly CodeDrawWindow _win;
     private readonly CodeDrawWindow _win2;
+    private readonly CodeDrawWindow _winOther;
 
 
     public Prototype3(SharedGlfwHost host)
@@ -41,6 +36,8 @@ public class Prototype3 : IDisposable
         var orbitShader = CustomShader.CsProject("orbitDots", "PrototypeTest/shaders");
         _win2 = new CodeDrawWindow(host, 400, 400 , "Prototype3 - Copy");
         var colorShiftShader = CustomShader.CsProject("colorShift", "PrototypeTest/shaders");
+        _winOther = new CodeDrawWindow(host, 400, 400 , "Prototype3 - Other");
+        _winOther.SetPresentedLayer(_win.Layer);
 
         _win.OnUpdate += context =>
         {
@@ -62,19 +59,14 @@ public class Prototype3 : IDisposable
             }
         };
 
-        Console.WriteLine("\ninit: \n" + _win2.Settings);
-        var set = _win2.Settings with
+        _win2.Settings = _win2.Settings with
         {
             MinSize = new Vector2<int>(200, 200),
             MaxSize = new Vector2<int>(600, 600),
             AspectRatio = new Vector2<int>(1, 1),
         };
-        Console.WriteLine("\nset: \n"+ set);
-        _win2.Settings = set;
-        Console.WriteLine("\nafter: \n" + _win2.Settings);
 
-
-        string lastMsg = "";
+        var lastMsg = "";
         _win2.OnUpdate += context =>
         {
             var win = context.Win;
@@ -100,11 +92,11 @@ public class Prototype3 : IDisposable
             }
 
 
-            if (win.Settings.ToString() != lastMsg)
-            {
-                Console.WriteLine($"\n------------------------------------------------------------------------------\n{DateTime.Now:HH:mm:ss}\n{win.Settings}");
-                lastMsg = win.Settings.ToString();
-            }
+            // if (win.Settings.ToString() != lastMsg)
+            // {
+            //     Console.WriteLine($"\n------------------------------------------------------------------------------\n{DateTime.Now:HH:mm:ss}\n{win.Settings}");
+            //     lastMsg = win.Settings.ToString();
+            // }
 
             var keys = input.GetAllKeysDown();
             if (keys.Count != 0)
@@ -200,5 +192,6 @@ public class Prototype3 : IDisposable
     {
         _win.Dispose();
         _win2.Dispose();
+        _winOther.Dispose();
     }
 }

@@ -4,6 +4,7 @@ using System.Runtime.CompilerServices;
 using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.Shaders;
 using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
+using Monitor = System.Threading.Monitor;
 using UniformType = MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.Shaders.UniformType;
 
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.DrawLayer;
@@ -29,7 +30,7 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
     }
 
     // ---- external shader cache (now supports both layer-copy + custom-rect) ----
-    private readonly object _extShaderLock = new();
+    private readonly Lock _extShaderLock = new();
     private readonly HashSet<ShaderKey> _extKnown = [];
     private readonly ConcurrentQueue<ShaderKey> _extInitPending = new();
 
@@ -102,7 +103,7 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
 
     private readonly SharedGlfwHost _host;
     private readonly WindowHandle* _ctxWin;
-    private readonly GL _gl;
+    private GL _gl = null!; // only valid on render thread, but we set it there so it doesn't need to be nullable
 
     private readonly Buffer[] _buf = new Buffer[2];
     private int _front;
@@ -119,15 +120,20 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
     private long _lastEnqueuedSeq;
     private long _lastRenderedCmdSeq;
 
-    private readonly object _renderLock = new(); // Not "Lock" because we use Monitor.Wait/Pulse which isn't compatible with the "Lock" type.
-    private bool _rendering;
+    private readonly Thread _renderThread;
+    private readonly AutoResetEvent _renderKick = new(false);
+    private volatile bool _renderThreadStop;
+    private long _requestedRenderSeq; // target seq requested by any thread
+    private long _completedRenderSeq; // last seq rendered (same as _lastRenderedCmdSeq, but atomic)
+    
+    private readonly object _waitLock = new();   // Not "Lock" because we use Monitor.Wait/Pulse which isn't compatible with the "Lock" type.
 
     private readonly ConcurrentQueue<nint> _retireFences = new();
 
     private bool _clearRequested = true;
     private (float r, float g, float b, float a) _clearColor = (0f, 0f, 0f, 0f);
 
-    private bool _inited;
+    private bool _initComplete;
     private uint _vao, _vbo, _ebo;
 
     private AutoProgram _progRect = null!, _progBlit = null!, _progLayerRect = null!;
@@ -146,22 +152,23 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
     {
         DebugName = $"[Layer:{label}]";
         _host = host;
+
+        // Create hidden context window on host thread (as you do)
         _ctxWin = host.CreateHiddenLayerWindow(1, 1, "layer-ctx");
 
-        LockedGlfw.MakeContextCurrent(_ctxWin);
-        LockedGlfw.SwapInterval(0);
-        _gl = GL.GetApi(LockedGlfw.GetProcAddress);
+        // Start dedicated render thread
+        _renderThread = new Thread(RenderThreadMain)
+        { IsBackground = true, Name = $"LayerRenderer:{label}" };
+        _renderThread.Start();
 
-        EnsureInit();
-        ResizeInternal(w, h);
-
-        LockedGlfw.MakeContextCurrent(null);
+        // Do init+resize on render thread (don’t touch GL here)
+        RequestLayerSize(w, h);
     }
 
     private void EnsureInit()
     {
-        if (_inited) return;
-        _inited = true;
+        if (_initComplete) return;
+        _initComplete = true;
 
         (_vao, _vbo, _ebo) = ShaderCompiler.CreateFullScreenQuad(_gl);
 
@@ -185,28 +192,14 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
         if (Interlocked.Exchange(ref _disposed, true))
             return;
 
+        Console.WriteLine("Layer " + DebugName + " Disposing...");
+        
         _published.Set();
 
-        // Flush any pending commands once
-        Render();
-
-        LockedGlfw.MakeContextCurrent(_ctxWin);
-
-        for (var i = 0; i < 2; i++)
-        {
-            if (_buf[i].Fence != 0) _gl.DeleteSync(_buf[i].Fence);
-            if (_buf[i].Fbo != 0) _gl.DeleteFramebuffer(_buf[i].Fbo);
-            if (_buf[i].Tex != 0) _gl.DeleteTexture(_buf[i].Tex);
-            _buf[i] = default;
-        }
-
-        ShaderStore.DisposeConsumer(_gl, this);
-
-        if (_vao != 0) _gl.DeleteVertexArray(_vao);
-        if (_vbo != 0) _gl.DeleteBuffer(_vbo);
-        if (_ebo != 0) _gl.DeleteBuffer(_ebo);
-
-        LockedGlfw.MakeContextCurrent(null);
+        _renderThreadStop = true;
+        _renderKick.Set();
+        if (_renderThread.IsAlive) _renderThread.Join();
+        
         _host.DestroyHiddenLayerWindow(_ctxWin);
     }
 
@@ -250,10 +243,93 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
 
     // --------- Internals ---------
 
+        private void RequestRenderTo(long targetSeq, bool wait, int timeoutMs)
+    {
+        if (_disposed) return;
+
+        // Publish desired target (monotonic max)
+        while (true)
+        {
+            var cur = Volatile.Read(ref _requestedRenderSeq);
+            if (cur >= targetSeq) break;
+            if (Interlocked.CompareExchange(ref _requestedRenderSeq, targetSeq, cur) == cur) break;
+        }
+
+        _renderKick.Set();
+
+        if (!wait) return;
+
+        var sw = timeoutMs == Timeout.Infinite ? null : Stopwatch.StartNew();
+        lock (_waitLock)
+        {
+            while (!_disposed && Volatile.Read(ref _completedRenderSeq) < targetSeq)
+            {
+                if (timeoutMs == Timeout.Infinite)
+                {
+                    Monitor.Wait(_waitLock);
+                }
+                else
+                {
+                    var remaining = timeoutMs - (int)sw!.ElapsedMilliseconds;
+                    if (remaining <= 0) break;
+                    Monitor.Wait(_waitLock, remaining);
+                }
+            }
+        }
+    }
+    
+    private void RenderThreadMain()
+    {
+        try
+        {
+            LockedGlfw.MakeContextCurrent(_ctxWin);
+            LockedGlfw.SwapInterval(0);
+            _gl = GL.GetApi(LockedGlfw.GetProcAddress); 
+
+            EnsureInit();
+
+            while (!_renderThreadStop && !_disposed)
+            {
+                _renderKick.WaitOne(1);
+
+                if (_disposed) break;
+
+                var target = Volatile.Read(ref _requestedRenderSeq);
+                if (Volatile.Read(ref _lastRenderedCmdSeq) >= target)
+                    continue;
+
+                DrainUntil(target); // now assumes context already current
+
+                Volatile.Write(ref _completedRenderSeq, Volatile.Read(ref _lastRenderedCmdSeq));
+                lock (_waitLock) Monitor.PulseAll(_waitLock);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"{DebugName} RenderThread error: {ex}");
+        }
+        finally
+        {
+            for (var i = 0; i < 2; i++)
+            {
+                if (_buf[i].Fence != 0) _gl.DeleteSync(_buf[i].Fence);
+                if (_buf[i].Fbo != 0) _gl.DeleteFramebuffer(_buf[i].Fbo);
+                if (_buf[i].Tex != 0) _gl.DeleteTexture(_buf[i].Tex);
+                _buf[i] = default;
+            }
+
+            ShaderStore.DisposeConsumer(_gl, this);
+
+            if (_vao != 0) _gl.DeleteVertexArray(_vao);
+            if (_vbo != 0) _gl.DeleteBuffer(_vbo);
+            if (_ebo != 0) _gl.DeleteBuffer(_ebo);
+            
+            try { LockedGlfw.MakeContextCurrent(null); } catch { /* ignored */ }
+        }
+    }
+    
     private void DrainUntil(long targetSeq)
     {
-        LockedGlfw.MakeContextCurrent(_ctxWin);
-
         EnsureInit();
 
         // 0) Initialize any newly-seen external shaders BEFORE checkHotReload.
@@ -262,13 +338,11 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
             lock (_extShaderLock)
             {
                 if (_extCache.ContainsKey(key)) continue;
-
                 var ap = new AutoProgram(this, key);
-
                 _extCache[key] = new ExtShaderEntry
                 {
-                    Prog    = ap,
-                    UTex    = new AutoUniform(_gl, this, ap, "uTex"),
+                    Prog = ap,
+                    UTex = new AutoUniform(_gl, this, ap, "uTex"),
                 };
             }
         }
@@ -344,7 +418,6 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
         _published.Set();
 
         _gl.BindFramebuffer(GLEnum.Framebuffer, 0);
-        LockedGlfw.MakeContextCurrent(null);
     }
 
     private void RetireRequestedFences()

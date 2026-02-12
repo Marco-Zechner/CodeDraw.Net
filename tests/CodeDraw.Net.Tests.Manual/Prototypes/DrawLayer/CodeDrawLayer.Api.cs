@@ -3,7 +3,7 @@ using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.Window;
 
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.DrawLayer;
 
-public sealed unsafe partial class CodeDrawLayer
+public sealed partial class CodeDrawLayer
 {
     /// <summary>
     /// If called multiple times during one frame, only the last size is applied.
@@ -27,38 +27,7 @@ public sealed unsafe partial class CodeDrawLayer
         if (_disposed) return;
 
         var targetSeq = Volatile.Read(ref _lastEnqueuedSeq);
-
-        while (true)
-        {
-            if (Volatile.Read(ref _lastRenderedCmdSeq) >= targetSeq) return;
-
-            lock (_renderLock)
-            {
-                // If nobody is rendering, become the renderer.
-                if (!_rendering)
-                {
-                    _rendering = true;
-                    break;
-                }
-
-                // Otherwise wait until rendering finishes or our target is done.
-                while (_rendering && Volatile.Read(ref _lastRenderedCmdSeq) < targetSeq)
-                    Monitor.Wait(_renderLock);
-            }
-        }
-
-        try
-        {
-            DrainUntil(targetSeq);
-        }
-        finally
-        {
-            lock (_renderLock)
-            {
-                _rendering = false;
-                Monitor.PulseAll(_renderLock);
-            }
-        }
+        RequestRenderTo(targetSeq, wait: true, timeoutMs: Timeout.Infinite);
     }
 
     /// <summary>

@@ -190,6 +190,7 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
     
     private int _disposed;
     public bool IsDisposed => Volatile.Read(ref _disposed) != 0;
+    public bool UpdateWhileClosed { get; set; } = false;
     
     // only used for final cleanup once. Close/Open should not touch this.
     private int _releasedIdOnce;
@@ -202,9 +203,8 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
 
     public int WindowId { get; }
     
-
     
-    public string DebugName => $"[Window id={WindowId} title='{Title}']";
+    public string DebugName => $"[Window:{WindowId}:'{Title}']";
 
     private WindowState _preMinimizeState = WindowState.Windowed;
     public CodeDrawLayer? Layer { get; private set; }
@@ -223,8 +223,13 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
 
     public void SetPresentedLayer(CodeDrawLayer? layer, bool keepLastFrameUntilReady = true)
     {
+        if (ReferenceEquals(Layer, layer))
+            return;
+
         Layer = layer;
         _keepLastFrameUntilReady = keepLastFrameUntilReady;
+
+        _host.AssignWindowLayer(WindowId, layer);
     }
 
     public bool ShouldClose => _closing || IsDisposed;
@@ -256,7 +261,8 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
         WindowId = _host.ReserveWindowId();
 
         // Layer exists regardless of open/close. It may be resized when settings change.
-        Layer = new CodeDrawLayer(_host, w, h, "WindowLayer:" + WindowId);
+        Layer = new CodeDrawLayer(_host, w, h, $"{WindowId}:'{title}'");
+        _host.RegisterAutoLayerOwner(WindowId, Layer); 
 
         // Always run update thread (it can idle when closed).
         _updateThread = new Thread(UpdateLoop) { IsBackground = true, Name = $"Update:{title}" };
@@ -327,20 +333,12 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
         _startFired = false;
     }
 
-
-    public void WaitForClose()
-    {
-        var p = Interlocked.Exchange(ref _presentThread, null);
-        var u = Interlocked.Exchange(ref _updateThread, null);
-
-        if (p is { IsAlive: true }) p.Join();
-        if (u is { IsAlive: true }) u.Join();
-    }
-
     public void Dispose()
     {
         if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
 
+        Console.WriteLine("Window " + DebugName + " Disposing...");
+        
         try { Close(); } catch { /* ignored */ }
 
         _closing = true;
@@ -348,7 +346,7 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
 
         ReleaseIdOnceFinal();
 
-        Layer?.Dispose(); //TODO: only do this if we are the owner of the layer. aka its a "auto layer" and this is the last window using it. user created layers will not be touched.
+        _host.NotifyWindowDisposed(WindowId);
         Layer = null;
     }
     
@@ -515,12 +513,17 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
                 catch (Exception ex) { Console.WriteLine($"[OnStart error] {ex}"); }
             }
 
-            var cb = OnUpdate;
-            if (cb != null)
+            if (IsOpen || UpdateWhileClosed)
             {
-                try { cb(new UpdateContext(this, Input, deltaSec, tick)); }
-                catch (Exception ex) { Console.WriteLine($"[OnUpdate error] {ex}"); }
+                var cb = OnUpdate;
+                if (cb != null)
+                {
+                    try { cb(new UpdateContext(this, Input, deltaSec, tick)); }
+                    catch (Exception ex) { Console.WriteLine($"[OnUpdate error] {ex}"); }
+                }
             }
+            else
+                Thread.Sleep(50);
 
             tick++;
 

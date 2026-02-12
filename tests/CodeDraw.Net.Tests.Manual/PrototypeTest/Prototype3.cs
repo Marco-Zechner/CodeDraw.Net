@@ -51,10 +51,12 @@ public class Prototype3 : IDisposable
             layer.Render();
         };
 
-        var set = _win2.WindowSettings;
-        set.MinSize = new Vector2<int>(200, 200);
-        set.MaxSize = new Vector2<int>(600, 600);
-        set.AspectRatio = new Vector2<int>(1, 1);
+        _win2.Settings = _win2.Settings with
+        {
+            MinSize = new Vector2<int>(200, 200),
+            MaxSize = new Vector2<int>(600, 600),
+            AspectRatio = new Vector2<int>(1, 1),
+        };
 
 
         string lastMsg = "";
@@ -83,10 +85,10 @@ public class Prototype3 : IDisposable
             }
 
 
-            if (win.WindowSettings.ToString() != lastMsg)
+            if (win.Settings.ToString() != lastMsg)
             {
-                Console.WriteLine($"\n------------------------------------------------------------------------------\n{DateTime.Now:HH:mm:ss}\n{win.WindowSettings}");
-                lastMsg = win.WindowSettings.ToString();
+                Console.WriteLine($"\n------------------------------------------------------------------------------\n{DateTime.Now:HH:mm:ss}\n{win.Settings}");
+                lastMsg = win.Settings.ToString();
             }
 
             if (input.GetKeyDown(Keys.T))

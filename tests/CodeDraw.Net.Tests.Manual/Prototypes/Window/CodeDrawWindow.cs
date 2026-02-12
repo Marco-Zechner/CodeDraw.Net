@@ -7,7 +7,7 @@ using Silk.NET.OpenGL;
 
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.Window;
 
-public sealed unsafe class CodeDrawWindow : IDisposable, IShaderConsumer
+public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
 {
     //TODO: add a "IsFocused" property that reflects whether this window is currently focused/active in the OS, so users know if mousePos is valid for example.
 
@@ -183,96 +183,9 @@ public sealed unsafe class CodeDrawWindow : IDisposable, IShaderConsumer
 
     public int WindowId { get; }
 
-    public WindowSettingsHandle WindowSettings { get; }
 
-    private string _title;
 
-    private int _winW;
-    private int _winH;
-
-    public Vector2<int> WindowPosition
-    {
-        get => WindowSettings.WindowPosition;
-        set => WindowSettings.WindowPosition = value;
-    }
-
-    public int Width
-    {
-        get => WindowSettings.Size.X;
-        set => WindowSettings.Size = new Vector2<int>(value, WindowSettings.Size.Y);
-    }
-
-    public int Height
-    {
-        get => WindowSettings.Size.Y;
-        set => WindowSettings.Size = new Vector2<int>(WindowSettings.Size.X, value);
-    }
-
-    public int PosX
-    {
-        get => WindowSettings.WindowPosition.X;
-        set => WindowSettings.WindowPosition = new Vector2<int>(value, WindowSettings.WindowPosition.Y);
-    }
-
-    public int PosY
-    {
-        get => WindowSettings.WindowPosition.Y;
-        set => WindowSettings.WindowPosition = new Vector2<int>(WindowSettings.WindowPosition.X, value);
-    }
-
-    public Vector2<int> Size
-    {
-        get => WindowSettings.Size;
-        set => WindowSettings.Size = value;
-    }
-
-    public bool AlwaysOnTop
-    {
-        get => WindowSettings.AlwaysOnTop;
-        set => WindowSettings.AlwaysOnTop = value;
-    }
-
-    public WindowFrameMode FrameMode
-    {
-        get => WindowSettings.FrameMode;
-        set => WindowSettings.FrameMode = value;
-    }
-
-    public WindowResizeMode ResizeMode
-    {
-        get => WindowSettings.ResizeMode;
-        set => WindowSettings.ResizeMode = value;
-    }
-
-    public WindowState State
-    {
-        get => WindowSettings.State;
-        set => WindowSettings.State = value;
-    }
-
-    public bool ClickThrough
-    {
-        get => WindowSettings.ClickThrough;
-        set => WindowSettings.ClickThrough = value;
-    }
-
-    public bool TransparentAlpha
-    {
-        get => WindowSettings.TransparentAlpha;
-        set => WindowSettings.TransparentAlpha = value;
-    }
-
-    public string Title
-    {
-        get => _title;
-        set
-        {
-            _title = value;
-            _host.InvokeHostAsync(() => LockedGlfw.SetWindowTitle(_win, _title));
-        }
-    }
-
-    public string DebugName => $"[Window id={WindowId} title='{_title}']";
+    public string DebugName => $"[Window id={WindowId} title='{Title}']";
 
 
     private bool _maximizeBorderless;
@@ -310,37 +223,30 @@ public sealed unsafe class CodeDrawWindow : IDisposable, IShaderConsumer
     public CodeDrawWindow(SharedGlfwHost host, int w, int h, int x, int y, string title)
     {
         _host = host;
-        _title = title;
-        Volatile.Write(ref _winW, w);
-        Volatile.Write(ref _winH, h);
 
-        // Desired/current settings snapshot for user-facing API.
-        // NOTE: This step does NOT apply anything yet. It's just state tracking.
-        WindowSettings = new WindowSettingsHandle(new WindowSettingsSnapshot(
+        _settings = new WindowSettingsSnapshot(
             WindowPosition: new Vector2<int>(x, y),
             Size: new Vector2<int>(w, h),
             Title: title,
             AlwaysOnTop: false,
-
             FrameMode: WindowFrameMode.Decorated,
             ResizeMode: WindowResizeMode.Resizable,
             MinSize: Vector2<int>.Zero,
             MaxSize: Vector2<int>.Zero,
             AspectRatio: Vector2<int>.Zero,
-
             State: WindowState.Windowed,
             ClickThrough: false,
             TransparentAlpha: true
-        ));
+        ).Normalize();
 
-        _win = host.CreateWindow(x, y, w, h, _title);
+        _win = host.CreateWindow(x, y, w, h, Title);
         _host.RegisterWindowObject(_win, this);
         WindowId = host.GetWindowId(_win);
 
         _layer = new CodeDrawLayer(host, w, h, "WindowLayer:" + WindowId);
 
-        _presentThread = new Thread(PresentLoop) { IsBackground = true, Name = $"Presenter:{_title}" };
-        _updateThread  = new Thread(UpdateLoop)  { IsBackground = true, Name = $"Update:{_title}" };
+        _presentThread = new Thread(PresentLoop) { IsBackground = true, Name = $"Presenter:{Title}" };
+        _updateThread  = new Thread(UpdateLoop)  { IsBackground = true, Name = $"Update:{Title}" };
 
         _presentThread.Start();
         _updateThread.Start();
@@ -404,30 +310,6 @@ public sealed unsafe class CodeDrawWindow : IDisposable, IShaderConsumer
                 LockedGlfw.SetWindowShouldClose(win, true);
             });
             return;
-        }
-
-        // Update settings based on OS-driven changes (drag/resize).
-        // This is "current state" and should not mark dirty.
-        switch (evt)
-        {
-            case SharedGlfwHost.WindowPosEvent wp when wp.WindowId == WindowId:
-                WindowSettings.UpdateFromOs(newWindowPos: new Vector2(wp.X, wp.Y));
-                break;
-
-            case SharedGlfwHost.WindowSizeEvent ws when ws.WindowId == WindowId:
-                var snap = WindowSettings.DesiredSnapshot();
-                if (snap.State == WindowState.Fullscreen)
-                    break; // ignore physical +1
-
-                Volatile.Write(ref _winW, ws.W);
-                Volatile.Write(ref _winH, ws.H);
-                WindowSettings.UpdateFromOs(newSize: new Vector2(ws.W, ws.H));
-                break;
-
-
-            case SharedGlfwHost.FramebufferSizeEvent fb when fb.WindowId == WindowId:
-                // We don't store fb size here yet; later we'll cache it in host runtime state.
-                break;
         }
 
         Input.Apply(evt);
@@ -516,41 +398,16 @@ public sealed unsafe class CodeDrawWindow : IDisposable, IShaderConsumer
                     continue;
                 }
 
-                var (desired, dirty) = WindowSettings.ConsumeDirty();
-                if (dirty != WindowDirty.None)
-                {
-                    // Host applies Title/Pos/Size/Border/State/AlwaysOnTop/ClickThrough
-                    var hostDirty = dirty & (
-                        WindowDirty.Title |
-                        WindowDirty.WindowPos |
-                        WindowDirty.CanvasSize |
-                        WindowDirty.Border |
-                        WindowDirty.WindowState |
-                        WindowDirty.AlwaysOnTop |
-                        WindowDirty.ClickThrough
-                    );
-
-                    if (hostDirty != WindowDirty.None)
-                        _host.ApplyWindowSettingsAsync(_win, WindowId, desired, hostDirty, WindowSettings);
-
-                    // TransparentAlpha is render-side only in our "force alpha=1" strategy
-                    // Mark it applied immediately (no host roundtrip needed)
-                    if ((dirty & WindowDirty.TransparentAlpha) != 0)
-                    {
-                        // render-side apply is immediate
-                        var snap = WindowSettings.DesiredSnapshot();
-                        WindowSettings.SyncCurrentFromHost(snap, WindowDirty.TransparentAlpha);
-                    }
-                }
+                var snap = Settings;
 
                 ShaderStore.CheckHotReload(gl, this);
 
-                var logical = WindowSettings.DesiredSnapshot().Size;
+                var logical = snap.Size;
                 if (logical.X < 1) logical = logical.WithX(1);
                 if (logical.Y < 1) logical = logical.WithY(1);
                 gl.Viewport(0, 0, (uint)logical.X, (uint)logical.Y);
 
-                var opaque = !WindowSettings.DesiredSnapshot().TransparentAlpha;
+                var opaque = !snap.TransparentAlpha;
 
                 gl.ClearColor(0f, 0f, 0f, opaque ? 1f : 0f);
                 gl.Clear((uint)ClearBufferMask.ColorBufferBit);

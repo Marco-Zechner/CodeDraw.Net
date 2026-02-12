@@ -159,6 +159,8 @@ public sealed unsafe partial class SharedGlfwHost : IDisposable
     public WindowHandle* ShareRoot => _shareRoot;
 
     private Thread? _hostThread;
+    private int _hostThreadId;
+    private bool IsHostThread => Environment.CurrentManagedThreadId == _hostThreadId;
     private volatile bool _running;
     private readonly AutoResetEvent _started = new(false);
     private readonly AutoResetEvent _work = new(false);
@@ -216,6 +218,12 @@ public sealed unsafe partial class SharedGlfwHost : IDisposable
     private void InvokeHostSync(Action action)
     {
         if (!_running) throw new InvalidOperationException("Host is not running.");
+
+        if (IsHostThread)
+        {
+            action(); // we are already on the host thread, just execute directly
+            return;
+        }
 
         var tcs = new TaskCompletionSource<object?>(
             TaskCreationOptions.RunContinuationsAsynchronously);
@@ -447,6 +455,7 @@ public sealed unsafe partial class SharedGlfwHost : IDisposable
 
     private void HostThreadMain()
     {
+        _hostThreadId = Environment.CurrentManagedThreadId;
         LockedGlfw.SetGlfwInstance(Glfw.GetApi());
         if (!LockedGlfw.Init()) throw new Exception("GLFW init failed");
 
@@ -577,16 +586,11 @@ public sealed unsafe partial class SharedGlfwHost : IDisposable
         }
     }
 
-    internal void ApplyWindowSettingsAsync(
-        WindowHandle* win,
-        int windowId,
-        WindowSettingsSnapshot desired,
-        WindowDirty dirty,
-        WindowSettingsHandle settings)
+    internal void ApplyWindowSettingsSync(WindowHandle* win, int windowId, WindowSettingsSnapshot desired, WindowDirty dirty)
     {
         if (win == null) return;
 
-        InvokeHostAsync(() =>
+        InvokeHostSync(() =>
         {
             if (!IsWindowAlive(win)) return;
 
@@ -604,20 +608,18 @@ public sealed unsafe partial class SharedGlfwHost : IDisposable
             if ((dirty & WindowDirty.ClickThrough) != 0)
                 TryApplyClickThrough_HostThreadUnsafe(win, desired.ClickThrough);
 
-            // ==== ORDER IMPORTANT ==== (maybe xD probably)
-
-            // 1. State
+            // State first (because it can force border/constraints behavior)
             if ((dirty & WindowDirty.WindowState) != 0)
-                ApplyWindowState_HostThreadUnsafe(win, windowId, desired, settings);
+                ApplyWindowState_HostThreadUnsafe(win, windowId, desired);
 
-            // 2) Frame/resizability + constraints
+            // Frame/resizability + constraints
             if ((dirty & WindowDirty.Border) != 0)
             {
                 ApplyFrameAndResizability_HostThreadUnsafe(win, desired);
                 ApplyConstraintsIfWindowed_HostThreadUnsafe(win, desired);
             }
 
-            // 3) Pos/Size only if Windowed
+            // Pos/Size only if Windowed
             if (desired.State == WindowState.Windowed)
             {
                 if ((dirty & WindowDirty.WindowPos) != 0)
@@ -627,8 +629,7 @@ public sealed unsafe partial class SharedGlfwHost : IDisposable
                     LockedGlfw.SetWindowSize(win, desired.Size.X, desired.Size.Y);
             }
 
-            settings.MarkApplied(dirty & ~(WindowDirty.WindowPos | WindowDirty.CanvasSize));
-            settings.SyncCurrentFromHost(desired, dirty);
+            LockedGlfw.FocusWindow(win);
         });
     }
 
@@ -668,45 +669,30 @@ public sealed unsafe partial class SharedGlfwHost : IDisposable
         }
     }
 
-    private void ApplyWindowState_HostThreadUnsafe(WindowHandle* win, int windowId, WindowSettingsSnapshot desired, WindowSettingsHandle settings)
+    private void ApplyWindowState_HostThreadUnsafe(WindowHandle* win, int windowId, WindowSettingsSnapshot desired)
     {
         switch (desired.State)
         {
             case WindowState.Windowed:
-            {
-                // If we were fullscreen, restore from monitor mode back to windowed rect
                 ExitFullscreenIfNeeded(win, windowId);
                 LockedGlfw.RestoreWindow(win);
                 break;
-            }
 
             case WindowState.Minimized:
-            {
                 ExitFullscreenIfNeeded(win, windowId);
                 LockedGlfw.IconifyWindow(win);
                 break;
-            }
 
             case WindowState.Maximized:
-            {
                 ExitFullscreenIfNeeded(win, windowId);
-
-                // Clear constraints for any non-windowed state.
                 ClearAllConstraints_HostThreadUnsafe(win);
-
-                // Ensure the chrome flags match first (especially Decorated)
                 ApplyFrameAndResizability_HostThreadUnsafe(win, desired);
-
-                // Manual maximize to workarea; decorated needs frame compensation
                 ApplyMaximizeWorkarea_HostThreadUnsafe(win, decorated: desired.FrameMode == WindowFrameMode.Decorated);
                 break;
-            }
 
             case WindowState.Fullscreen:
-            {
-                EnterFullscreen(win, windowId, settings);
+                EnterFullscreen(win, windowId);
                 break;
-            }
         }
     }
 
@@ -744,7 +730,7 @@ public sealed unsafe partial class SharedGlfwHost : IDisposable
         LockedGlfw.FocusWindow(win);
     }
 
-    private void EnterFullscreen(WindowHandle* win, int windowId, WindowSettingsHandle settings)
+    private void EnterFullscreen(WindowHandle* win, int windowId)
     {
         // save restore rect once
         if (!_fullscreenRestoreRects.TryGetValue(windowId, out var rr) || !rr.valid)
@@ -780,9 +766,6 @@ public sealed unsafe partial class SharedGlfwHost : IDisposable
 
         LockedGlfw.SetWindowPos(win, mx, my);
         LockedGlfw.SetWindowSize(win, physicalW, physicalH);
-
-        // Lie to user: update settings size to logical
-        settings.SyncSizeFromHost(new Vector2<int>(logicalW, logicalH));
 
         LockedGlfw.FocusWindow(win);
     }

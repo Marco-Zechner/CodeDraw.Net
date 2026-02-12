@@ -177,6 +177,7 @@ public sealed unsafe class SharedGlfwHost : IDisposable
     {
         if (!_inputQueues.TryGetValue(windowId, out var q)) return;
         var n = 0;
+        
         while (n++ < max && q.TryDequeue(out var evt))
             handle(evt);
     }
@@ -758,7 +759,7 @@ public sealed unsafe class SharedGlfwHost : IDisposable
 
     public void NotifyWindowedRect(int windowId, int x, int y, int width, int height)
     {
-        InvokeHostSync(() =>
+        InvokeHostAsync(() =>
         {
             _stateMachine.NotifyWindowedRect(windowId, x, y, width, height);
         });

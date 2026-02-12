@@ -243,7 +243,7 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
 
     // --------- Internals ---------
 
-        private void RequestRenderTo(long targetSeq, bool wait, int timeoutMs)
+    private void RequestRenderTo(long targetSeq, bool wait, int timeoutMs)
     {
         if (_disposed) return;
 

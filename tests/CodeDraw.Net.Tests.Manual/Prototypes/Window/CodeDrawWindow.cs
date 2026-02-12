@@ -422,17 +422,22 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
         if (w < 1) w = 1;
         if (h < 1) h = 1;
 
+        Vector2<int> pos = default;
+        var notify = false;
+
         lock (_settingsLock)
         {
             _settings = _settings with { Size = new Vector2<int>(w, h) };
 
             if (_settings.State == WindowState.Windowed)
             {
-                // We can safely record a full windowed rect using the event data + current pos.
-                var p = _settings.WindowPosition;
-                _host.NotifyWindowedRect(WindowId, p.X, p.Y, w, h); // implement: thread-safe dict update
+                pos = _settings.WindowPosition;
+                notify = true;
             }
         }
+
+        if (notify)
+            _host.NotifyWindowedRect(WindowId, pos.X, pos.Y, w, h);
     }
     
     private void ApplyOsMaximizedToSettings(bool isMaximized)
@@ -566,7 +571,8 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
 
             while (!_presentStop && IsOpen && !_closing && !IsDisposed)
             {
-                if (_host.IsWindowInLiveResize(WindowId))
+                const double resizeTimeout = 100; //ms
+                if (_host.IsWindowInLiveResize(WindowId, resizeTimeout))
                 {
                     // skip a frame if the window is currently being resized by the user.
                     // if we call swapBuffer here at a bad time when the user is resizing, then it can crash the GPU driver... :/
@@ -635,9 +641,9 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
 
                 LockedGlfw.SwapBuffers(win);
 
-                var err = gl.GetError();
-                if (err != GLEnum.NoError)
-                    Console.WriteLine($"GL error: {err}");
+                // var err = gl.GetError();
+                // if (err != GLEnum.NoError)
+                //     Console.WriteLine($"GL error: {err}");
             }
 
             ShaderStore.DisposeConsumer(gl, this);

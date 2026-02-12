@@ -47,13 +47,27 @@ public partial class CodeDrawWindow
     public Vector2<int> WindowPosition
     {
         get => Settings.WindowPosition;
-        set => Settings = RawSettings with { WindowPosition = value };
+        set
+        {
+            var raw = RawSettings;
+            if (raw.State != WindowState.Windowed)
+                Settings = raw with { State = WindowState.Windowed, WindowPosition = value };
+            else
+                Settings = raw with { WindowPosition = value };
+        }
     }
 
     public Vector2<int> Size
     {
         get => Settings.Size;
-        set => Settings = RawSettings with { Size = value };
+        set
+        {
+            var raw = RawSettings;
+            if (raw.State != WindowState.Windowed)
+                Settings = raw with { State = WindowState.Windowed, Size = value };
+            else
+                Settings = raw with { Size = value };
+        }
     }
 
     public int Width

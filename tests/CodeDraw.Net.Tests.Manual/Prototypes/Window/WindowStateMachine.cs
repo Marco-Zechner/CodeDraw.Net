@@ -17,7 +17,13 @@ internal sealed unsafe partial class WindowStateMachine
 
     // Saved rect for manual modes so we can restore to the previous windowed rect.
     private readonly ConcurrentDictionary<int, RectI> _manualRestoreRects = new();
+    private readonly ConcurrentDictionary<int, RectI> _lastWindowedRects  = new();
 
+    public void NotifyWindowedRect(int windowId, int x, int y, int w, int h)
+    {
+        _lastWindowedRects[windowId] = new RectI(x, y, Math.Max(1,w), Math.Max(1,h));
+    }
+    
     public void Apply(
         WindowHandle* win,
         int windowId,
@@ -46,16 +52,17 @@ internal sealed unsafe partial class WindowStateMachine
 
         var manual = IsManual(desired.State);
         var windowed = desired.State == WindowState.Windowed;
-
+        var maximized = desired.State == WindowState.Maximized;
+        
         // Border/constraints:
         // - Windowed: respect intent
         // - Manual: force borderless+fixed
         // - Maximized/Minimized: ignore (meaningless)
         if (dirty.HasFlag(WindowDirty.Border) || dirty.HasFlag(WindowDirty.WindowState))
         {
-            if (windowed)
+            if (windowed || maximized)
             {
-                ApplyBorderFromIntent(win, desired);
+                ApplyBorderFromIntent_NoConstraintsIfMaximized(win, desired, maximized);
             }
             else if (manual)
             {
@@ -169,10 +176,27 @@ internal sealed unsafe partial class WindowStateMachine
         LockedGlfw.SetWindowPos(win, rr.X, rr.Y);
         LockedGlfw.SetWindowSize(win, rr.W, rr.H);
     }
+    
+    private void CaptureWindowedRect(WindowHandle* win, int windowId)
+    {
+        // Call this ONLY when you are sure the window is actually windowed.
+        _lastWindowedRects[windowId] = QueryWindowRect(win);
+    }
 
     private void CaptureManualRestoreIfMissing(WindowHandle* win, int windowId)
     {
-        // Only capture when entering manual modes (so we restore to whatever the *actual* window rect was).
+        // Only capture once per "manual session"
+        if (_manualRestoreRects.ContainsKey(windowId))
+            return;
+
+        // Prefer the last known stable windowed rect.
+        if (_lastWindowedRects.TryGetValue(windowId, out var rr))
+        {
+            _manualRestoreRects.TryAdd(windowId, rr);
+            return;
+        }
+
+        // Absolute fallback: current rect (but this should only happen if you entered manual before ever being windowed)
         _manualRestoreRects.TryAdd(windowId, QueryWindowRect(win));
     }
 
@@ -199,18 +223,17 @@ internal sealed unsafe partial class WindowStateMachine
         LockedGlfw.SetWindowAttrib(win, WindowAttributeSetter.Resizable, false);
     }
 
-    private static void ApplyBorderFromIntent(WindowHandle* win, WindowSettingsSnapshot d)
+    private static void ApplyBorderFromIntent_NoConstraintsIfMaximized(WindowHandle* win, WindowSettingsSnapshot d, bool isMaximized)
     {
-        // decorations
         LockedGlfw.SetWindowAttrib(win, WindowAttributeSetter.Decorated, d.FrameMode == WindowFrameMode.Decorated);
 
-        // resizable flag only depends on resize mode
         var resizable = d.ResizeMode != WindowResizeMode.Fixed;
         LockedGlfw.SetWindowAttrib(win, WindowAttributeSetter.Resizable, resizable);
 
+        // Constraints: only apply if NOT maximized and in windowed mode.
         ClearAllConstraints(win);
+        if (isMaximized) return;
 
-        // constraints only meaningful in Windowed + resizable + Limited/Aspect
         if (d.State != WindowState.Windowed) return;
         if (!resizable) return;
 
@@ -219,13 +242,8 @@ internal sealed unsafe partial class WindowStateMachine
             case WindowResizeMode.Limited:
                 LockedGlfw.SetWindowSizeLimits(win, d.MinSize.X, d.MinSize.Y, d.MaxSize.X, d.MaxSize.Y);
                 break;
-
             case WindowResizeMode.Aspect:
                 LockedGlfw.SetWindowAspectRatio(win, d.AspectRatio.X, d.AspectRatio.Y);
-                break;
-
-            default:
-            case WindowResizeMode.Resizable:
                 break;
         }
     }

@@ -350,6 +350,13 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
         lock (_settingsLock)
         {
             _settings = _settings with { Size = new Vector2<int>(w, h) };
+
+            if (_settings.State == WindowState.Windowed)
+            {
+                // We can safely record a full windowed rect using the event data + current pos.
+                var p = _settings.WindowPosition;
+                _host.NotifyWindowedRect(WindowId, p.X, p.Y, w, h); // implement: thread-safe dict update
+            }
         }
     }
     

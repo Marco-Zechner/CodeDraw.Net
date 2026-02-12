@@ -549,4 +549,12 @@ public sealed unsafe class SharedGlfwHost : IDisposable
         _isLiveResize[windowId] = 0;
         return false;
     }
+
+    public void NotifyWindowedRect(int windowId, int x, int y, int width, int height)
+    {
+        InvokeHostSync(() =>
+        {
+            _stateMachine.NotifyWindowedRect(windowId, x, y, width, height);
+        });
+    }
 }

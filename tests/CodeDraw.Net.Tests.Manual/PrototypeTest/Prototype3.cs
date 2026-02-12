@@ -4,6 +4,7 @@ using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.Shaders;
 using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.Window;
 using MarcoZechner.MathDotNet;
 using Silk.NET.GLFW;
+using Silk.NET.Input;
 
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.PrototypeTest;
 
@@ -49,6 +50,16 @@ public class Prototype3 : IDisposable
             DrawOrbitingDots(layer, 200, 200, 10, 50, 2, 0, new Rgba(0.5f, 0, 0, 1f));
             DrawOrbitingDots(layer, 200, 200, 10, 80, 2*80/50f, 0, new Rgba(0.0f, 1, 1, 1f));
             layer.Render();
+
+            if (context.Input.GetKeyDown(Keys.N))
+            {
+                if (_win2.IsOpen)
+                    _win2.Close();
+                else
+                    _win2.Open();
+                
+                Console.WriteLine($"win2 is now " + (_win2.IsOpen ? "open" : "closed"));
+            }
         };
 
         Console.WriteLine("\ninit: \n" + _win2.Settings);

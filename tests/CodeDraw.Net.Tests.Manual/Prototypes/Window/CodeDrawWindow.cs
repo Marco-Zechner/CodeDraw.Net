@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.DrawLayer;
 using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.Shaders;
 using MarcoZechner.MathDotNet;
@@ -103,6 +104,19 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
             _mouseDown.Clear();
             _mouseUp.Clear();
         }
+        
+        internal void ClearHeldStates()
+        {
+            _keysHeld.Clear();
+            _mouseHeld.Clear();
+            _modsDown = ModifierKeys.NONE;
+            WheelDx = 0;
+            WheelDy = 0;
+            _keysDown.Clear();
+            _keysUp.Clear();
+            _mouseDown.Clear();
+            _mouseUp.Clear();
+        }
 
         internal void Apply(object evt)
         {
@@ -128,9 +142,9 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
                             _mouseHeld.Remove(mb.Button);
                             _mouseUp.Add(mb.Button);
                             break;
-                        case InputAction.Repeat:
+                        // case InputAction.Repeat:
                             // not triggered for mouse buttons.
-                            break;
+                            // break;
                     }
                     break;
                 }
@@ -159,33 +173,41 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
         }
     }
 
-    public readonly record struct UpdateContext(
-        CodeDrawWindow Win,
-        WindowInput Input,
-        float DeltaSeconds,
-        long Tick
-    );
+    public readonly record struct UpdateContext(CodeDrawWindow Win, WindowInput Input, float DeltaSeconds, long Tick);
 
     private readonly SharedGlfwHost _host;
-    private readonly WindowHandle* _win;
-    internal nint WindowHandle => (nint)_win;
+    private nint _winPtr;
+    private WindowHandle* Win => (WindowHandle*)Volatile.Read(ref _winPtr);
+    internal nint WindowHandle => Volatile.Read(ref _winPtr);      
+    public bool IsOpen => _nativeOpen && _host.IsWindowAliveById(WindowId);
 
     private Thread? _presentThread;
     private Thread? _updateThread;
 
-    private volatile bool _closing;
+    private volatile bool _closing;     // "logical" closing request for update loop
+    private volatile bool _nativeOpen;  // whether a native window currently exists
+    private volatile bool _presentStop; // stop signal for present thread
+    
     private int _disposed;
     public bool IsDisposed => Volatile.Read(ref _disposed) != 0;
-    private int _windowDestroyed; // 0 = not yet, 1 = done
-
-    private WindowState _preMinimizeState = WindowState.Windowed;
     
-    public CodeDrawLayer? Layer { get; private set; }
+    // only used for final cleanup once. Close/Open should not touch this.
+    private int _releasedIdOnce;
+    
+    private void ReleaseIdOnceFinal()
+    {
+        if (Interlocked.Exchange(ref _releasedIdOnce, 1) != 0) return;
+        _host.ReleaseWindowId(WindowId);
+    }
 
     public int WindowId { get; }
     
+
+    
     public string DebugName => $"[Window id={WindowId} title='{Title}']";
 
+    private WindowState _preMinimizeState = WindowState.Windowed;
+    public CodeDrawLayer? Layer { get; private set; }
     public WindowInput Input { get; } = new();
 
     public int UpdateDelayMs { get; set; } = 16;
@@ -207,7 +229,12 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
 
     public bool ShouldClose => _closing || IsDisposed;
 
-    public CodeDrawWindow(SharedGlfwHost host, int w, int h, int x, int y, string title)
+    public CodeDrawWindow(
+        SharedGlfwHost host,
+        int w, int h,
+        int x, int y,
+        string title,
+        bool autoOpen = true)
     {
         _host = host;
 
@@ -226,41 +253,80 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
             TransparentAlpha: true
         ).Normalize();
 
-        _win = host.CreateWindow(x, y, w, h, Title);
-        _host.RegisterWindowObject(_win, this);
-        WindowId = host.GetWindowId(_win);
+        WindowId = _host.ReserveWindowId();
 
-        Layer = new CodeDrawLayer(host, w, h, "WindowLayer:" + WindowId);
+        // Layer exists regardless of open/close. It may be resized when settings change.
+        Layer = new CodeDrawLayer(_host, w, h, "WindowLayer:" + WindowId);
 
-        _presentThread = new Thread(PresentLoop) { IsBackground = true, Name = $"Presenter:{Title}" };
-        _updateThread  = new Thread(UpdateLoop)  { IsBackground = true, Name = $"Update:{Title}" };
-
-        _presentThread.Start();
+        // Always run update thread (it can idle when closed).
+        _updateThread = new Thread(UpdateLoop) { IsBackground = true, Name = $"Update:{title}" };
         _updateThread.Start();
+
+        if (autoOpen)
+            Open(); // uses current settings
     }
 
-    public CodeDrawWindow(SharedGlfwHost host, int w, int h, string title)
-        : this(host, w, h, 50, 120, title) {}
+    public CodeDrawWindow(SharedGlfwHost host, int w, int h, string title, bool autoOpen = true)
+        : this(host, w, h, 50, 120, title, autoOpen) {}
 
-    private void DestroyWindowOnce()
-    {
-        if (Interlocked.Exchange(ref _windowDestroyed, 1) != 0) return;
-        _host.UnregisterWindowObject(_win);
-        _host.DestroyWindow(_win);
-    }
-
+    
     public void Close()
     {
-        if (_closing) return;
-        _closing = true;
+        if (IsDisposed) return;
+        if (!_nativeOpen) return;
 
-        var win = _win;
-        _host.InvokeHostAsync(() =>
-        {
-            if (!_host.IsWindowAlive(win)) return;
-            LockedGlfw.SetWindowShouldClose(win, true);
-        });
+        _nativeOpen = false;
+
+        StopPresentThread();
+
+        // Destroy native window by id (host owns mapping)
+        _host.DestroyWindowById(WindowId);
+
+        Volatile.Write(ref _winPtr, 0);
+        Input.ClearHeldStates();
     }
+    
+    /// <summary>
+    /// Opens (or reopens) the native window using current settings, or optional overrides.
+    /// </summary>
+    public void Open(WindowSettingsSnapshot? overrideSettings = null)
+    {
+        ObjectDisposedException.ThrowIf(IsDisposed, nameof(CodeDrawWindow));
+        if (_nativeOpen) return;
+
+        _nativeOpen = true;
+        _presentStop = false;
+
+        if (overrideSettings.HasValue)
+            Settings = overrideSettings.Value; // will store snapshot; no host call because Win==null
+
+        var raw = RawSettings;
+
+        var created = _host.CreateOrRecreateWindowForId(
+            WindowId,
+            raw.WindowPosition.X, raw.WindowPosition.Y,
+            raw.Size.X, raw.Size.Y,
+            raw.Title,
+            owner: this);
+
+        Volatile.Write(ref _winPtr, (nint)created);
+
+        // apply snapshot to fresh window
+        _host.ApplyWindowSettingsSync(created, WindowId, raw,
+            WindowDirty.Title |
+            WindowDirty.Border |
+            WindowDirty.WindowPos |
+            WindowDirty.CanvasSize |
+            WindowDirty.WindowState |
+            WindowDirty.AlwaysOnTop |
+            WindowDirty.ClickThrough);
+
+        _presentThread = new Thread(PresentLoop) { IsBackground = true, Name = $"Presenter:{raw.Title}" };
+        _presentThread.Start();
+
+        _startFired = false;
+    }
+
 
     public void WaitForClose()
     {
@@ -275,13 +341,32 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
     {
         if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
 
-        Close();
-        WaitForClose();
+        try { Close(); } catch { /* ignored */ }
 
-        DestroyWindowOnce();
+        _closing = true;
+        WaitForCloseThreads();
 
-        Layer?.Dispose();
+        ReleaseIdOnceFinal();
+
+        Layer?.Dispose(); //TODO: only do this if we are the owner of the layer. aka its a "auto layer" and this is the last window using it. user created layers will not be touched.
         Layer = null;
+    }
+    
+    private void StopPresentThread()
+    {
+        _presentStop = true;
+        var p = Interlocked.Exchange(ref _presentThread, null);
+        if (p is { IsAlive: true }) p.Join();
+        _presentStop = false;
+    }
+
+    private void WaitForCloseThreads()
+    {
+        var u = Interlocked.Exchange(ref _updateThread, null);
+        if (u is { IsAlive: true }) u.Join();
+
+        var p = Interlocked.Exchange(ref _presentThread, null);
+        if (p is { IsAlive: true }) p.Join();
     }
 
     private void HandleEvent(object evt)
@@ -290,8 +375,7 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
         {
             case SharedGlfwHost.MouseMoveEvent mm when mm.WindowId == WindowId:
             {
-                // clamp using client size
-                var cs = Settings.Size; // client size
+                var cs = Settings.Size;
                 var x = mm.X;
                 var y = mm.Y;
                 if (x < 0) x = 0;
@@ -301,18 +385,11 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
                 evt = mm with { X = x, Y = y };
                 break;
             }
-            
-            case SharedGlfwHost.WindowCloseRequestedEvent cl when cl.WindowId == WindowId:
-                _closing = true;
 
-                var win = _win;
-                _host.InvokeHostAsync(() =>
-                {
-                    if (!_host.IsWindowAlive(win)) return;
-                    LockedGlfw.SetWindowShouldClose(win, true);
-                });
+            case SharedGlfwHost.WindowCloseRequestedEvent cl when cl.WindowId == WindowId:
+                Close();
                 return;
-                
+
             case SharedGlfwHost.WindowPosEvent wp when wp.WindowId == WindowId:
                 ApplyOsPosToSettings(wp.X, wp.Y);
                 break;
@@ -320,7 +397,7 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
             case SharedGlfwHost.WindowSizeEvent ws when ws.WindowId == WindowId:
                 ApplyOsSizeToSettings(ws.W, ws.H);
                 break;
-            
+
             case SharedGlfwHost.WindowMaximizedEvent mx when mx.WindowId == WindowId:
                 ApplyOsMaximizedToSettings(mx.IsMaximized);
                 break;
@@ -408,23 +485,30 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
         }
     }
 
+    // ============================================================
+    // UpdateLoop: should survive close/open.
+    // - if closed, drain queues (optional) but don’t touch _win
+    // ============================================================
     private void UpdateLoop()
     {
         var sw = Stopwatch.StartNew();
         var lastTicks = sw.ElapsedTicks;
         long tick = 0;
 
-        while (!ShouldClose)
+        while (!_closing && !IsDisposed)
         {
             var loopStartTicks = sw.ElapsedTicks;
             var deltaSec = (float)((loopStartTicks - lastTicks) / (double)Stopwatch.Frequency);
             lastTicks = loopStartTicks;
 
             Input.BeginUpdateFrame();
+
+            // Even if closed, you can still drain input queues (it’ll be empty).
             _host.DrainWindowInput(WindowId, HandleEvent);
             _host.PumpHostInputForWindow(this);
 
-            if (!_startFired && OnStart != null)
+            // Fire OnStart once per Open() session (since we reset _startFired on Open)
+            if (!_startFired && OnStart != null && IsOpen)
             {
                 _startFired = true;
                 try { OnStart(this); }
@@ -451,23 +535,19 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
         catch (Exception ex) { Console.WriteLine($"[OnClose error] {ex}"); }
     }
 
+    // ============================================================
+    // PresentLoop: runs only while native window is open. It dies on Close().
+    // ============================================================
     private void PresentLoop()
     {
+        var win = (WindowHandle*)Volatile.Read(ref _winPtr);
+        if (win == null) return;
+
         try
         {
-            LockedGlfw.MakeContextCurrent(_win);
+            LockedGlfw.MakeContextCurrent(win);
             LockedGlfw.SwapInterval(0);
             var gl = GL.GetApi(LockedGlfw.GetProcAddress);
-
-            // gl.Enable(GLEnum.DebugOutput);
-            // gl.Enable(GLEnum.DebugOutputSynchronous);
-            //
-            // gl.DebugMessageCallback((source, type, id, severity, length, message, userParam) =>
-            // {
-            //     var msg = new string((sbyte*)message, 0, length);
-            //     Console.WriteLine($"GL Debug Message: Source={source}, Type={type}, ID={id}, Severity={severity}, Message={msg}");
-            // }, null);
-            // gl.DebugMessageControl(GLEnum.DontCare, GLEnum.DontCare, GLEnum.DebugSeverityNotification, 0, null, false);
 
             var (vao, vbo, ebo) = ShaderCompiler.CreateFullScreenQuad(gl);
 
@@ -481,7 +561,7 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
             long lastSeq = 0;
             CodeDrawLayer? lastLayerRef = null;
 
-            while (!ShouldClose)
+            while (!_presentStop && IsOpen && !_closing && !IsDisposed)
             {
                 if (_host.IsWindowInLiveResize(WindowId))
                 {
@@ -492,11 +572,11 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
                 }
 
                 var snap = Settings;
-                var raw  = RawSettings; 
+                var raw  = RawSettings;
 
                 var client = snap.Size;
                 var physical = raw.Size;
-                
+
                 ShaderStore.CheckHotReload(gl, this);
 
                 gl.Viewport(0, 0, (uint)physical.X, (uint)physical.Y);
@@ -507,9 +587,9 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
                 gl.Clear((uint)ClearBufferMask.ColorBufferBit);
 
                 gl.Enable(GLEnum.ScissorTest);
-                gl.Scissor(0, 0, (uint)client.X, (uint)client.Y); // scissor in pixels, origin bottom-left in GL
+                gl.Scissor(0, 0, (uint)client.X, (uint)client.Y);
                 gl.Viewport(0, 0, (uint)client.X, (uint)client.Y);
-                
+
                 var layer = Layer;
                 var keepLast = _keepLastFrameUntilReady;
 
@@ -524,7 +604,7 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
                 {
                     layer.WaitForPublish(PresentWaitTimeoutMs);
 
-                    if (layer.TryGetLatest(out var tex, out _, out _, out var fence, out var seq))
+                    if (layer.TryGetLatest(out var tex, out _, out _, out _, out var seq))
                     {
                         if (tex != 0 && seq >= lastSeq)
                         {
@@ -547,30 +627,57 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
                     gl.BindVertexArray(0);
                     gl.UseProgram(0);
                 }
-                
+
                 gl.Disable(GLEnum.ScissorTest);
 
-                LockedGlfw.SwapBuffers(_win);
+                LockedGlfw.SwapBuffers(win);
 
                 var err = gl.GetError();
                 if (err != GLEnum.NoError)
-                {
                     Console.WriteLine($"GL error: {err}");
-                }
             }
 
             ShaderStore.DisposeConsumer(gl, this);
-
             gl.DeleteVertexArray(vao);
             gl.DeleteBuffer(vbo);
             gl.DeleteBuffer(ebo);
 
             LockedGlfw.MakeContextCurrent(null);
         }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[PresentLoop error] {ex}");
+        }
         finally
         {
-            DestroyWindowOnce();
+            // On Close() we destroy via host by id, so just detach context.
+            try { LockedGlfw.MakeContextCurrent(null); }
+            catch { /* ignored */ }
         }
+    }
+    
+    internal void Host_SetNativeHandle(WindowHandle* newWin)
+    {
+        Volatile.Write(ref _winPtr, (nint)newWin);
+    }
+
+    internal void Host_ClearNativeHandle()
+    {
+        Volatile.Write(ref _winPtr, 0);
+        Input.ClearHeldStates();
+    }
+    
+    internal void Host_RestartPresenterIfOpen()
+    {
+        if (!_nativeOpen || IsDisposed) return;
+
+        // stop old presenter
+        StopPresentThread();
+
+        // start new
+        var raw = RawSettings;
+        _presentThread = new Thread(PresentLoop) { IsBackground = true, Name = $"Presenter:{raw.Title}" };
+        _presentThread.Start();
     }
 
 }

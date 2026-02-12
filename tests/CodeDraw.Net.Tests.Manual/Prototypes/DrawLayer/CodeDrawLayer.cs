@@ -146,7 +146,7 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
     {
         DebugName = $"[Layer:{label}]";
         _host = host;
-        _ctxWin = host.CreateHiddenWindow(1, 1, "layer-ctx");
+        _ctxWin = host.CreateHiddenLayerWindow(1, 1, "layer-ctx");
 
         LockedGlfw.MakeContextCurrent(_ctxWin);
         LockedGlfw.SwapInterval(0);
@@ -207,7 +207,7 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
         if (_ebo != 0) _gl.DeleteBuffer(_ebo);
 
         LockedGlfw.MakeContextCurrent(null);
-        _host.DestroyWindow(_ctxWin);
+        _host.DestroyHiddenLayerWindow(_ctxWin);
     }
 
     private void Enqueue(ICmd cmd)

@@ -20,8 +20,6 @@ public partial class CodeDrawWindow
             {
                 var s = _settings;
                 var cs = s.ClientSize;
-
-                // lie to user: Size becomes client size
                 return s with { Size = cs };
             }
         }
@@ -38,9 +36,12 @@ public partial class CodeDrawWindow
             }
 
             var dirty = oldSnap.ComputeDirty(newSnap);
+            if (dirty == WindowDirty.None) return;
 
-            if (dirty != WindowDirty.None)
-                _host.ApplyWindowSettingsSync(_win, WindowId, newSnap, dirty);
+            var win = Win;
+            if (win == null) return; // closed => just store snapshot; Open() will apply later
+
+            _host.ApplyWindowSettingsSync(win, WindowId, newSnap, dirty);
         }
     }
 

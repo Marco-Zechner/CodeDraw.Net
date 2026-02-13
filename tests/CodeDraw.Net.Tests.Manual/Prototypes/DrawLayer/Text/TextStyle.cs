@@ -5,10 +5,25 @@ using SharpFont;
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.DrawLayer.Text
 {
     public enum TextAlign { Left, Center, Right }
+    public enum TextVAlign { Top, Middle, Bottom }
 
-    public readonly record struct FontRef(string Path)
+    public enum FontSlant { Normal, Italic }
+
+    public readonly record struct FontVariant(
+        int Weight,     // 100..900 typical; for variable fonts you can do arbitrary
+        FontSlant Slant // Normal/Italic
+    )
     {
-        public static FontRef FromFile(string path) => new FontRef(path);
+        public static FontVariant Regular => new(400, FontSlant.Normal);
+        public static FontVariant Bold => new(700, FontSlant.Normal);
+        public static FontVariant Italic => new(400, FontSlant.Italic);
+        public static FontVariant BoldItalic => new(700, FontSlant.Italic);
+    }
+    
+    public readonly record struct FontRef(string Path, FontVariant Variant)
+    {
+        public static FontRef FromFile(string path) => new FontRef(path, FontVariant.Regular);
+        public FontRef WithVariant(FontVariant v) => new(Path, v);
     }
 
     public sealed class TextStyle
@@ -18,7 +33,8 @@ namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.DrawLayer.Text
         public float LineHeightPx { get; set; } = 0; // 0 => auto
         public float WrapWidthPx { get; set; } = 0;  // 0 => no wrap
         public TextAlign Align { get; set; } = TextAlign.Left;
-
+        public TextVAlign VAlign { get; set; } = TextVAlign.Top;
+        
         public Rgba Color { get; set; } = new Rgba(1, 1, 1, 1);
         public Rgba? Background { get; set; } = null;
     }
@@ -31,6 +47,7 @@ namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.DrawLayer.Text
     public struct GlyphDraw
     {
         public int Index;           // character index in entire text
+        public int LineIndex;
         public char Char;
 
         public float X;
@@ -48,10 +65,9 @@ namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.DrawLayer.Text
         public float RotationRad;   // optional
     }
 
-    public readonly struct GlyphEffectContext
+    public readonly struct GlyphEffectContext(int timeMs)
     {
-        public readonly int TimeMs;
-        public GlyphEffectContext(int timeMs) => TimeMs = timeMs;
+        public readonly int TimeMs = timeMs;
     }
 
     public delegate void GlyphEffect(ref GlyphDraw g, in GlyphEffectContext ctx);
@@ -87,18 +103,11 @@ namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.DrawLayer.Text
 
     // ---- Glyph cache + atlas ----
 
-    public readonly struct GlyphKey : IEquatable<GlyphKey>
+    public readonly struct GlyphKey(string fontPath, int sizePx, uint glyphIndex) : IEquatable<GlyphKey>
     {
-        public readonly string FontPath;
-        public readonly int SizePx;
-        public readonly uint GlyphIndex;
-
-        public GlyphKey(string fontPath, int sizePx, uint glyphIndex)
-        {
-            FontPath = fontPath;
-            SizePx = sizePx;
-            GlyphIndex = glyphIndex;
-        }
+        public readonly string FontPath = fontPath;
+        public readonly int SizePx = sizePx;
+        public readonly uint GlyphIndex = glyphIndex;
 
         public bool Equals(GlyphKey other) =>
             SizePx == other.SizePx &&
@@ -143,50 +152,37 @@ namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.DrawLayer.Text
     }
 
     // A very simple packer: shelves (good enough to start).
-    internal sealed class ShelfPacker
+    internal sealed class ShelfPacker(int w, int h)
     {
-        private readonly int _w, _h;
         private int _curX, _curY, _shelfH;
 
-        public ShelfPacker(int w, int h) { _w = w; _h = h; }
-
-        public bool TryAlloc(int w, int h, out int x, out int y)
+        public bool TryAlloc(int w1, int h1, out int x, out int y)
         {
             x = y = 0;
-            if (w > _w || h > _h) return false;
+            if (w1 > w || h1 > h) return false;
 
-            if (_curX + w > _w)
+            if (_curX + w1 > w)
             {
                 _curX = 0;
                 _curY += _shelfH;
                 _shelfH = 0;
             }
 
-            if (_curY + h > _h) return false;
+            if (_curY + h1 > h) return false;
 
             x = _curX;
             y = _curY;
 
-            _curX += w;
-            _shelfH = Math.Max(_shelfH, h);
+            _curX += w1;
+            _shelfH = Math.Max(_shelfH, h1);
             return true;
         }
     }
 
-    public sealed class GlyphAtlas
+    public sealed class GlyphAtlas(IGlyphAtlasBackend backend, int pageW = 1024, int pageH = 1024)
     {
-        private readonly IGlyphAtlasBackend _backend;
-        private readonly int _pageW;
-        private readonly int _pageH;
 
         private readonly List<ShelfPacker> _packers = new();
-
-        public GlyphAtlas(IGlyphAtlasBackend backend, int pageW = 1024, int pageH = 1024)
-        {
-            _backend = backend;
-            _pageW = pageW;
-            _pageH = pageH;
-        }
 
         public int Allocate(int w, int h, out int page, out int x, out int y)
         {
@@ -199,8 +195,8 @@ namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.DrawLayer.Text
                 }
             }
 
-            page = _backend.EnsurePage(_pageW, _pageH);
-            while (_packers.Count <= page) _packers.Add(new ShelfPacker(_pageW, _pageH));
+            page = backend.EnsurePage(pageW, pageH);
+            while (_packers.Count <= page) _packers.Add(new ShelfPacker(pageW, pageH));
 
             if (!_packers[page].TryAlloc(w, h, out x, out y))
                 throw new InvalidOperationException("New atlas page cannot fit glyph (too big).");
@@ -209,7 +205,7 @@ namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.DrawLayer.Text
         }
     }
 
-    public sealed class GlyphCache : IDisposable
+    public sealed class GlyphCache(IGlyphAtlasBackend backend) : IDisposable
     {
         private readonly FontLibrary _lib = new();
 
@@ -235,17 +231,10 @@ namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.DrawLayer.Text
         private readonly Dictionary<(string path, int sizePx), FontFace> _faces = new(FaceKeyComparer.Instance);
         private readonly Dictionary<GlyphKey, GlyphInfo> _glyphs = new();
 
-        private readonly GlyphAtlas _atlas;
-        private readonly IGlyphAtlasBackend _backend;
+        private readonly GlyphAtlas _atlas = new(backend);
 
         // padding helps avoid sampling bleeding
         private const int PAD = 1;
-
-        public GlyphCache(IGlyphAtlasBackend backend)
-        {
-            _backend = backend;
-            _atlas = new GlyphAtlas(backend);
-        }
 
         public void Dispose()
         {
@@ -263,6 +252,19 @@ namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.DrawLayer.Text
 
             face = new FontFace(_lib, path);
             face.SetPixelSize((uint)sizePx);
+            try
+            {
+                // If SharpFont exposes variation axes, you’d map:
+                // Weight -> "wght"
+                // Italic -> either "ital" (0/1) or "slnt" (negative degrees)
+                //
+                // If not supported, this throws and you fall back to regular.
+                // ApplyVariationsIfSupported(face.Face, font.Variant); //TODO:
+            }
+            catch
+            {
+                // ignore (non-variable font or API not present)
+            }
             _faces[key] = face;
             return face;
         }
@@ -330,7 +332,7 @@ namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.DrawLayer.Text
                     }
 
                     // upload into atlas with padding offset
-                    _backend.UploadAlpha8(page, x + PAD, y + PAD, gw, gh, tmp.AsSpan(0, gw * gh));
+                    backend.UploadAlpha8(page, x + PAD, y + PAD, gw, gh, tmp.AsSpan(0, gw * gh));
                 }
                 finally
                 {
@@ -343,7 +345,7 @@ namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.DrawLayer.Text
                 info.W = gw;
                 info.H = gh;
 
-                var pageSize = _backend.GetPageSize(page);
+                var pageSize = backend.GetPageSize(page);
                 float u0 = info.X / pageSize.X;
                 float v0 = info.Y / pageSize.Y;
                 float u1 = (info.X + info.W) / pageSize.X;
@@ -363,11 +365,8 @@ namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.DrawLayer.Text
 
     // ---- Layout (wrap/newlines/measure) ----
 
-    public sealed class TextLayoutEngine
+    public sealed class TextLayoutEngine(GlyphCache glyphs)
     {
-        private readonly GlyphCache _glyphs;
-
-        public TextLayoutEngine(GlyphCache glyphs) => _glyphs = glyphs;
 
         public TextMetrics Measure(string text, TextStyle style)
         {
@@ -387,7 +386,6 @@ namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.DrawLayer.Text
 
             int sizePx = (int)MathF.Round(style.SizePx);
             float lineH = style.LineHeightPx > 0 ? style.LineHeightPx : (style.SizePx * 1.25f);
-
             float wrap = style.WrapWidthPx;
 
             float x = 0;
@@ -398,7 +396,10 @@ namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.DrawLayer.Text
 
             int index = 0;
 
-            // Greedy wrap at spaces: track last break
+            int lineIndex = 0;
+            int lineStartDraw = 0;
+
+            // Greedy wrap at spaces
             int lastBreakDrawIndex = -1;
             float xAtLastBreak = 0;
 
@@ -410,29 +411,36 @@ namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.DrawLayer.Text
 
                 if (c == '\n')
                 {
-                    NewLine();
+                    FinalizeLineWidth(lineStartDraw, draws.Count, lineIndex, wrap);
+                    x = 0;
+                    y += lineH;
+                    maxY = Math.Max(maxY, y + lineH);
+
+                    lineIndex++;
+                    lineStartDraw = draws.Count;
+
+                    lastBreakDrawIndex = -1;
+                    xAtLastBreak = 0;
                     continue;
                 }
 
-                // record break opportunities
                 if (c == ' ' || c == '\t')
                 {
                     lastBreakDrawIndex = draws.Count;
                     xAtLastBreak = x;
                 }
 
-                var gi = _glyphs.GetGlyph(style.Font, sizePx, c);
+                var gi = glyphs.GetGlyph(style.Font, sizePx, c);
 
-                // Wrap check before placing next glyph
+                // Wrap before placing next glyph
                 if (wrap > 0 && x > 0 && (x + gi.AdvanceX) > wrap && lastBreakDrawIndex >= 0)
                 {
                     int moveStart = lastBreakDrawIndex + 1; // after the space
-
                     float shiftLeft = 0f;
 
                     if (moveStart < draws.Count)
                     {
-                        shiftLeft = draws[moveStart].X; // move so it starts at 0
+                        shiftLeft = draws[moveStart].X;
                         float shiftDown = lineH;
 
                         for (int k = moveStart; k < draws.Count; k++)
@@ -440,13 +448,18 @@ namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.DrawLayer.Text
                             var g = draws[k];
                             g.X -= shiftLeft;
                             g.Y += shiftDown;
+                            g.LineIndex += 1;     // we’re pushing this word down one line
                             draws[k] = g;
                         }
                     }
 
-                    // update cursor: now on next line
+                    FinalizeLineWidth(lineStartDraw, moveStart, lineIndex, wrap);
+
                     x = (draws.Count > moveStart) ? (x - xAtLastBreak - shiftLeft) : 0;
                     y += lineH;
+
+                    lineIndex++;
+                    lineStartDraw = moveStart; // new line starts at moved word
 
                     lastBreakDrawIndex = -1;
                     xAtLastBreak = 0;
@@ -458,12 +471,14 @@ namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.DrawLayer.Text
                 var gd = new GlyphDraw
                 {
                     Index = index,
+                    LineIndex = lineIndex,
                     Char = c,
                     X = gx,
                     Y = gy,
                     WidthPx = gi.BitmapW,
                     HeightPx = gi.BitmapH,
                     Uv = gi.Uv,
+                    AtlasPage = gi.AtlasPage,
                     Color = style.Color,
                     HasBackground = style.Background.HasValue,
                     Background = style.Background ?? default,
@@ -485,16 +500,98 @@ namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.DrawLayer.Text
                 index++;
             }
 
-            metrics = new TextMetrics(maxX, maxY);
+            FinalizeLineWidth(lineStartDraw, draws.Count, lineIndex, wrap);
 
-            void NewLine()
+            // --- ALIGNMENT PASS (per line) ---
+            ApplyHorizontalAlignment(draws, style);
+
+            metrics = new TextMetrics(
+                Width: ComputeBlockWidth(draws),
+                Height: maxY
+            );
+
+            // This is a hook if later you want to store per-line widths.
+            // Currently alignment pass recomputes widths from draws, so this can stay empty.
+            static void FinalizeLineWidth(int start, int end, int line, float wrapWidth) { }
+        }
+        
+        private static void ApplyHorizontalAlignment(List<GlyphDraw> draws, TextStyle style)
+        {
+            if (draws.Count == 0) return;
+
+            // Compute per-line min/max X (only for glyphs that actually draw something)
+            var lineMinX = new Dictionary<int, float>();
+            var lineMaxX = new Dictionary<int, float>();
+
+            for (int i = 0; i < draws.Count; i++)
             {
-                x = 0;
-                y += lineH;
-                maxY = Math.Max(maxY, y + lineH);
-                lastBreakDrawIndex = -1;
-                xAtLastBreak = 0;
+                var g = draws[i];
+                if (g.AtlasPage < 0 || g.WidthPx <= 0 || g.HeightPx <= 0) continue;
+
+                float minX = g.X;
+                float maxX = g.X + g.WidthPx;
+
+                if (!lineMinX.TryGetValue(g.LineIndex, out var mn)) lineMinX[g.LineIndex] = minX;
+                else lineMinX[g.LineIndex] = Math.Min(mn, minX);
+
+                if (!lineMaxX.TryGetValue(g.LineIndex, out var mx)) lineMaxX[g.LineIndex] = maxX;
+                else lineMaxX[g.LineIndex] = Math.Max(mx, maxX);
             }
+
+            if (lineMinX.Count == 0) return;
+
+            // Alignment is inside this "box width"
+            // If WrapWidthPx == 0, box width becomes the line width (still useful for anchor alignment later).
+            float boxW = style.WrapWidthPx;
+
+            foreach (var kv in lineMinX)
+            {
+                int line = kv.Key;
+                float minX = lineMinX[line];
+                float maxX = lineMaxX[line];
+                float lineW = Math.Max(0, maxX - minX);
+
+                float effectiveBox = (boxW > 0) ? boxW : lineW;
+
+                float shift;
+                switch (style.Align)
+                {
+                    case TextAlign.Left:   shift = 0; break;
+                    case TextAlign.Center: shift = (effectiveBox - lineW) * 0.5f; break;
+                    case TextAlign.Right:  shift = (effectiveBox - lineW); break;
+                    default: shift = 0; break;
+                }
+
+                // Normalize so minX becomes 0, then apply alignment shift
+                float dx = -minX + shift;
+
+                for (int i = 0; i < draws.Count; i++)
+                {
+                    var g = draws[i];
+                    if (g.LineIndex != line) continue;
+
+                    g.X += dx;
+                    draws[i] = g;
+                }
+            }
+        }
+
+        private static float ComputeBlockWidth(List<GlyphDraw> draws)
+        {
+            float minX = float.PositiveInfinity;
+            float maxX = float.NegativeInfinity;
+
+            for (int i = 0; i < draws.Count; i++)
+            {
+                var g = draws[i];
+                if (g.AtlasPage < 0 || g.WidthPx <= 0 || g.HeightPx <= 0) continue;
+
+                minX = Math.Min(minX, g.X);
+                maxX = Math.Max(maxX, g.X + g.WidthPx);
+            }
+
+            if (!float.IsFinite(minX) || !float.IsFinite(maxX)) return 0;
+            return Math.Max(0, maxX - minX);
         }
     }
 }

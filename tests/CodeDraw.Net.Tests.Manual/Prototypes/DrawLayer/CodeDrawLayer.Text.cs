@@ -118,6 +118,7 @@ public sealed unsafe partial class CodeDrawLayer
             LineHeightPx = style.LineHeightPx,
             WrapWidthPx = style.WrapWidthPx,
             Align = style.Align,
+            VAlign = style.VAlign,
             Color = style.Color,
             Background = style.Background
         };
@@ -142,49 +143,94 @@ public sealed unsafe partial class CodeDrawLayer
 
         public void Exec(GL gl, CodeDrawLayer self) => self.ExecText(gl, Text, X, Y, Style, Effect);
     }
+    
+    private static void ComputeBlockBounds(
+        List<GlyphDraw> draws,
+        out float minX, out float minY,
+        out float maxX, out float maxY)
+    {
+        minX = float.PositiveInfinity;
+        minY = float.PositiveInfinity;
+        maxX = float.NegativeInfinity;
+        maxY = float.NegativeInfinity;
+
+        for (int i = 0; i < draws.Count; i++)
+        {
+            var g = draws[i];
+            if (g.AtlasPage < 0 || g.WidthPx <= 0 || g.HeightPx <= 0) continue;
+
+            minX = Math.Min(minX, g.X);
+            minY = Math.Min(minY, g.Y);
+            maxX = Math.Max(maxX, g.X + g.WidthPx);
+            maxY = Math.Max(maxY, g.Y + g.HeightPx);
+        }
+
+        if (!float.IsFinite(minX)) { minX = minY = maxX = maxY = 0; }
+    }
 
     // ---------- Render-thread execution ----------
     private void ExecText(GL gl, string text, float x, float y, TextStyle style, GlyphEffect? effect)
     {
         EnsureTextInit();
         if (_textLayout == null || _textAtlasBackend == null) return;
+        if (string.IsNullOrEmpty(text)) return;
 
-        // Run layout in layer-local pixel space.
-        // We'll treat the input x,y as an extra translation.
-        // Time for effects: use your layer stopwatch (ms).
         int timeMs = (int)(LayerAliveForSeconds() * 1000.0f);
 
-        _textDrawsScratch.Clear();
         _textLayout.Layout(text, style, effect, timeMs, out var draws, out _);
 
-        // Avoid allocating: if Layout returned a new list, copy to scratch then allow GC later.
-        // (You can later refactor Layout to fill a provided list.)
+        _textDrawsScratch.Clear();
         _textDrawsScratch.AddRange(draws);
 
-        // Build instances, group by atlas page (so we do 1 draw call per page)
+        // Compute real drawn bounds (this is what VAlign must use)
+        ComputeBlockBounds(_textDrawsScratch, out float minX, out float minY, out float maxX, out float maxY);
+
+        float blockW = maxX - minX;
+        float blockH = maxY - minY;
+
+        // If WrapWidthPx > 0, treat that as the horizontal "box" width for anchoring,
+        // but still use real min/max for vertical.
+        float boxW = (style.WrapWidthPx > 0) ? style.WrapWidthPx : blockW;
+
+        float anchorX = style.Align switch
+        {
+            TextAlign.Left   => minX,
+            TextAlign.Center => minX + boxW * 0.5f,
+            TextAlign.Right  => minX + boxW,
+            _ => minX
+        };
+
+        float anchorY = style.VAlign switch
+        {
+            TextVAlign.Top    => minY,
+            TextVAlign.Middle => minY + blockH * 0.5f,
+            TextVAlign.Bottom => maxY,
+            _ => minY
+        };
+
+        float baseX = x - anchorX;
+        float baseY = y - anchorY;
+
+        // Build instances...
         _textInstancesScratch.Clear();
         _textBatchesScratch.Clear();
 
         for (int i = 0; i < _textDrawsScratch.Count; i++)
         {
             var g = _textDrawsScratch[i];
-
-            // Skip "non-drawn" glyphs (space etc.)
-            if (g.AtlasPage < 0) continue;
-            if (g.WidthPx <= 0 || g.HeightPx <= 0) continue;
+            if (g.AtlasPage < 0 || g.WidthPx <= 0 || g.HeightPx <= 0) continue;
 
             var inst = new TextInstance
             {
-                PosSize = new Vector4(x + g.X, y + g.Y, g.WidthPx, g.HeightPx),
-                Uv = g.Uv,
-                Color = new Vector4(g.Color.R, g.Color.G, g.Color.B, g.Color.A),
+                PosSize = new Vector4(baseX + g.X, baseY + g.Y, g.WidthPx, g.HeightPx),
+                Uv      = g.Uv,
+                Color   = new Vector4(g.Color.R, g.Color.G, g.Color.B, g.Color.A),
             };
 
             int page = g.AtlasPage;
 
             if (_textBatchesScratch.TryGetValue(page, out var range))
             {
-                // extend current batch (we'll keep batches contiguous by appending)
                 range.count++;
                 _textBatchesScratch[page] = range;
             }
@@ -198,23 +244,7 @@ public sealed unsafe partial class CodeDrawLayer
 
         if (_textInstancesScratch.Count == 0) return;
 
-        // Upload instance buffer (stream)
         gl.BindVertexArray(_textVao);
-        gl.BindBuffer(GLEnum.ArrayBuffer, _textVboInstances);
-
-        nuint bytes = (nuint)(_textInstancesScratch.Count * sizeof(TextInstance));
-
-        // Orphan + upload (simple & works well enough for now)
-        gl.BufferData(GLEnum.ArrayBuffer, bytes, null, GLEnum.StreamDraw);
-
-        fixed (TextInstance* p = _textInstancesScratch.ToArray())
-        {
-            gl.BufferSubData(GLEnum.ArrayBuffer, 0, bytes, p);
-        }
-
-        gl.BindBuffer(GLEnum.ArrayBuffer, 0);
-
-        // Draw
         gl.UseProgram(_progText);
 
         if (_uTextRes >= 0) Uniform2F(gl, _uTextRes, _w, _h);
@@ -222,8 +252,7 @@ public sealed unsafe partial class CodeDrawLayer
 
         gl.ActiveTexture(GLEnum.Texture0);
 
-        // NOTE: dictionary order is arbitrary. That's fine.
-        // If you want stable ordering (slightly better cache), iterate pages sorted.
+        // Draw per-page (simple GL 3.3 safe way: re-upload slice)
         foreach (var kv in _textBatchesScratch)
         {
             int page = kv.Key;
@@ -234,32 +263,22 @@ public sealed unsafe partial class CodeDrawLayer
 
             gl.BindTexture(GLEnum.Texture2D, tex);
 
-            // We need baseInstance. In GL 3.3 core, glDrawArraysInstancedBaseInstance isn't guaranteed.
-            // So we do the simplest thing: draw per-page by re-uploading only that page's slice.
-            // BUT we already uploaded the whole thing. To keep 3.3-safe and still simple:
-            // -> do per-page draws by drawing the whole buffer but with glVertexAttribPointer offsets? messy.
-            //
-            // Instead: pack instances page-by-page contiguously by *building* in that order.
-            // For now, easiest fix: re-upload the page slice right before drawing it.
-            //
-            // This keeps correctness and still uses instancing; it's just extra uploads (OK for “simple path”).
-
-            // Re-upload only this slice
             gl.BindBuffer(GLEnum.ArrayBuffer, _textVboInstances);
             nuint sliceBytes = (nuint)(count * sizeof(TextInstance));
             gl.BufferData(GLEnum.ArrayBuffer, sliceBytes, null, GLEnum.StreamDraw);
 
-            // Copy slice into a small temp array (no LINQ)
             var tmp = new TextInstance[count];
             for (int i = 0; i < count; i++)
                 tmp[i] = _textInstancesScratch[start + i];
 
-            fixed (TextInstance* pp = tmp)
-                gl.BufferSubData(GLEnum.ArrayBuffer, 0, sliceBytes, pp);
+            unsafe
+            {
+                fixed (TextInstance* pp = tmp)
+                    gl.BufferSubData(GLEnum.ArrayBuffer, 0, sliceBytes, pp);
+            }
 
             gl.BindBuffer(GLEnum.ArrayBuffer, 0);
 
-            // 6 verts per quad, instanced count times
             gl.DrawArraysInstanced(GLEnum.Triangles, 0, 6, (uint)count);
         }
 
@@ -270,12 +289,9 @@ public sealed unsafe partial class CodeDrawLayer
     }
 
     // ---------- GL atlas backend ----------
-    private sealed class GlGlyphAtlasBackend : IGlyphAtlasBackend
+    private sealed class GlGlyphAtlasBackend(GL gl) : IGlyphAtlasBackend
     {
-        private readonly GL _gl;
         private readonly List<(uint tex, int w, int h)> _pages = new();
-
-        public GlGlyphAtlasBackend(GL gl) => _gl = gl;
 
         public int EnsurePage(int minW, int minH)
         {
@@ -283,10 +299,10 @@ public sealed unsafe partial class CodeDrawLayer
             int w = minW;
             int h = minH;
 
-            uint tex = _gl.GenTexture();
-            _gl.BindTexture(GLEnum.Texture2D, tex);
+            uint tex = gl.GenTexture();
+            gl.BindTexture(GLEnum.Texture2D, tex);
 
-            _gl.TexImage2D(
+            gl.TexImage2D(
                 GLEnum.Texture2D,
                 0,
                 (int)GLEnum.R8,
@@ -297,12 +313,12 @@ public sealed unsafe partial class CodeDrawLayer
                 GLEnum.UnsignedByte,
                 null);
 
-            _gl.TexParameter(GLEnum.Texture2D, GLEnum.TextureMinFilter, (int)GLEnum.Linear);
-            _gl.TexParameter(GLEnum.Texture2D, GLEnum.TextureMagFilter, (int)GLEnum.Linear);
-            _gl.TexParameter(GLEnum.Texture2D, GLEnum.TextureWrapS, (int)GLEnum.ClampToEdge);
-            _gl.TexParameter(GLEnum.Texture2D, GLEnum.TextureWrapT, (int)GLEnum.ClampToEdge);
+            gl.TexParameter(GLEnum.Texture2D, GLEnum.TextureMinFilter, (int)GLEnum.Linear);
+            gl.TexParameter(GLEnum.Texture2D, GLEnum.TextureMagFilter, (int)GLEnum.Linear);
+            gl.TexParameter(GLEnum.Texture2D, GLEnum.TextureWrapS, (int)GLEnum.ClampToEdge);
+            gl.TexParameter(GLEnum.Texture2D, GLEnum.TextureWrapT, (int)GLEnum.ClampToEdge);
 
-            _gl.BindTexture(GLEnum.Texture2D, 0);
+            gl.BindTexture(GLEnum.Texture2D, 0);
 
             int idx = _pages.Count;
             _pages.Add((tex, w, h));
@@ -316,15 +332,15 @@ public sealed unsafe partial class CodeDrawLayer
             var (tex, _, _) = _pages[page];
             if (tex == 0) return;
 
-            _gl.BindTexture(GLEnum.Texture2D, tex);
+            gl.BindTexture(GLEnum.Texture2D, tex);
 
-            _gl.PixelStore(GLEnum.UnpackAlignment, 1);
+            gl.PixelStore(GLEnum.UnpackAlignment, 1);
 
             unsafe
             {
                 fixed (byte* p = alpha)
                 {
-                    _gl.TexSubImage2D(
+                    gl.TexSubImage2D(
                         GLEnum.Texture2D,
                         0,
                         x, y,
@@ -335,8 +351,8 @@ public sealed unsafe partial class CodeDrawLayer
                 }
             }
 
-            _gl.PixelStore(GLEnum.UnpackAlignment, 4);
-            _gl.BindTexture(GLEnum.Texture2D, 0);
+            gl.PixelStore(GLEnum.UnpackAlignment, 4);
+            gl.BindTexture(GLEnum.Texture2D, 0);
         }
 
         public Vector2 GetPageSize(int page)

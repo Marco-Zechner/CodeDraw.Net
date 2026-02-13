@@ -4,6 +4,7 @@ using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.DrawLayer.Text;
 using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.Shaders;
 using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.Window;
 using MarcoZechner.ColorDotNet;
+using Rgba = MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.DrawLayer.Text.Rgba;
 
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.PrototypeTest;
 
@@ -38,21 +39,36 @@ public class Prototype5 : IDisposable
     {
         var win = new CodeDrawWindow(host, 400, 400 , "Prototype5");
         var layerSpin = CodeDrawShader.CsProject("layerSpin", "PrototypeTest/shaders");
+
+        win.ResizeMode = WindowResizeMode.Aspect;
+        
         win.OnUpdate += context =>
         {
             var layer = context.Win.Layer;
-            layer.Clear(0,0,0,1);
+            // layer.Clear(0,0,0,1);
+            layer.DrawRect(0,0, layer.Width, layer.Height, 0,0,0, 0.05f);
             
             TextStyle style = new TextStyle
             {
-                Font = FontRef.FromFile("C:\\DevProjects\\CodeDraw.Net\\tests\\CodeDraw.Net.Tests.Manual\\resources\\fonts\\FiraCode-VF.ttf"),
-                SizePx = 32,
+                Font = FontRef.FromFile("C:\\DevProjects\\CodeDraw.Net\\tests\\CodeDraw.Net.Tests.Manual\\resources\\fonts\\FiraCode-VF.ttf")
+                    .WithVariant(FontVariant.BoldItalic),
+                SizePx = 128,
                 Align = TextAlign.Center,
-                WrapWidthPx = 10
+                VAlign = TextVAlign.Middle,
             };
             
             // Plain text
-            layer.DrawText("Hello\nWorld\n=>", x: 200, y: 200, style);
+            float time = layer.LayerAliveForSeconds();
+            //3 phase colors
+            float r = 0.5f + 0.5f * MathF.Sin(time * 2);
+            float g = 0.5f + 0.5f * MathF.Sin(time * 2 + 2);
+            float b = 0.5f + 0.5f * MathF.Sin(time * 2 + 4);
+            style.Color = new Rgba(r, g, b, 1);
+            layer.DrawText(">I<", x: 200, y: 200, style);
+            style.SizePx = 400;
+            style.Color = new Rgba(1, 1, 1, 1f);
+            layer.DrawText("O", x: 200, y: 200, style);
+            layer.DrawRect(200-1,200-1,2,2, 1,1,1,1); // baseline marker
 
             // Rich text string (tags override base style)
             // layer.DrawRichText("[color=#ff0]Hello[/color] World", x: 20, y: 40, style);

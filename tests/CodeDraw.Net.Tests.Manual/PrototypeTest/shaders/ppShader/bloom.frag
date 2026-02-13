@@ -37,6 +37,7 @@ vec3 emit(vec3 c, float glow)
     return c * t * (0.6 + 1.4 * e);
 }
 
+//TODO: red doesn't glow?
 void main()
 {
     vec4 base = texture(uTex, vUV);

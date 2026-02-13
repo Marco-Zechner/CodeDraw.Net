@@ -70,8 +70,8 @@ public sealed class Prototype2 : IDisposable
         _winDst = new CodeDrawWindow(host, 800, 500, 850, 120, "2B: Dest (Crop/Place Tests)");
         _winFull = new CodeDrawWindow(host, 800, 500, 1650, 120, "2B: Full (Copy Src fully, mostly desaturated)");
 
-        var desatCopyShader = CustomShader.CsProject("desat", "PrototypeTest/shaders");
-        var orbitShader = CustomShader.CsProject("orbitDots", "PrototypeTest/shaders");
+        var desatCopyShader = CodeDrawShader.CsProject("desat", "PrototypeTest/shaders");
+        var orbitShader = CodeDrawShader.CsProject("orbitDots", "PrototypeTest/shaders");
 
         _winSrc.OnStart = w => Console.WriteLine($"2B Src started (id={w.WindowId})");
         _winDst.OnStart = w => Console.WriteLine($"2B Dst started (id={w.WindowId})");

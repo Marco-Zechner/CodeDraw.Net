@@ -33,7 +33,7 @@ public sealed unsafe partial class CodeDrawLayer
     private sealed class CmdLayer : ICmd
     {
         public CodeDrawLayer? Src;
-        public CustomShader? Shader;
+        public CodeDrawShader? Shader;
 
         public void Exec(GL gl, CodeDrawLayer self)
         {
@@ -61,7 +61,7 @@ public sealed unsafe partial class CodeDrawLayer
         public int Y;
         public int W;
         public int H;
-        public CustomShader? Shader;
+        public CodeDrawShader? Shader;
         public Uniforms Uniforms;
 
         public void Exec(GL gl, CodeDrawLayer self)
@@ -79,7 +79,7 @@ public sealed unsafe partial class CodeDrawLayer
     
     private sealed class CmdPostProcess : ICmd
     {
-        public CustomShader? Shader;
+        public CodeDrawShader? Shader;
         public Uniforms Uniforms;
 
         public void Exec(GL gl, CodeDrawLayer self)

@@ -72,7 +72,7 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
 
     private readonly Dictionary<ShaderKey, ExtShaderEntry> _extCache = new();
 
-    private void ScheduleExternalShader(CustomShader? shader)
+    private void ScheduleExternalShader(CodeDrawShader? shader)
     {
         if (shader == null) return;
 
@@ -523,7 +523,7 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
         gl.UseProgram(0);
     }
 
-    private void ExecLayer(GL gl, CodeDrawLayer src, CustomShader? shader)
+    private void ExecLayer(GL gl, CodeDrawLayer src, CodeDrawShader? shader)
     {
         if (!src.TryGetLatest(out var tex, out _, out _, out _, out _)) return;
 
@@ -571,7 +571,7 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
     private void ExecCustomRect(
         GL gl,
         int x, int y, int w, int h,
-        CustomShader? shader,
+        CodeDrawShader? shader,
         Uniforms uniforms)
     {
         uint prog;
@@ -637,7 +637,7 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
         gl.UseProgram(0);
     }
     
-    private void ExecPostProcess(GL gl, CustomShader shader, Uniforms uniforms)
+    private void ExecPostProcess(GL gl, CodeDrawShader shader, Uniforms uniforms)
     {
         if (_work.Tex == 0 || _tmp.Fbo == 0) return;
 

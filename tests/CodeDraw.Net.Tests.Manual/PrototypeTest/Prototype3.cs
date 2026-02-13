@@ -33,13 +33,13 @@ public class Prototype3 : IDisposable
     public Prototype3(SharedGlfwHost host)
     {
         _win = new CodeDrawWindow(host, 400, 400 , "Prototype3");
-        var orbitShader = CustomShader.CsProject("orbitDots", "PrototypeTest/shaders");
+        var orbitShader = CodeDrawShader.CsProject("orbitDots", "PrototypeTest/shaders");
         
         _win1 = new CodeDrawWindow(host, 400, 400 , "Prototype3 - Copy");
-        var colorShiftShader = CustomShader.CsProject("colorShift", "PrototypeTest/shaders");
+        var colorShiftShader = CodeDrawShader.CsProject("colorShift", "PrototypeTest/shaders");
         
         _win2 = new CodeDrawWindow(host, 400, 400 , "Prototype3 - Other");
-        var colorShiftPPShader = CustomShader.CsProject("colorShiftPP", "PrototypeTest/shaders/ppShader");
+        var colorShiftPPShader = CodeDrawShader.CsProject("colorShiftPP", "PrototypeTest/shaders/ppShader");
 
         _win.OnUpdate += context =>
         {

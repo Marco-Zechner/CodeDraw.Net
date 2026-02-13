@@ -42,7 +42,7 @@ public sealed partial class CodeDrawLayer
         => Enqueue(new CmdRect { X = x, Y = y, W = w, H = h, R = r, G = g, B = b, A = a });
 
 
-    public void DrawLayer(CodeDrawLayer src, CustomShader? shader = null)
+    public void DrawLayer(CodeDrawLayer src, CodeDrawShader? shader = null)
     {
         if (shader is not null)
             ScheduleExternalShader(shader);
@@ -69,7 +69,7 @@ public sealed partial class CodeDrawLayer
 
     public void CustomDrawRect(
         int x, int y, int w, int h,
-        CustomShader shader,
+        CodeDrawShader shader,
         Uniforms uniforms)
     {
         if (_disposed) return;
@@ -91,11 +91,11 @@ public sealed partial class CodeDrawLayer
 
     public void CustomDrawRect(
         int x, int y, int w, int h,
-        CustomShader shader,
+        CodeDrawShader shader,
         params UniformValue[] uniforms)
         => CustomDrawRect(x,y,w,h,shader, new Uniforms(uniforms));
 
-    public void PostProcess(CustomShader shader, Uniforms uniforms)
+    public void PostProcess(CodeDrawShader shader, Uniforms uniforms)
     {
         if (_disposed) return;
 
@@ -113,7 +113,7 @@ public sealed partial class CodeDrawLayer
         });
     }
 
-    public void PostProcess(CustomShader shader, params UniformValue[] uniforms)
+    public void PostProcess(CodeDrawShader shader, params UniformValue[] uniforms)
         => PostProcess(shader, new Uniforms(uniforms));
     
     #region Transform Point Helpers

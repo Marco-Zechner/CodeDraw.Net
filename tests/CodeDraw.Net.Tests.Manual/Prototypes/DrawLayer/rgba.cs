@@ -1,3 +1,3 @@
 ﻿namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.DrawLayer;
 
-public readonly record struct Rgba(float R, float G, float B, float A);
+public readonly record struct Rgba(float R, float G, float B, float A); //TODO replace with Color.Net

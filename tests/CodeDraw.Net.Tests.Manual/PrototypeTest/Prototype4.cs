@@ -55,8 +55,8 @@ public class Prototype4 : IDisposable
         _worldSize   = new Vector2<int>(worldMonitor.WorkWidth, worldMonitor.WorkHeight);
 
         _fullMonitorLayer = new CodeDrawLayer(_host, _worldSize.X, _worldSize.Y, "FullMonitorLayer");
-        var orbitShader = CustomShader.CsProject("orbitDots", "PrototypeTest/shaders");
-        var postProcessingBloom = CustomShader.CsProject("bloom" , "PrototypeTest/shaders/ppShader");
+        var orbitShader = CodeDrawShader.CsProject("orbitDots", "PrototypeTest/shaders");
+        var postProcessingBloom = CodeDrawShader.CsProject("bloom" , "PrototypeTest/shaders/ppShader");
         
         _trailLayer = new CodeDrawLayer(_host, 468, 468, "TrailLayer");
 
@@ -230,7 +230,7 @@ public class Prototype4 : IDisposable
         }
     }
 
-    private static void DrawOrbitDots(CodeDrawLayer layer, CustomShader orbitShader, int centerX, int centerY, int radiusDot, int radiusOrbit, float period, float timeOffset, Rgba color)
+    private static void DrawOrbitDots(CodeDrawLayer layer, CodeDrawShader orbitShader, int centerX, int centerY, int radiusDot, int radiusOrbit, float period, float timeOffset, Rgba color)
     {
         var size = radiusOrbit * 2 + radiusDot * 2;
         layer.CustomDrawRect(

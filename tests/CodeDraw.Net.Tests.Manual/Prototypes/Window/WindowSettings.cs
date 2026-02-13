@@ -1,4 +1,5 @@
-﻿using MarcoZechner.MathDotNet;
+﻿using MarcoZechner.ColorDotNet;
+using MarcoZechner.MathDotNet;
 using Silk.NET.GLFW;
 
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.Window;
@@ -16,6 +17,7 @@ internal enum WindowDirty : uint
     ClickThrough     = 1u << 6,
     TransparentAlpha = 1u << 7, // render-side only in your current design
     FocusPolicy      = 1u << 8,
+    PresentPolicy     = 1u << 9,
 }
 
 public enum WindowState
@@ -33,6 +35,13 @@ public enum WindowResizeMode
     Limited,   // resizable, size limits active
     Aspect,    // resizable, aspect ratio active
     Fixed,     // not resizable, no constraints
+}
+
+public enum WindowPresentMode
+{
+    FitStretch, // current behavior: map full layer to client (stretch)
+    Camera,     // sample via camera matrix (window px -> layer px)
+    Repeat,     // tile layer across client
 }
 
 /// <summary>
@@ -55,7 +64,10 @@ public readonly record struct WindowSettingsSnapshot(
     WindowState State,
     bool ClickThrough,
     bool TransparentAlpha,
-    bool StealFocusOnOpen
+    bool StealFocusOnOpen,
+    
+    WindowPresentMode PresentMode,
+    Color BackgroundColor
 )
 {
     // How many pixels are "wasted" by the fake fullscreen hack.
@@ -154,6 +166,9 @@ public readonly record struct WindowSettingsSnapshot(
 
         if (StealFocusOnOpen != newSettings.StealFocusOnOpen) d |= WindowDirty.FocusPolicy;
         
+        if (PresentMode != newSettings.PresentMode) d |= WindowDirty.PresentPolicy;
+        if (BackgroundColor != newSettings.BackgroundColor) d |= WindowDirty.PresentPolicy;
+        
         // border/constraints bundle
         if (FrameMode != newSettings.FrameMode ||
             ResizeMode != newSettings.ResizeMode ||
@@ -180,6 +195,8 @@ public readonly record struct WindowSettingsSnapshot(
                 State: {State}
                 ClickThrough: {ClickThrough}
                 TransparentAlpha: {TransparentAlpha}
+                PresentMode: {PresentMode}
+                BackgroundColor: {BackgroundColor}
                 """;
     }
 }

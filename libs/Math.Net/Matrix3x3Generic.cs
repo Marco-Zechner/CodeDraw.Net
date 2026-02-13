@@ -51,7 +51,7 @@ public readonly partial record struct Matrix3X3<T>
             T.Zero, T.Zero, T.One);
     }
 
-    public static Vector2<T> Transform(Matrix3X3<T> matrix, Vector2<T> vector)
+    public static Vector2<T> TransformAffine(Matrix3X3<T> matrix, Vector2<T> vector)
     {
         var x = matrix.M11 * vector.X + matrix.M12 * vector.Y + matrix.M13;
         var y = matrix.M21 * vector.X + matrix.M22 * vector.Y + matrix.M23;
@@ -95,5 +95,72 @@ public readonly partial record struct Matrix3X3<T>
             MathG.Lerp(start.M32, end.M32, t),
             MathG.Lerp(start.M33, end.M33, t));
     }
+    
+    public static T Determinant(Matrix3X3<T> m)
+    {
+        // Rule of Sarrus / cofactor expansion
+        return
+            m.M11 * (m.M22 * m.M33 - m.M23 * m.M32) -
+            m.M12 * (m.M21 * m.M33 - m.M23 * m.M31) +
+            m.M13 * (m.M21 * m.M32 - m.M22 * m.M31);
+    }
+
+    public static bool TryInvert(Matrix3X3<T> m, out Matrix3X3<T> inv)
+    {
+        var det = Determinant(m);
+        // For generic INumber<T>, compare to zero carefully.
+        if (det == T.Zero)
+        {
+            inv = Identity;
+            return false;
+        }
+
+        var invDet = T.One / det;
+
+        // Adjugate (transpose of cofactor matrix) * (1/det)
+        var i11 =  (m.M22 * m.M33 - m.M23 * m.M32) * invDet;
+        var i12 = -(m.M12 * m.M33 - m.M13 * m.M32) * invDet;
+        var i13 =  (m.M12 * m.M23 - m.M13 * m.M22) * invDet;
+
+        var i21 = -(m.M21 * m.M33 - m.M23 * m.M31) * invDet;
+        var i22 =  (m.M11 * m.M33 - m.M13 * m.M31) * invDet;
+        var i23 = -(m.M11 * m.M23 - m.M13 * m.M21) * invDet;
+
+        var i31 =  (m.M21 * m.M32 - m.M22 * m.M31) * invDet;
+        var i32 = -(m.M11 * m.M32 - m.M12 * m.M31) * invDet;
+        var i33 =  (m.M11 * m.M22 - m.M12 * m.M21) * invDet;
+
+        inv = new Matrix3X3<T>(
+            i11, i12, i13,
+            i21, i22, i23,
+            i31, i32, i33
+        );
+        return true;
+    }
+
+    public static Matrix3X3<T> Invert(Matrix3X3<T> m)
+    {
+        if (!TryInvert(m, out var inv))
+            throw new InvalidOperationException("Matrix is not invertible.");
+        return inv;
+    }
+
+    /// <summary>
+    /// Full projective transform (homogeneous divide).
+    /// If w becomes 0, this throws.
+    /// </summary>
+    public static Vector2<T> TransformProjective(Matrix3X3<T> m, Vector2<T> v)
+    {
+        var x = m.M11 * v.X + m.M12 * v.Y + m.M13;
+        var y = m.M21 * v.X + m.M22 * v.Y + m.M23;
+        var w = m.M31 * v.X + m.M32 * v.Y + m.M33;
+
+        if (w == T.Zero)
+            throw new DivideByZeroException("Projective transform produced w=0.");
+
+        return new Vector2<T>(x / w, y / w);
+    }
+
+    
     #endregion
 } 

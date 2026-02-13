@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.DrawLayer;
 using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.Window;
+using MarcoZechner.MathDotNet;
 using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
 
@@ -122,9 +123,15 @@ public sealed unsafe class SharedGlfwHost : IDisposable
                 case HostKeyEvent ke:
                     switch (ke.Action)
                     {
-                        case InputAction.Press: OnKeyDown?.Invoke(win, ke.Key, ke.Mods); break;
-                        case InputAction.Release: OnKeyUp?.Invoke(win, ke.Key, ke.Mods); break;
-                        case InputAction.Repeat: OnKeyRepeat?.Invoke(win, ke.Key, ke.Mods); break;
+                        case InputAction.Press: 
+                            OnKeyDown?.Invoke(win, ke.Key, ke.Mods); 
+                            OnKeyRepeat?.Invoke(win, ke.Key, ke.Mods);
+                            break;
+                        case InputAction.Release: 
+                            OnKeyRepeat?.Invoke(win, ke.Key, ke.Mods);
+                            OnKeyUp?.Invoke(win, ke.Key, ke.Mods); 
+                            break;
+                        case InputAction.Repeat: OnKeyRepeat?.Invoke(win, ke.Key, ke.Mods); break; //TODO: check why this is reacting with a delay...
                     }
                     break;
 
@@ -141,6 +148,19 @@ public sealed unsafe class SharedGlfwHost : IDisposable
                     OnMouseMove?.Invoke(win, mv.X, mv.Y);
                     break;
             }
+        }
+
+        public Vector2<double> GetAbsoluteMousePosition()
+        {
+            double cx = 0, cy = 0;
+            int wx = 0, wy = 0;
+            Instance.InvokeHostSync(() =>
+            {
+                LockedGlfw.GetCursorPos(Instance.ShareRoot, out  cx, out  cy);
+                LockedGlfw.GetWindowPos(Instance.ShareRoot, out  wx, out  wy);
+            });
+
+            return new Vector2<double>(wx + cx, wy + cy);
         }
     }
     
@@ -310,9 +330,19 @@ public sealed unsafe class SharedGlfwHost : IDisposable
     private long _allClosedSinceTicks;
     
     private List<MonitorInfo> _monitorsCache = [];
+
+    public IEnumerable<MonitorInfo> GetMonitors()
+    {
+        if (_monitorsCache.Count > 0) return _monitorsCache;
+        
+        // build cache and wait
+        InvokeHostSync(() => GetMonitorsCached_HostThreadUnsafe());
+        return _monitorsCache;
+    }
+    
     private int _monitorsDirty = 1; // start dirty so we build once
 
-    private GlfwCallbacks.MonitorCallback? _monitorCallback; // keep delegate alive
+    private GlfwCallbacks.MonitorCallback? _monitorCallback;
     
     private static long NowTicks() => Stopwatch.GetTimestamp();
     private static double TicksToMs(long dt) => dt * 1000.0 / Stopwatch.Frequency;
@@ -335,6 +365,8 @@ public sealed unsafe class SharedGlfwHost : IDisposable
         _allClosedSinceTicks = Stopwatch.GetTimestamp();
         _allClosed.Set();
     }
+    
+    public int WindowsAlive => Volatile.Read(ref _aliveWindows);
     
     public void WaitUntilAllWindowsClosed(int stableMs = 0, CancellationToken ct = default)
     {
@@ -606,7 +638,11 @@ public sealed unsafe class SharedGlfwHost : IDisposable
         LockedGlfw.HideWindow(ShareRoot);
 
         LockedGlfw.MakeContextCurrent(ShareRoot);
-        _ = GL.GetApi(LockedGlfw.GetProcAddress);
+        var gl = GL.GetApi(LockedGlfw.GetProcAddress);
+        Console.WriteLine($"GL_VERSION      = {gl.GetStringS(GLEnum.Version)}");
+        Console.WriteLine($"GLSL_VERSION    = {gl.GetStringS(GLEnum.ShadingLanguageVersion)}");
+        Console.WriteLine($"GL_VENDOR       = {gl.GetStringS(GLEnum.Vendor)}");
+        Console.WriteLine($"GL_RENDERER     = {gl.GetStringS(GLEnum.Renderer)}");
         LockedGlfw.MakeContextCurrent(null);
 
         _monitorCallback = (mon, state) =>

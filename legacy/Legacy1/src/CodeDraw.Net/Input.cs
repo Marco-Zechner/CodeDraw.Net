@@ -36,7 +36,7 @@ public unsafe class Input
     public event Action<Vector2<double>>? OnScroll;
     public event Action<Vector2<double>>? OnCursorPos;
     public event Action? OnCursorEnter;
-    public event Action? OncursorLeave;
+    public event Action? OnCursorLeave;
     public event Action<MouseButton>? OnMouseButtonDown;
     public event Action<MouseButton>? OnMouseButtonUp;
     public event Action<MouseButton>? OnMouseButton;
@@ -142,7 +142,7 @@ public unsafe class Input
         else
         {
             // Console.WriteLine("Cursor left Window");
-            OncursorLeave?.Invoke();
+            OnCursorLeave?.Invoke();
         }
     }
 

@@ -3,7 +3,7 @@ using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
 using Monitor = Silk.NET.GLFW.Monitor;
 
-[Prototype(4)]
+// [Prototype(4)]
 public unsafe class RawFullscreenRecreateDemo
 {
     private enum FsMode { Windowed, BorderlessFull }

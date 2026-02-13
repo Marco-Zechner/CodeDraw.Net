@@ -2,6 +2,7 @@
 using System.Runtime.CompilerServices;
 using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.DrawLayer;
 using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.Shaders;
+using MarcoZechner.ColorDotNet;
 using MarcoZechner.MathDotNet;
 using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
@@ -192,6 +193,27 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
     public bool IsDisposed => Volatile.Read(ref _disposed) != 0;
     public bool UpdateWhileClosed { get; set; } = false;
     
+    public WindowCamera2D Camera { get; } = new();
+    
+    public Vector2 ProjectLayerToWindow(Vector2 layerPx)
+        => Camera.LayerToWindowPoint(layerPx);
+
+    public Vector2 UnprojectWindowToLayer(Vector2 windowPx)
+        => Camera.WindowToLayerPoint(windowPx);
+    
+    private readonly float[] _tmpMat3 = new float[9];
+
+    private void UploadMat3_RowMajor(GL gl, int loc, in Matrix3X3 m)
+    {
+        // row-major layout
+        _tmpMat3[0] = m.M11; _tmpMat3[1] = m.M12; _tmpMat3[2] = m.M13;
+        _tmpMat3[3] = m.M21; _tmpMat3[4] = m.M22; _tmpMat3[5] = m.M23;
+        _tmpMat3[6] = m.M31; _tmpMat3[7] = m.M32; _tmpMat3[8] = m.M33;
+
+        // transpose=true because GLSL expects column-major when transpose=false
+        gl.UniformMatrix3(loc, 1, true, _tmpMat3);
+    }
+    
     // only used for final cleanup once. Close/Open should not touch this.
     private int _releasedIdOnce;
     
@@ -258,7 +280,9 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
             State: WindowState.Windowed,
             ClickThrough: false,
             TransparentAlpha: true,
-            StealFocusOnOpen: stealFocusOnOpen
+            StealFocusOnOpen: stealFocusOnOpen,
+            PresentMode: WindowPresentMode.FitStretch,
+            BackgroundColor: Color.Transparent
         ).Normalize();
 
         WindowId = _host.ReserveWindowId();
@@ -429,8 +453,11 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
         Vector2<int> pos = default;
         var notify = false;
 
+        Vector2<int> oldClient;
+
         lock (_settingsLock)
         {
+            oldClient = _settings.ClientSize;
             _settings = _settings with { Size = new Vector2<int>(w, h) };
 
             if (_settings.State == WindowState.Windowed)
@@ -439,6 +466,14 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
                 notify = true;
             }
         }
+
+        // After updating settings, read new client size (outside lock is fine; Settings locks anyway)
+        var newClient = Settings.Size;
+
+        // Auto camera policy only when PresentMode==Camera
+        var snap = Settings;
+        if (snap.PresentMode == WindowPresentMode.Camera)
+            Camera.OnWindowResized(oldClient.X, oldClient.Y, newClient.X, newClient.Y);
 
         if (notify)
             _host.NotifyWindowedRect(WindowId, pos.X, pos.Y, w, h);
@@ -566,6 +601,11 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
             var progBlit = new AutoProgram(this, ShaderPath.Engine("layerShader"));
             var uBlitTex = new AutoUniform(gl, this, progBlit, "uTex");
             var uForceOpaque = new AutoUniform(gl, this, progBlit, "uForceOpaque");
+            var uPresentMode = new AutoUniform(gl, this, progBlit, "uPresentMode");
+            var uWindowSize  = new AutoUniform(gl, this, progBlit, "uWindowSizePx");
+            var uLayerSize   = new AutoUniform(gl, this, progBlit, "uLayerSizePx");
+            var uW2L         = new AutoUniform(gl, this, progBlit, "uWindowToLayer");
+            var uBg          = new AutoUniform(gl, this, progBlit, "uBackground");
 
             gl.Disable(GLEnum.Blend);
 
@@ -575,8 +615,8 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
 
             while (!_presentStop && IsOpen && !_closing && !IsDisposed)
             {
-                const double resizeTimeout = 100; //ms
-                if (_host.IsWindowInLiveResize(WindowId, resizeTimeout))
+                const double RESIZE_TIMEOUT = 100; //ms
+                if (_host.IsWindowInLiveResize(WindowId, RESIZE_TIMEOUT))
                 {
                     // skip a frame if the window is currently being resized by the user.
                     // if we call swapBuffer here at a bad time when the user is resizing, then it can crash the GPU driver... :/
@@ -598,10 +638,6 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
                 gl.Disable(GLEnum.ScissorTest);
                 gl.ClearColor(0f, 0f, 0f, opaque ? 1f : 0f);
                 gl.Clear((uint)ClearBufferMask.ColorBufferBit);
-
-                gl.Enable(GLEnum.ScissorTest);
-                gl.Scissor(0, 0, (uint)client.X, (uint)client.Y);
-                gl.Viewport(0, 0, (uint)client.X, (uint)client.Y);
 
                 var layer = Layer;
                 var keepLast = _keepLastFrameUntilReady;
@@ -629,12 +665,37 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
 
                 if (lastTex != 0)
                 {
+                    var bg = snap.BackgroundColor;
+
+                    // If TransparentAlpha is false, force alpha=1 on the clear too (and uForceOpaque already does the final alpha)
+                    if (!snap.TransparentAlpha)
+                        bg.A = 1f;
+
+                    gl.Disable(GLEnum.ScissorTest);
+                    gl.ClearColor(bg.R, bg.G, bg.B, bg.A);
+                    gl.Clear((uint)ClearBufferMask.ColorBufferBit);
+
+                    gl.Enable(GLEnum.ScissorTest);
+                    gl.Scissor(0, 0, (uint)client.X, (uint)client.Y);
+                    gl.Viewport(0, 0, (uint)client.X, (uint)client.Y);
+                    
                     gl.UseProgram(progBlit);
                     gl.BindVertexArray(vao);
                     gl.ActiveTexture(GLEnum.Texture0);
                     gl.BindTexture(GLEnum.Texture2D, lastTex);
                     if (uBlitTex >= 0) gl.Uniform1(uBlitTex, 0);
                     if (uForceOpaque >= 0) gl.Uniform1(uForceOpaque, opaque ? 1 : 0);
+                    if (uPresentMode >= 0) gl.Uniform1(uPresentMode, (int)snap.PresentMode);
+                    if (uWindowSize >= 0) Uniform2F(gl, uWindowSize, client.X, client.Y);
+                    if (uLayerSize >= 0)  Uniform2F(gl, uLayerSize, layer.Width, layer.Height);
+                    if (uBg >= 0)         Uniform4F(gl, uBg, bg.R, bg.G, bg.B, bg.A);
+                    
+                    if (snap.PresentMode == WindowPresentMode.Camera && uW2L >= 0)
+                    {
+                        var m = Camera.WindowToLayer;
+                        UploadMat3_RowMajor(gl, uW2L, m);
+                    }
+                    
                     gl.DrawElements(GLEnum.Triangles, 6, GLEnum.UnsignedInt, null);
                     gl.BindTexture(GLEnum.Texture2D, 0);
                     gl.BindVertexArray(0);
@@ -693,4 +754,11 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
         _presentThread.Start();
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void Uniform2F(GL gl, int loc, float x, float y)
+        => gl.Uniform2(loc, x, y);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void Uniform4F(GL gl, int loc, float x, float y, float z, float w)
+        => gl.Uniform4(loc, x, y, z, w);
 }

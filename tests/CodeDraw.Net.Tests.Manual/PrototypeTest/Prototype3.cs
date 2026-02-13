@@ -39,7 +39,7 @@ public class Prototype3 : IDisposable
         var colorShiftShader = CustomShader.CsProject("colorShift", "PrototypeTest/shaders");
         
         _win2 = new CodeDrawWindow(host, 400, 400 , "Prototype3 - Other");
-        var colorShiftPPShader = CustomShader.CsProject("colorShiftPP", "PrototypeTest/shaders");
+        var colorShiftPPShader = CustomShader.CsProject("colorShiftPP", "PrototypeTest/shaders/ppShader");
 
         _win.OnUpdate += context =>
         {
@@ -71,27 +71,27 @@ public class Prototype3 : IDisposable
             {
                 switch (keyDown)
                 {
-                    case Keys.A: _win1.TransparentAlpha = !_win1.TransparentAlpha;
+                    case Keys.A: win.TransparentAlpha = !win.TransparentAlpha;
                         break;
-                    case Keys.C: _win1.ClickThrough = !_win1.ClickThrough;
+                    case Keys.C: win.ClickThrough = !win.ClickThrough;
                         break;
-                    case Keys.F: _win1.ToggleResizeMode(WindowResizeMode.Fixed);
+                    case Keys.F: win.ToggleResizeMode(WindowResizeMode.Fixed);
                         break;
-                    case Keys.H: _win1.ToggleFrameMode();
+                    case Keys.H: win.ToggleFrameMode();
                         break;
-                    case Keys.I: _win1.ToggleState(WindowState.Minimized);
+                    case Keys.I: win.ToggleState(WindowState.Minimized);
                         break;
-                    case Keys.L: _win1.ToggleResizeMode(WindowResizeMode.Limited);
+                    case Keys.L: win.ToggleResizeMode(WindowResizeMode.Limited);
                         break;
-                    case Keys.M: _win1.ToggleState(WindowState.BorderlessFullscreen);
+                    case Keys.M: win.ToggleState(WindowState.BorderlessFullscreen);
                         break;
-                    case Keys.R: _win1.ToggleResizeMode(WindowResizeMode.Aspect);
+                    case Keys.R: win.ToggleResizeMode(WindowResizeMode.Aspect);
                         break;
-                    case Keys.S when !ctrl: _win1.ToggleState(WindowState.Maximized);
+                    case Keys.S when !ctrl: win.ToggleState(WindowState.Maximized);
                         break;
-                    case Keys.S when ctrl: _win1.ToggleState(WindowState.BorderlessMaximized);
+                    case Keys.S when ctrl: win.ToggleState(WindowState.BorderlessMaximized);
                         break;
-                    case Keys.T: _win1.AlwaysOnTop = !_win1.AlwaysOnTop;
+                    case Keys.T: win.AlwaysOnTop = !win.AlwaysOnTop;
                         break;
                     case Keys.Escape: win.Close();
                         return;

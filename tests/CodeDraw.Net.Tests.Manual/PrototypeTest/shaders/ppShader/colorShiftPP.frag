@@ -7,7 +7,7 @@ out vec4 FragColor;
 uniform sampler2D uTex;
 uniform vec2 uRes;
 
- uniform float uTime;
+uniform float uTime;
 
 vec3 ToHSV(vec3 rgb){
     float cMax = max(rgb.r, max(rgb.g, rgb.b));

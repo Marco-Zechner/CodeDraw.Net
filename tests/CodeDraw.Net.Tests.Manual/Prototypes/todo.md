@@ -14,8 +14,9 @@ via a shader
 
 draw text via a shader (with custom font support)
 
-rerender current frame with a custom shader (ie. render current frame up to that point, pass it into the shader
-so the user can do something with it, if he wants, and then draw it over the current frame)
+import Bitmap into layer and export layer as Bitmap
+add a "SetPixel" method to layer to set a single pixel color
+add a "GetPixel" method to layer to get a single pixel color
 
 
 Welcome to CodeDraw.Net program.

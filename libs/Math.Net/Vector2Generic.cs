@@ -2,13 +2,9 @@ using System.Numerics;
 
 namespace MarcoZechner.MathDotNet;
 
-public readonly partial record struct Vector2<T>
-    where T : unmanaged, INumber<T>
+public readonly partial record struct Vector2<T>(T X, T Y) where T : unmanaged, INumber<T>
 {
-    public T X { get; init; }
-    public T Y { get; init; }
 
-    public Vector2(T x, T y) => (X, Y) = (x, y);
     public Vector2(Vector2<T> v) : this(v.X, v.Y) { }
 
     public Vector2<T> WithX(T x) => new(x, Y);

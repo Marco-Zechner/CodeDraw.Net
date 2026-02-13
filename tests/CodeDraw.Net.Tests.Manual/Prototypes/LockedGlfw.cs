@@ -325,4 +325,10 @@ public static unsafe class LockedGlfw
         if (!_isInitialized) throw new InvalidOperationException("Glfw instance not set");
         lock (_glfwLock) _glfwInstance.SetWindowIconifyCallback(win, cbsIconify);
     }
+
+    public static void GetCursorPos(WindowHandle* win, out double cx, out double cy)
+    {
+        if (!_isInitialized) throw new InvalidOperationException("Glfw instance not set");
+        lock (_glfwLock) _glfwInstance.GetCursorPos(win, out cx, out cy);
+    }
 }

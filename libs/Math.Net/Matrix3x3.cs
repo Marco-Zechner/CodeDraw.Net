@@ -33,7 +33,7 @@ public readonly partial record struct Matrix3X3
     public static Matrix3X3 CreateScale(float sx, float sy) => Matrix3X3<float>.CreateScale(sx, sy);
     public static Matrix3X3 CreateRotation(float rotation, AngleUnit angleUnit = AngleUnit.DEGREES) => Matrix3X3<float>.CreateRotation(rotation, angleUnit);
 
-    public static Vector2 Transform(Matrix3X3 m, Vector2 v) => Matrix3X3<float>.Transform(m._m, v);
+    public static Vector2 TransformAffine(Matrix3X3 m, Vector2 v) => Matrix3X3<float>.TransformAffine(m._m, v);
     public static Matrix3X3 operator *(Matrix3X3 a, Matrix3X3 b) => new(a._m * b._m);
 
     public override string ToString() => _m.ToString();
@@ -43,5 +43,15 @@ public readonly partial record struct Matrix3X3
 
     public static Matrix3X3 Lerp(Matrix3X3 start, Matrix3X3 end, float t) => Matrix3X3<float>.Lerp(start._m, end._m, t);
 
+    public static float Determinant(Matrix3X3 m) => Matrix3X3<float>.Determinant(m._m);
+    public static bool TryInvert(Matrix3X3 m, out Matrix3X3 inv)
+    {
+        var ok = Matrix3X3<float>.TryInvert(m._m, out var i);
+        inv = new Matrix3X3(i);
+        return ok;
+    }
+    public static Matrix3X3 Invert(Matrix3X3 m) => new(Matrix3X3<float>.Invert(m._m));
+    public static Vector2 TransformProjective(Matrix3X3 m, Vector2 v) => Matrix3X3<float>.TransformProjective(m._m, v);
+    
     #endregion
 }

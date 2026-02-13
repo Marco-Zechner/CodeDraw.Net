@@ -9,6 +9,22 @@ public static class ShaderCompiler
     private static uint CreateShader(GL gl, GLEnum type, string src, string label)
     {
         var s = gl.CreateShader(type);
+        
+        for (int i = 0; i < src.Length; i++)
+        {
+            if (src[i] == '\0')
+            {
+                int line = 1, col = 1;
+                for (int j = 0; j < i; j++)
+                {
+                    if (src[j] == '\n') { line++; col = 1; }
+                    else col++;
+                }
+                Console.WriteLine($"[ShaderCompiler] NUL at index={i}, line={line}, col={col} in '{label}'");
+                break;
+            }
+        }
+        
         gl.ShaderSource(s, src);
         gl.CompileShader(s);
         gl.GetShader(s, GLEnum.CompileStatus, out var ok);

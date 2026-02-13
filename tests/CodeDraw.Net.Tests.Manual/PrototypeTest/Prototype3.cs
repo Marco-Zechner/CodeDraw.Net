@@ -26,50 +26,25 @@ public class Prototype3 : IDisposable
     }
 
     private readonly CodeDrawWindow _win;
+    private readonly CodeDrawWindow _win1;
     private readonly CodeDrawWindow _win2;
-    private readonly CodeDrawWindow _winOther;
 
 
     public Prototype3(SharedGlfwHost host)
     {
         _win = new CodeDrawWindow(host, 400, 400 , "Prototype3");
         var orbitShader = CustomShader.CsProject("orbitDots", "PrototypeTest/shaders");
-        _win2 = new CodeDrawWindow(host, 400, 400 , "Prototype3 - Copy");
+        
+        _win1 = new CodeDrawWindow(host, 400, 400 , "Prototype3 - Copy");
         var colorShiftShader = CustomShader.CsProject("colorShift", "PrototypeTest/shaders");
-        _winOther = new CodeDrawWindow(host, 400, 400 , "Prototype3 - Other");
-        _winOther.SetPresentedLayer(_win.Layer);
+        
+        _win2 = new CodeDrawWindow(host, 400, 400 , "Prototype3 - Other");
+        var colorShiftPPShader = CustomShader.CsProject("colorShiftPP", "PrototypeTest/shaders");
 
         _win.OnUpdate += context =>
         {
-            var layer = context.Win.Layer;
-
-            layer.Clear(1,1,1,0.5f);
-            DrawOrbitingDots(layer, 200, 200, 10, 50, 2, 0, new Rgba(0.5f, 0, 0, 1f));
-            DrawOrbitingDots(layer, 200, 200, 10, 80, 2*80/50f, 0, new Rgba(0.0f, 1, 1, 1f));
-            DrawOrbitingDots(layer, 350, 350, 4, 35, -2*80/50f, 0, new Rgba(0.0f, 1, 1, 1f));
-            layer.Render();
-
-            if (context.Input.GetKeyDown(Keys.N))
-            {
-                if (_win2.IsOpen)
-                    _win2.Close();
-                else
-                    _win2.Open();
-                
-                Console.WriteLine($"win2 is now " + (_win2.IsOpen ? "open" : "closed"));
-            }
-        };
-
-        _win2.Settings = _win2.Settings with
-        {
-            MinSize = new Vector2<int>(200, 200),
-            MaxSize = new Vector2<int>(600, 600),
-            AspectRatio = new Vector2<int>(1, 1),
-        };
-
-        _win2.OnUpdate += context =>
-        {
             var win = context.Win;
+            
             var input = win.Input;
 
             var ctrl = input.GetModifierState(ModifierKeys.CONTROL);
@@ -96,43 +71,66 @@ public class Prototype3 : IDisposable
             {
                 switch (keyDown)
                 {
-                    case Keys.A: _win2.TransparentAlpha = !_win2.TransparentAlpha;
+                    case Keys.A: _win1.TransparentAlpha = !_win1.TransparentAlpha;
                         break;
-                    case Keys.C: _win2.ClickThrough = !_win2.ClickThrough;
+                    case Keys.C: _win1.ClickThrough = !_win1.ClickThrough;
                         break;
-                    case Keys.F: _win2.ToggleResizeMode(WindowResizeMode.Fixed);
+                    case Keys.F: _win1.ToggleResizeMode(WindowResizeMode.Fixed);
                         break;
-                    case Keys.H: _win2.ToggleFrameMode();
+                    case Keys.H: _win1.ToggleFrameMode();
                         break;
-                    case Keys.I: _win2.ToggleState(WindowState.Minimized);
+                    case Keys.I: _win1.ToggleState(WindowState.Minimized);
                         break;
-                    case Keys.L: _win2.ToggleResizeMode(WindowResizeMode.Limited);
+                    case Keys.L: _win1.ToggleResizeMode(WindowResizeMode.Limited);
                         break;
-                    case Keys.M: _win2.ToggleState(WindowState.BorderlessFullscreen);
+                    case Keys.M: _win1.ToggleState(WindowState.BorderlessFullscreen);
                         break;
-                    case Keys.R: _win2.ToggleResizeMode(WindowResizeMode.Aspect);
+                    case Keys.R: _win1.ToggleResizeMode(WindowResizeMode.Aspect);
                         break;
-                    case Keys.S when !ctrl: _win2.ToggleState(WindowState.Maximized);
+                    case Keys.S when !ctrl: _win1.ToggleState(WindowState.Maximized);
                         break;
-                    case Keys.S when ctrl: _win2.ToggleState(WindowState.BorderlessMaximized);
+                    case Keys.S when ctrl: _win1.ToggleState(WindowState.BorderlessMaximized);
                         break;
-                    case Keys.T: _win2.AlwaysOnTop = !_win2.AlwaysOnTop;
+                    case Keys.T: _win1.AlwaysOnTop = !_win1.AlwaysOnTop;
+                        break;
+                    case Keys.Escape: win.Close();
+                        return;
+                    case Keys.X: win.Size = new Vector2<int>(1920, 1080);
+                        break;
+                    case Keys.Number1:
+                        if (_win1.IsOpen)
+                            _win1.Close();
+                        else
+                            _win1.Open();
+                        break;
+                    case Keys.Number2:
+                        if (_win2.IsOpen)
+                            _win2.Close();
+                        else
+                            _win2.Open();
                         break;
                 }
             }
             
-            if (input.GetKeyDown(Keys.Escape))
-            {
-                win.Close();
-                return;
-            }
-            
-            if (input.GetKeyDown(Keys.X))
-            {
-                win.Size = new Vector2<int>(1920, 1080);
-                return;
-            }
+            var layer = win.Layer;
 
+            layer.Clear(1,1,1,0.5f);
+            DrawOrbitingDots(layer, 200, 200, 10, 50, 2, 0, new Rgba(0.5f, 0, 0, 1f));
+            DrawOrbitingDots(layer, 200, 200, 10, 80, 2*80/50f, 0, new Rgba(0.0f, 1, 1, 1f));
+            DrawOrbitingDots(layer, 350, 350, 4, 35, -2*80/50f, 0, new Rgba(0.0f, 1, 1, 1f));
+            layer.Render();
+        };
+
+        _win1.Settings = _win1.Settings with
+        {
+            MinSize = new Vector2<int>(200, 200),
+            MaxSize = new Vector2<int>(600, 600),
+            AspectRatio = new Vector2<int>(1, 1),
+        };
+
+        _win1.OnUpdate += context =>
+        {
+            var win = context.Win;
             var layer = win.Layer;
 
             layer.Clear();
@@ -145,6 +143,20 @@ public class Prototype3 : IDisposable
                     UniformValue.Float("uTime", layer.LayerAliveForSeconds())
                 )
             );
+            layer.Render();
+        };
+
+        _win2.OnUpdate += context =>
+        {
+            var win = context.Win;
+            var layer = win.Layer;
+
+            layer.Clear();
+            layer.SetBlendMode(BlendMode.NONE);
+            layer.DrawLayer(_win.Layer);
+            layer.PostProcess(colorShiftPPShader, 
+                UniformValue.Float("uTime", layer.LayerAliveForSeconds())
+                );
             layer.Render();
         };
 
@@ -173,7 +185,7 @@ public class Prototype3 : IDisposable
     public void Dispose()
     {
         _win.Dispose();
+        _win1.Dispose();
         _win2.Dispose();
-        _winOther.Dispose();
     }
 }

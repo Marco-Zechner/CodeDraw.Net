@@ -76,4 +76,17 @@ public sealed unsafe partial class CodeDrawLayer
                 Uniforms);
         }
     }
+    
+    private sealed class CmdPostProcess : ICmd
+    {
+        public CustomShader? Shader;
+        public Uniforms Uniforms;
+
+        public void Exec(GL gl, CodeDrawLayer self)
+        {
+            var s = Shader;
+            if (s is null) return;
+            self.ExecPostProcess(gl, s, Uniforms);
+        }
+    }
 }

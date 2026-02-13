@@ -28,7 +28,6 @@ public sealed unsafe partial class CodeDrawLayer
 
     private struct Publication
     {
-        public int FrontIndex;
         public nint Fence;
         public int W, H;
         public long Seq;

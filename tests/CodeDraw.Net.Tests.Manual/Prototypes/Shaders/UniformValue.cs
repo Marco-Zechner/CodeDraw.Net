@@ -49,10 +49,4 @@ public readonly struct UniformValue
     public static UniformValue Tex2D(string name, CodeDrawLayer layerRef)
         => new(name, UniformType.TEX_2D, 0, 0, 0, 0, layerRef);
 
-    public static readonly HashSet<string> engineBuiltIns = new(StringComparer.Ordinal)
-    {
-        "uPosSize",
-        "uRes",
-        "uTex",
-    };
 }

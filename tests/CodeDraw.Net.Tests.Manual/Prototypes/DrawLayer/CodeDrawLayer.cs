@@ -69,13 +69,6 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
 
         public int ProgramVersionTag; // to detect program relink/recreate
     }
-    
-    private readonly struct EngineUniformApply(bool setPosSize, bool setRes)
-    {
-        public readonly bool SetPosSize = setPosSize;
-        public readonly bool SetRes = setRes;
-
-    }
 
     private readonly Dictionary<ShaderKey, ExtShaderEntry> _extCache = new();
 
@@ -136,11 +129,11 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
     private readonly WindowHandle* _ctxWin;
     private GL _gl = null!; // only valid on render thread, but we set it there so it doesn't need to be nullable
 
-    private readonly Buffer[] _buf = new Buffer[2];
-    private int _front;
-    private int Back => 1 - _front;
+    private Buffer _pub;  // published (read-only during render)
+    private Buffer _work; // current command stream target
+    private Buffer _tmp;  // temp for postprocess
 
-    private Publication _pub;
+    private Publication _pubInfo;
     private long _frameSeq;
 
     private bool _disposed;
@@ -251,16 +244,11 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
 
     public bool TryGetLatest(out uint tex, out int w, out int h, out nint fence, out long seq)
     {
-        var p = _pub;
+        var p = _pubInfo;
         seq = Volatile.Read(ref p.Seq);
-        if (seq == 0)
-        {
-            tex = 0; w = h = 0; fence = 0;
-            return false;
-        }
+        if (seq == 0) { tex = 0; w = h = 0; fence = 0; return false; }
 
-        var fi = p.FrontIndex;
-        tex = (fi == 0 || fi == 1) ? _buf[fi].Tex : 0;
+        tex = _pub.Tex;
         w = p.W; h = p.H;
         fence = p.Fence;
         return tex != 0;
@@ -329,7 +317,7 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
                 if (Volatile.Read(ref _lastRenderedCmdSeq) >= target)
                     continue;
 
-                DrainUntil(target); // now assumes context already current
+                DrainUntil(target);
 
                 Volatile.Write(ref _completedRenderSeq, Volatile.Read(ref _lastRenderedCmdSeq));
                 lock (_waitLock) Monitor.PulseAll(_waitLock);
@@ -341,13 +329,9 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
         }
         finally
         {
-            for (var i = 0; i < 2; i++)
-            {
-                if (_buf[i].Fence != 0) _gl.DeleteSync(_buf[i].Fence);
-                if (_buf[i].Fbo != 0) _gl.DeleteFramebuffer(_buf[i].Fbo);
-                if (_buf[i].Tex != 0) _gl.DeleteTexture(_buf[i].Tex);
-                _buf[i] = default;
-            }
+            DeleteBuffer(ref _pub);
+            DeleteBuffer(ref _work);
+            DeleteBuffer(ref _tmp);
 
             ShaderStore.DisposeConsumer(_gl, this);
 
@@ -357,6 +341,37 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
             
             try { LockedGlfw.MakeContextCurrent(null); } catch { /* ignored */ }
         }
+    }
+    
+    private void DeleteBuffer(ref Buffer b)
+    {
+        if (b.Fence != 0) { _gl.DeleteSync(b.Fence); b.Fence = 0; }
+        if (b.Fbo != 0) { _gl.DeleteFramebuffer(b.Fbo); b.Fbo = 0; }
+        if (b.Tex != 0) { _gl.DeleteTexture(b.Tex); b.Tex = 0; }
+        b.W = b.H = 0;
+    }
+    
+    private void CreateBuffer(ref Buffer b, int w, int h)
+    {
+        var tex = _gl.GenTexture();
+        _gl.BindTexture(GLEnum.Texture2D, tex);
+        _gl.TexImage2D(GLEnum.Texture2D, 0, (int)GLEnum.Rgba8, (uint)w, (uint)h, 0,
+            GLEnum.Rgba, GLEnum.UnsignedByte, null);
+        _gl.TexParameter(GLEnum.Texture2D, GLEnum.TextureMinFilter, (int)GLEnum.Linear);
+        _gl.TexParameter(GLEnum.Texture2D, GLEnum.TextureMagFilter, (int)GLEnum.Linear);
+        _gl.TexParameter(GLEnum.Texture2D, GLEnum.TextureWrapS, (int)GLEnum.ClampToEdge);
+        _gl.TexParameter(GLEnum.Texture2D, GLEnum.TextureWrapT, (int)GLEnum.ClampToEdge);
+        _gl.BindTexture(GLEnum.Texture2D, 0);
+
+        var fbo = _gl.GenFramebuffer();
+        _gl.BindFramebuffer(GLEnum.Framebuffer, fbo);
+        _gl.FramebufferTexture2D(GLEnum.Framebuffer, GLEnum.ColorAttachment0, GLEnum.Texture2D, tex, 0);
+        _gl.BindFramebuffer(GLEnum.Framebuffer, 0);
+
+        b.Tex = tex;
+        b.Fbo = fbo;
+        b.W = w;
+        b.H = h;
     }
     
     private void DrainUntil(long targetSeq)
@@ -401,25 +416,14 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
             Volatile.Write(ref _lastRenderedCmdSeq, item.seq);
         }
 
-        if (_buf[Back].Fence != 0)
-        {
-            while (true)
-            {
-                var s = _gl.ClientWaitSync(_buf[Back].Fence, SyncObjectMask.Bit, 1_000_000);
-                if (s == GLEnum.AlreadySignaled || s == GLEnum.ConditionSatisfied) break;
-            }
-            _gl.DeleteSync(_buf[Back].Fence);
-            _buf[Back].Fence = 0;
-        }
-
-        _gl.BindFramebuffer(GLEnum.Framebuffer, _buf[Back].Fbo);
+        _gl.BindFramebuffer(GLEnum.Framebuffer, _work.Fbo);
         _gl.Viewport(0, 0, (uint)_w, (uint)_h);
         _gl.Disable(GLEnum.DepthTest);
         ApplyBlendMode();
 
         lastResize?.Exec(_gl, this);
 
-        _gl.BindFramebuffer(GLEnum.Framebuffer, _buf[Back].Fbo);
+        _gl.BindFramebuffer(GLEnum.Framebuffer, _work.Fbo);
         _gl.Viewport(0, 0, (uint)_w, (uint)_h);
 
         if (_clearFirst || _clearRequested)
@@ -427,9 +431,12 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
             local.Insert(0, (0, new CmdClear(_clearColor.r, _clearColor.g, _clearColor.b, _clearColor.a)));
             _clearRequested = false;
         }
-        else if (local.Count > 1 && local[0].cmd is not CmdClear)
+        else if (local.Count > 0 && local[0].cmd is not CmdClear)
         {
-            CopyFrontToBack();
+            // ensure _work starts as last published frame
+            _gl.BindFramebuffer(GLEnum.Framebuffer, _work.Fbo);
+            _gl.Viewport(0, 0, (uint)_w, (uint)_h);
+            CopyPubToWork();
         }
 
         foreach (var (_, cmd) in local)
@@ -437,16 +444,12 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
 
         _gl.Finish();
 
-        _buf[Back].Fence = 0;
-        _front = Back;
+        (_pub, _work) = (_work, _pub);
 
-        _pub.FrontIndex = _front;
-        _pub.Fence = 0;
-        _pub.W = _w;
-        _pub.H = _h;
-
-        var next = Interlocked.Increment(ref _frameSeq);
-        Volatile.Write(ref _pub.Seq, next);
+        _pubInfo.W = _w;
+        _pubInfo.H = _h;
+        _pubInfo.Fence = 0;
+        Volatile.Write(ref _pubInfo.Seq, Interlocked.Increment(ref _frameSeq));
 
         _published.Set();
 
@@ -457,25 +460,26 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
     {
         while (_retireFences.TryDequeue(out var f))
         {
-            if (_pub.Fence == f) _pub.Fence = 0;
-            for (var i = 0; i < 2; i++)
-                if (_buf[i].Fence == f) _buf[i].Fence = 0;
+            if (_pubInfo.Fence == f) _pubInfo.Fence = 0;
+
+            if (_pub.Fence  == f) _pub.Fence  = 0;
+            if (_work.Fence == f) _work.Fence = 0;
+            if (_tmp.Fence  == f) _tmp.Fence  = 0;
 
             _gl.DeleteSync(f);
         }
     }
 
-    private void CopyFrontToBack()
+    private void CopyPubToWork()
     {
         _gl.UseProgram(_progBlit);
         _gl.BindVertexArray(_vao);
         _gl.ActiveTexture(GLEnum.Texture0);
-        _gl.BindTexture(GLEnum.Texture2D, _buf[_front].Tex);
+        _gl.BindTexture(GLEnum.Texture2D, _pub.Tex);
         if (_uBlitTex >= 0) _gl.Uniform1(_uBlitTex, 0);
 
         _gl.Disable(GLEnum.Blend);
         _gl.DrawElements(GLEnum.Triangles, 6, GLEnum.UnsignedInt, null);
-
         ApplyBlendMode();
 
         _gl.BindTexture(GLEnum.Texture2D, 0);
@@ -490,35 +494,15 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
         _w = w; _h = h;
         _clearRequested = true;
 
-        for (var i = 0; i < 2; i++)
-        {
-            if (_buf[i].Fence != 0) { _gl.DeleteSync(_buf[i].Fence); _buf[i].Fence = 0; }
-            if (_buf[i].Fbo != 0) _gl.DeleteFramebuffer(_buf[i].Fbo);
-            if (_buf[i].Tex != 0) _gl.DeleteTexture(_buf[i].Tex);
-            _buf[i] = default;
+        DeleteBuffer(ref _pub);
+        DeleteBuffer(ref _work);
+        DeleteBuffer(ref _tmp);
 
-            var tex = _gl.GenTexture();
-            _gl.BindTexture(GLEnum.Texture2D, tex);
-            _gl.TexImage2D(GLEnum.Texture2D, 0, (int)GLEnum.Rgba8, (uint)w, (uint)h, 0, GLEnum.Rgba, GLEnum.UnsignedByte, null);
-            _gl.TexParameter(GLEnum.Texture2D, GLEnum.TextureMinFilter, (int)GLEnum.Linear);
-            _gl.TexParameter(GLEnum.Texture2D, GLEnum.TextureMagFilter, (int)GLEnum.Linear);
-            _gl.TexParameter(GLEnum.Texture2D, GLEnum.TextureWrapS, (int)GLEnum.ClampToEdge);
-            _gl.TexParameter(GLEnum.Texture2D, GLEnum.TextureWrapT, (int)GLEnum.ClampToEdge);
-            _gl.BindTexture(GLEnum.Texture2D, 0);
+        CreateBuffer(ref _pub,  w, h);
+        CreateBuffer(ref _work, w, h);
+        CreateBuffer(ref _tmp,  w, h);
 
-            var fbo = _gl.GenFramebuffer();
-            _gl.BindFramebuffer(GLEnum.Framebuffer, fbo);
-            _gl.FramebufferTexture2D(GLEnum.Framebuffer, GLEnum.ColorAttachment0, GLEnum.Texture2D, tex, 0);
-            _gl.BindFramebuffer(GLEnum.Framebuffer, 0);
-
-            _buf[i].Tex = tex;
-            _buf[i].Fbo = fbo;
-            _buf[i].W = w;
-            _buf[i].H = h;
-        }
-
-        _front = 0;
-        _pub = new Publication { FrontIndex = _front, Fence = 0, W = w, H = h, Seq = 0 };
+        _pubInfo = new Publication { Fence = 0, W = w, H = h, Seq = 0 };
 
         _published.Set();
     }
@@ -630,7 +614,7 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
         if (shader != null)
         {
             // If resolving a layer-texture fails, skip the draw entirely.
-            if (!ApplyUserUniforms(gl, prog, shader.Key, uniforms, out usedTexUnits))
+            if (!ApplyUserUniforms(gl, prog, shader.Key, uniforms, providesTexture: false, ["uPosSize", "uRes"], out usedTexUnits))
             {
                 gl.BindVertexArray(0);
                 gl.UseProgram(0);
@@ -651,26 +635,88 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
         gl.BindVertexArray(0);
         gl.UseProgram(0);
     }
+    
+    private void ExecPostProcess(GL gl, CustomShader shader, Uniforms uniforms)
+    {
+        if (_work.Tex == 0 || _tmp.Fbo == 0) return;
 
-    private bool ApplyUserUniforms(GL gl, uint prog, ShaderKey key, Uniforms uniforms, out int usedTexUnits)
+        // render into tmp
+        gl.BindFramebuffer(GLEnum.Framebuffer, _tmp.Fbo);
+        gl.Viewport(0, 0, (uint)_w, (uint)_h);
+        gl.Disable(GLEnum.DepthTest);
+
+        // use user shader program
+        ExtShaderEntry? entry;
+        lock (_extShaderLock) _extCache.TryGetValue(shader.Key, out entry);
+        if (entry == null) return;
+
+        uint prog = entry.Prog;
+        
+        gl.UseProgram(prog);
+        gl.BindVertexArray(_vao);
+
+        // built-in uTex = current work texture
+        gl.ActiveTexture(GLEnum.Texture0);
+        gl.BindTexture(GLEnum.Texture2D, _work.Tex);
+        if (entry.UTex >= 0) gl.Uniform1(entry.UTex, 0);
+
+        // built-in uRes
+        if (entry.URes >= 0) Uniform2F(gl, entry.URes, _w, _h);
+
+        // user uniforms (start texture units at 1 because unit 0 is reserved for uTex)
+        if (!ApplyUserUniforms(gl, prog, shader.Key, uniforms, providesTexture: true, ["uTex","uRes"], out int usedTexUnits))
+            return;
+
+        gl.DrawElements(GLEnum.Triangles, 6, GLEnum.UnsignedInt, null);
+
+        // Cleanup
+        for (var i = 0; i < usedTexUnits; i++)
+        {
+            gl.ActiveTexture(GLEnum.Texture0 + i);
+            gl.BindTexture(GLEnum.Texture2D, 0);
+        }
+        gl.ActiveTexture(GLEnum.Texture0);
+        gl.BindVertexArray(0);
+        gl.UseProgram(0);
+
+        (_work, _tmp) = (_tmp, _work);
+        
+        gl.BindFramebuffer(GLEnum.Framebuffer, _work.Fbo);
+        gl.Viewport(0, 0, (uint)_w, (uint)_h);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool Contains(ReadOnlySpan<string> a, string s)
+    {
+        foreach (var t in a)
+            if (string.Equals(t, s, StringComparison.Ordinal))
+                return true;
+        return false;
+    }
+    
+    private bool ApplyUserUniforms(
+        GL gl,
+        uint prog,
+        ShaderKey key,
+        Uniforms uniforms,
+        bool providesTexture,
+        ReadOnlySpan<string> reservedUniforms,
+        out int usedTexUnits)
     {
         usedTexUnits = 0;
 
         var refl = GetOrCreateReflection(gl, key, prog);
 
-        // Start of draw: clear touched set
         refl.TouchedThisDraw.Clear();
 
-        // Mark built-ins as "touched" because engine sets them in ExecCustomRect
-        // (So "uniform in shader but not set in code" won't complain.)
-        foreach (var n in UniformValue.engineBuiltIns) refl.TouchedThisDraw.Add(n);
+        foreach (var n in reservedUniforms)
+            refl.TouchedThisDraw.Add(n);
 
-        var nextTexUnit = 0;
+        var nextTexUnit = providesTexture ? 1 : 0;
 
         foreach (var u in uniforms.Values)
         {
-            // engine check
-            if (UniformValue.engineBuiltIns.Contains(u.Name))
+            if (Contains(reservedUniforms, u.Name))
             {
                 if (refl.WarnedMissingFromShader.Add(u.Name))
                 {
@@ -680,11 +726,9 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
                 }
                 continue;
             }
-            
-            // Lookup uniform in shader
+
             if (!refl.ByName.TryGetValue(u.Name, out var info) || info.Loc < 0)
             {
-                // Uniform set in code but not in shader (or optimized away)
                 if (refl.WarnedMissingFromShader.Add(u.Name))
                 {
                     Console.WriteLine(
@@ -694,7 +738,6 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
                 continue;
             }
 
-            // Type check
             if (!IsCompatible(u.Type, info.Type))
             {
                 if (refl.WarnedTypeMismatch.Add(u.Name))
@@ -708,7 +751,6 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
                     $"Uniform type mismatch for '{u.Name}' in shader '{key}': Code={u.Type}, Shader={info.Type}.");
             }
 
-            // Apply + mark touched
             refl.TouchedThisDraw.Add(u.Name);
 
             switch (u.Type)
@@ -745,16 +787,11 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
             }
         }
 
-        // Post-check: uniforms in shader but not set in code
-        // Only for active uniforms (Loc >= 0), skip built-ins and obvious stuff.
         foreach (var (name, info) in refl.ByName)
         {
             if (info.Loc < 0) continue;
             if (name.StartsWith("gl_", StringComparison.Ordinal)) continue;
-
-            // Ignore engine built-ins (engine is responsible; we already mark uPosSize/uRes as touched)
-            if (UniformValue.engineBuiltIns.Contains(name))
-                continue;
+            if (reservedUniforms.Contains(name)) continue;
 
             if (refl.TouchedThisDraw.Contains(name)) continue;
             if (!refl.WarnedMissingFromCode.Add(name)) continue;
@@ -805,7 +842,7 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
         for (uint i = 0; i < (uint)count; i++)
         {
             // Silk overload: returns name as string
-            var name = gl.GetActiveUniform(prog, i, out int size, out SilkUniformType type);
+            var name = gl.GetActiveUniform(prog, i, out var size, out var type);
 
             // Some drivers return array uniforms as "arr[0]" -> normalize
             var loc = gl.GetUniformLocation(prog, name);
@@ -815,7 +852,7 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
 
             if (name.EndsWith("[0]", StringComparison.Ordinal))
             {
-                var baseName = name.Substring(0, name.Length - 3);
+                var baseName = name[..^3];
                 r.ByName[baseName] = info;
             }
         }

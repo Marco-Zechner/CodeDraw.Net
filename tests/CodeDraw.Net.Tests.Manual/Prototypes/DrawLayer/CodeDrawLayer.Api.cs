@@ -95,6 +95,27 @@ public sealed partial class CodeDrawLayer
         params UniformValue[] uniforms)
         => CustomDrawRect(x,y,w,h,shader, new Uniforms(uniforms));
 
+    public void PostProcess(CustomShader shader, Uniforms uniforms)
+    {
+        if (_disposed) return;
+
+        // Ensure shader is registered before CheckHotReload in the next DrainUntil()
+        ScheduleExternalShader(shader);
+
+        // Defensive copy: keep cmd immutable even if caller reuses the array.
+        var src = uniforms.Values;
+        var copy = (src.Length == 0) ? [] : (UniformValue[])src.Clone();
+
+        Enqueue(new CmdPostProcess
+        {
+            Shader = shader,
+            Uniforms = new Uniforms(copy)
+        });
+    }
+
+    public void PostProcess(CustomShader shader, params UniformValue[] uniforms)
+        => PostProcess(shader, new Uniforms(uniforms));
+    
     #region Transform Point Helpers
 
     public (float x, float y) TransformPointFrom(CodeDrawWindow win, float winX, float winY)

@@ -2,7 +2,7 @@
 in vec2 vUV;
 out vec4 FragColor;
 
-uniform sampler2D uTex;
+uniform sampler2D uTexCopy;
 uniform float uTime;
 
 vec3 ToHSV(vec3 rgb){
@@ -52,7 +52,7 @@ vec3 ToRGB(vec3 hsv){
 }
 
 void main(){
-    vec4 color = texture(uTex, vUV);
+    vec4 color = texture(uTexCopy, vUV);
     vec3 hsv = ToHSV(color.rgb);
     hsv.x = mod(hsv.x + uTime * 60.0, 360.0); // Shift hue over time
     vec3 rgb = ToRGB(hsv);

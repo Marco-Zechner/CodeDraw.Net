@@ -141,7 +141,7 @@ public class Prototype3 : IDisposable
                 0,0, layer.Width, layer.Height,
                 shader: colorShiftShader,
                 uniforms: Uniforms.Of(
-                    UniformValue.Tex2D("uTex", _win.Layer),
+                    UniformValue.Tex2D("uTexCopy", _win.Layer),
                     UniformValue.Float("uTime", layer.LayerAliveForSeconds())
                 )
             );

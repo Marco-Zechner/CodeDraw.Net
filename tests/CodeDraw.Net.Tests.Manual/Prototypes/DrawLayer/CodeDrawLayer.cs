@@ -6,6 +6,7 @@ using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
 using Monitor = System.Threading.Monitor;
 using UniformType = MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.Shaders.UniformType;
+using SilkUniformType = Silk.NET.OpenGL.UniformType;
 
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.DrawLayer;
 
@@ -46,7 +47,34 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
 
         // Per-program user uniform location cache:
         // programHandle -> (uniformName -> location)
-        public readonly Dictionary<uint, Dictionary<string, int>> UserLocCache = new();
+        public readonly Dictionary<uint, UniformReflection> ReflectionCache = new();
+    }
+    
+    private sealed class UniformInfo
+    {
+        public int Loc;
+        public SilkUniformType Type;
+        public int Size;
+    }
+
+    private sealed class UniformReflection
+    {
+        public readonly Dictionary<string, UniformInfo> ByName = new(StringComparer.Ordinal);
+        public readonly HashSet<string> WarnedMissingFromShader = new(StringComparer.Ordinal);
+        public readonly HashSet<string> WarnedTypeMismatch = new(StringComparer.Ordinal);
+        public readonly HashSet<string> WarnedMissingFromCode = new(StringComparer.Ordinal);
+
+        // Per-draw tracking:
+        public readonly HashSet<string> TouchedThisDraw = new(StringComparer.Ordinal);
+
+        public int ProgramVersionTag; // to detect program relink/recreate
+    }
+    
+    private readonly struct EngineUniformApply(bool setPosSize, bool setRes)
+    {
+        public readonly bool SetPosSize = setPosSize;
+        public readonly bool SetRes = setRes;
+
     }
 
     private readonly Dictionary<ShaderKey, ExtShaderEntry> _extCache = new();
@@ -599,7 +627,7 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
         
         // User uniforms
         var usedTexUnits = 0;
-        if (shader != null && uniforms.Values.Length > 0)
+        if (shader != null)
         {
             // If resolving a layer-texture fails, skip the draw entirely.
             if (!ApplyUserUniforms(gl, prog, shader.Key, uniforms, out usedTexUnits))
@@ -628,60 +656,86 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
     {
         usedTexUnits = 0;
 
-        Dictionary<string, int> locMap;
+        var refl = GetOrCreateReflection(gl, key, prog);
 
-        // Only protect access to _extCache / entry.UserLocCache structure.
-        lock (_extShaderLock)
-        {
-            if (!_extCache.TryGetValue(key, out var entry))
-                return true;
+        // Start of draw: clear touched set
+        refl.TouchedThisDraw.Clear();
 
-            if (!entry.UserLocCache.TryGetValue(prog, out locMap!))
-            {
-                locMap = new Dictionary<string, int>(StringComparer.Ordinal);
-                entry.UserLocCache[prog] = locMap;
-            }
-        }
+        // Mark built-ins as "touched" because engine sets them in ExecCustomRect
+        // (So "uniform in shader but not set in code" won't complain.)
+        foreach (var n in UniformValue.engineBuiltIns) refl.TouchedThisDraw.Add(n);
 
-        // No locks while doing GL calls.
         var nextTexUnit = 0;
 
         foreach (var u in uniforms.Values)
         {
-            if (!locMap.TryGetValue(u.Name, out var loc))
+            // engine check
+            if (UniformValue.engineBuiltIns.Contains(u.Name))
             {
-                loc = gl.GetUniformLocation(prog, u.Name);
-                locMap[u.Name] = loc;
+                if (refl.WarnedMissingFromShader.Add(u.Name))
+                {
+                    Console.WriteLine(
+                        $"[Warn] {DebugName} uniform '{u.Name}' is a reserved built-in but is set in code for shader '{key}'. " +
+                        $"(program=0x{prog:X})");
+                }
+                continue;
+            }
+            
+            // Lookup uniform in shader
+            if (!refl.ByName.TryGetValue(u.Name, out var info) || info.Loc < 0)
+            {
+                // Uniform set in code but not in shader (or optimized away)
+                if (refl.WarnedMissingFromShader.Add(u.Name))
+                {
+                    Console.WriteLine(
+                        $"[Warn] {DebugName} uniform '{u.Name}' was set in code but not found/active in shader '{key}'. " +
+                        $"(program=0x{prog:X})");
+                }
+                continue;
             }
 
-            if (loc < 0) continue;
+            // Type check
+            if (!IsCompatible(u.Type, info.Type))
+            {
+                if (refl.WarnedTypeMismatch.Add(u.Name))
+                {
+                    Console.WriteLine(
+                        $"[Error] {DebugName} uniform type mismatch for '{u.Name}' in shader '{key}'. " +
+                        $"Code={u.Type}, Shader={info.Type}. (program=0x{prog:X})");
+                }
+
+                throw new InvalidOperationException(
+                    $"Uniform type mismatch for '{u.Name}' in shader '{key}': Code={u.Type}, Shader={info.Type}.");
+            }
+
+            // Apply + mark touched
+            refl.TouchedThisDraw.Add(u.Name);
 
             switch (u.Type)
             {
-                case UniformType.FLOAT1: gl.Uniform1(loc, u.A); break;
-                case UniformType.FLOAT2: gl.Uniform2(loc, u.A, u.B); break;
-                case UniformType.FLOAT3: gl.Uniform3(loc, u.A, u.B, u.C); break;
-                case UniformType.FLOAT4: gl.Uniform4(loc, u.A, u.B, u.C, u.D); break;
+                case UniformType.FLOAT1: gl.Uniform1(info.Loc, u.A); break;
+                case UniformType.FLOAT2: gl.Uniform2(info.Loc, u.A, u.B); break;
+                case UniformType.FLOAT3: gl.Uniform3(info.Loc, u.A, u.B, u.C); break;
+                case UniformType.FLOAT4: gl.Uniform4(info.Loc, u.A, u.B, u.C, u.D); break;
+
                 case UniformType.TEX_2D:
                 {
-                    // Resolve texture handle at execution time
                     uint tex;
 
                     if (u.LayerRef is { IsDisposed: false } layer)
                     {
-                        // last published (visible) frame
                         if (!layer.TryGetLatest(out var t, out _, out _, out _, out _))
-                            return false; // required input missing -> abort draw
+                            return false;
                         tex = t;
                     }
-                    else return false; // no texture source
-                    
+                    else return false;
 
                     if (tex == 0) return false;
 
                     gl.ActiveTexture(GLEnum.Texture0 + nextTexUnit);
                     gl.BindTexture(GLEnum.Texture2D, tex);
-                    gl.Uniform1(loc, nextTexUnit);
+                    gl.Uniform1(info.Loc, nextTexUnit);
+
                     nextTexUnit++;
                     break;
                 }
@@ -690,7 +744,95 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
                     throw new ArgumentOutOfRangeException();
             }
         }
+
+        // Post-check: uniforms in shader but not set in code
+        // Only for active uniforms (Loc >= 0), skip built-ins and obvious stuff.
+        foreach (var (name, info) in refl.ByName)
+        {
+            if (info.Loc < 0) continue;
+            if (name.StartsWith("gl_", StringComparison.Ordinal)) continue;
+
+            // Ignore engine built-ins (engine is responsible; we already mark uPosSize/uRes as touched)
+            if (UniformValue.engineBuiltIns.Contains(name))
+                continue;
+
+            if (refl.TouchedThisDraw.Contains(name)) continue;
+            if (!refl.WarnedMissingFromCode.Add(name)) continue;
+
+            Console.WriteLine(
+                $"[Warn] {DebugName} shader '{key}' has uniform '{name}' active but it was not set in code. " +
+                $"(program=0x{prog:X})");
+        }
+
         usedTexUnits = nextTexUnit;
         return true;
+    }
+    
+    private UniformReflection GetOrCreateReflection(GL gl, ShaderKey key, uint prog)
+    {
+        ExtShaderEntry? entry;
+        UniformReflection? refl;
+
+        lock (_extShaderLock)
+        {
+            if (!_extCache.TryGetValue(key, out entry))
+                return Reflect(gl, prog); // no cache entry -> still reflect
+
+            entry.ReflectionCache.TryGetValue(prog, out refl);
+        }
+
+        if (refl != null) return refl;
+
+        var built = Reflect(gl, prog);
+
+        lock (_extShaderLock)
+        {
+            if (_extCache.TryGetValue(key, out entry))
+            {
+                entry.ReflectionCache[prog] = built;
+            }
+        }
+
+        return built;
+    }
+
+    private static UniformReflection Reflect(GL gl, uint prog)
+    {
+        var r = new UniformReflection();
+
+        gl.GetProgram(prog, GLEnum.ActiveUniforms, out int count);
+
+        for (uint i = 0; i < (uint)count; i++)
+        {
+            // Silk overload: returns name as string
+            var name = gl.GetActiveUniform(prog, i, out int size, out SilkUniformType type);
+
+            // Some drivers return array uniforms as "arr[0]" -> normalize
+            var loc = gl.GetUniformLocation(prog, name);
+            var info = new UniformInfo { Loc = loc, Type = type, Size = size };
+
+            r.ByName[name] = info;
+
+            if (name.EndsWith("[0]", StringComparison.Ordinal))
+            {
+                var baseName = name.Substring(0, name.Length - 3);
+                r.ByName[baseName] = info;
+            }
+        }
+
+        return r;
+    }
+
+    private static bool IsCompatible(UniformType expected, SilkUniformType  actual)
+    {
+        return expected switch
+        {
+            UniformType.FLOAT1 => actual == SilkUniformType.Float,
+            UniformType.FLOAT2 => actual == SilkUniformType.FloatVec2,
+            UniformType.FLOAT3 => actual == SilkUniformType.FloatVec3,
+            UniformType.FLOAT4 => actual == SilkUniformType.FloatVec4,
+            UniformType.TEX_2D => actual == SilkUniformType.Sampler2D, // optionally allow Sampler2DShadow etc later
+            _ => false
+        };
     }
 }

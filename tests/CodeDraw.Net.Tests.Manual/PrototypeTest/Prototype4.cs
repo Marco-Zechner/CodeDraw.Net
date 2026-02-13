@@ -42,21 +42,20 @@ public class Prototype4 : IDisposable
     }
     
     private readonly List<CodeDrawWindow> _windows = [];
-    private CodeDrawLayer _fullMonitorLayer;
+    private readonly CodeDrawLayer _fullMonitorLayer;
 
-    private readonly SharedGlfwHost.MonitorInfo _worldMonitor;
     private readonly Vector2<int> _worldOrigin; // monitor work-area top-left
     private readonly Vector2<int> _worldSize;   // monitor work-area size
     
     private Prototype4()
     {
-        _worldMonitor = _host.GetMonitors().First();
-        _worldOrigin = new Vector2<int>(_worldMonitor.WorkX, _worldMonitor.WorkY);
-        _worldSize   = new Vector2<int>(_worldMonitor.WorkWidth, _worldMonitor.WorkHeight);
+        var worldMonitor = _host.GetMonitors().First();
+        _worldOrigin = new Vector2<int>(worldMonitor.WorkX, worldMonitor.WorkY);
+        _worldSize   = new Vector2<int>(worldMonitor.WorkWidth, worldMonitor.WorkHeight);
 
         _fullMonitorLayer = new CodeDrawLayer(_host, _worldSize.X, _worldSize.Y, "FullMonitorLayer");
         var orbitShader = CustomShader.CsProject("orbitDots", "PrototypeTest/shaders");
-        var postProcessingBloom = CustomShader.CsProject("bloom", "PrototypeTest/shaders/ppShader");
+        var postProcessingBloom = CustomShader.CsProject("bloom" , "PrototypeTest/shaders/ppShader");
 
         _host.Input.OnKeyDown += (window, key, mod) =>
         {
@@ -204,8 +203,7 @@ public class Prototype4 : IDisposable
             DrawOrbitDots(layer, orbitShader, (int)cx, (int)cy, 10,360, -4f, 0, new Rgba(0.10f, 0.80f, 1.00f, 1.00f));
             DrawOrbitDots(layer, orbitShader, (int)cx, (int)cy, 8, 520, 25f, 0, new Rgba(0.80f, 0.20f, 1.00f, 1.00f));
 
-            float glow = 2 + 2 * MathF.Sin(t * 1f);
-            Console.WriteLine("glow: " + glow);
+            var glow = 25 + 25 * MathF.Sin(t * 5f);
             
             layer.PostProcess(postProcessingBloom,
                 uniforms: Uniforms.Of(
@@ -240,7 +238,7 @@ public class Prototype4 : IDisposable
 
     private void CreateNextWindow()
     {
-        var win = new CodeDrawWindow(_host, 400, 400, 200, 200, $"Prototype4 - {_windows.Count}");
+        var win = new CodeDrawWindow(_host, 800, 800, 200, 200, $"Prototype4 - {_windows.Count}");
         _windows.Add(win);
         
         win.SetPresentedLayer(_fullMonitorLayer);

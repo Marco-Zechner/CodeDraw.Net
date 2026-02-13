@@ -44,7 +44,7 @@ void main()
     vec2 px = 1.0 / max(uRes, vec2(1.0));
 
     // Radius grows with uGlow (still one knob).
-    // This is where halo lives: you need bigger radii than your old 2..4 taps.
+    // This is where "halo" lives: you need bigger radii than your old 2..4 taps.
     float radiusPx = mix(2.0, 28.0, clamp(uGlow / 30.0, 0.0, 1.0)); // ~2..28 px
 
     // Step size between taps: smaller -> smoother halo but more expensive look.
@@ -76,8 +76,13 @@ void main()
 
     // Number of steps derived from radius (keeps behavior stable across uRes)
     int steps = int(clamp(radiusPx / stepPx, 1.0, 18.0)); // up to 18*8 = 144 taps
+    
+    // Exponential falloff controls "foggy” feel. 
 
-    // Exponential falloff controls foggy feel.
+    //========================================================================
+    // Auther note: non-ascii quotes after "foggy" breaks this shader.
+    //========================================================================
+    
     // Larger k => tighter halo; smaller k => broader haze.
     float k = 0.28;
 

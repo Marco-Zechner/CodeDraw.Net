@@ -1,30 +1,114 @@
-﻿using System.Text.RegularExpressions;
+﻿using System.Text;
+using System.Text.RegularExpressions;
 using Silk.NET.OpenGL;
 
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.Shaders;
 
 public static class ShaderCompiler
 {
+    private static void ThrowIfNonAscii(string src, string label)
+    {
+        for (int i = 0; i < src.Length; i++)
+        {
+            if (src[i] <= 0x7F) continue;
+            ThrowWithContext(src, label, i, $"non-ASCII char U+{(int)src[i]:X4}");
+        }
+    }
+
+    private static void ThrowIfNul(string src, string label)
+    {
+        for (int i = 0; i < src.Length; i++)
+        {
+            if (src[i] != '\0') continue;
+            ThrowWithContext(src, label, i, "NUL (\\0) character");
+        }
+    }
+
+    private static void ThrowWithContext(string src, string label, int index, string what)
+    {
+        var (line, col) = ComputeLineCol(src, index);
+        var ctx = BuildContext(src, line, col, radius: 4);
+
+        throw new Exception(
+            $"Shader '{label}' contains {what} at line {line}, col {col}.\n{ctx}");
+    }
+    
+    // ============================================================
+    // Context building
+    // ============================================================
+
+    private static (int line, int col) ComputeLineCol(string src, int index)
+    {
+        index = Math.Clamp(index, 0, Math.Max(0, src.Length - 1));
+
+        int line = 1, col = 1;
+        for (int k = 0; k < index; k++)
+        {
+            if (src[k] == '\n') { line++; col = 1; }
+            else col++;
+        }
+        return (line, col);
+    }
+
+    private static string BuildContext(string src, int? line = null, int? col = null, int radius = 6)
+    {
+        var lines = src.Replace("\r\n", "\n").Split('\n');
+
+        if (line is null)
+            return BuildHead(lines, 12);
+
+        int target = Math.Clamp(line.Value, 1, Math.Max(1, lines.Length));
+        int start = Math.Max(1, target - radius);
+        int end = Math.Min(lines.Length, target + radius);
+
+        var sb = new StringBuilder();
+        sb.AppendLine($"--- Shader context ({start}..{end} of {lines.Length}) ---");
+
+        for (int i = start; i <= end; i++)
+        {
+            bool isTarget = (i == target);
+            var prefix = isTarget ? ">>" : "  ";
+
+            sb.Append(prefix);
+            sb.Append($"{i,4}: ");
+            sb.AppendLine(lines[i - 1]);
+
+            if (isTarget && col.HasValue)
+            {
+                // indent aligns with "  ####: "
+                sb.Append("      "); // 2 for prefix + 4 digits
+                sb.Append("  ");     // ": "
+                for (int c = 1; c < col.Value; c++) sb.Append(' ');
+                sb.AppendLine("^");
+            }
+        }
+
+        return sb.ToString();
+    }
+
+    private static string BuildHead(string[] lines, int maxLines = 12)
+    {
+        var n = Math.Min(maxLines, lines.Length);
+        var sb = new StringBuilder();
+        sb.AppendLine($"--- Shader head ({n} of {lines.Length} lines) ---");
+        for (var i = 0; i < n; i++)
+            sb.AppendLine($"{i + 1,4}: {lines[i]}");
+        return sb.ToString();
+    }
+    
+    // ============================================================
+    // GLSL compilation
+    // ============================================================
+
 
     private static uint CreateShader(GL gl, GLEnum type, string src, string label)
     {
         var s = gl.CreateShader(type);
-        
-        for (int i = 0; i < src.Length; i++)
-        {
-            if (src[i] == '\0')
-            {
-                int line = 1, col = 1;
-                for (int j = 0; j < i; j++)
-                {
-                    if (src[j] == '\n') { line++; col = 1; }
-                    else col++;
-                }
-                Console.WriteLine($"[ShaderCompiler] NUL at index={i}, line={line}, col={col} in '{label}'");
-                break;
-            }
-        }
-        
+
+        // Preflight: catch the “premature EOF” family of pain early.
+        ThrowIfNul(src, label);
+        ThrowIfNonAscii(src, label);
+
         gl.ShaderSource(s, src);
         gl.CompileShader(s);
         gl.GetShader(s, GLEnum.CompileStatus, out var ok);
@@ -35,15 +119,17 @@ public static class ShaderCompiler
         gl.DeleteShader(s);
 
         var lineNr = TryExtractLine(log);
-        if (lineNr is { } ln)
-            throw new Exception($"Shader compile failed [{label}] ({type}): {log}\n{DumpAround(src, ln, 8)}");
 
-        throw new Exception($"Shader compile failed [{label}] ({type}): {log}\n(No line number found.)\n{Head(src)}");
+        if (lineNr is { } ln)
+            throw new Exception(
+                $"Shader compile failed [{label}] ({type}): {log}\n{BuildContext(src, ln)}");
+
+        throw new Exception(
+            $"Shader compile failed [{label}] ({type}): {log}\n(No line number found.)\n{BuildContext(src)}");
 
         // Try to extract a GLSL line number from common driver formats:
         //  - "ERROR: 0:57: ...", "WARNING: 0:12: ..."
         //  - "0(57) : error C0000: ..."
-        //  - "0:57( ... )" etc.
         static int? TryExtractLine(string compileLog)
         {
             var m = Regex.Match(compileLog, @"\b\d+:(\d+):");
@@ -53,49 +139,6 @@ public static class ShaderCompiler
             if (m.Success && int.TryParse(m.Groups[1].Value, out ln)) return ln;
 
             return null;
-        }
-
-        static string DumpAround(string shader, int line, int radius = 6)
-        {
-            // Normalize newlines for consistent line counts
-            var lines = shader.Replace("\r\n", "\n").Split('\n');
-
-            // Clamp target line
-            var target = Math.Clamp(line, 1, Math.Max(1, lines.Length));
-
-            var start = Math.Max(1, target - radius);
-            var end   = Math.Min(lines.Length, target + radius);
-
-            var sb = new System.Text.StringBuilder();
-            sb.AppendLine($"--- Shader excerpt (lines {start}..{end} of {lines.Length}) ---");
-
-            for (var i = start; i <= end; i++)
-            {
-                var prefix = Math.Abs(i - target) switch
-                {
-                    0 => ">>",
-                    1 => "> ",
-                    _ => "  "
-                };
-                sb.Append(prefix);
-                sb.Append($"{i,4}: ");
-                sb.AppendLine(lines[i - 1]);
-            }
-
-            return sb.ToString();
-        }
-
-        // No usable line number (e.g., 0:? or weird log) -> keep it short, no full dump.
-        // Still include a tiny head so you can catch the usual "#version not first" issue.
-        static string Head(string shader, int maxLines = 12)
-        {
-            var lines = shader.Replace("\r\n", "\n").Split('\n');
-            var n = Math.Min(maxLines, lines.Length);
-            var sb = new System.Text.StringBuilder();
-            sb.AppendLine($"--- Shader head ({n} of {lines.Length} lines) ---");
-            for (var i = 0; i < n; i++)
-                sb.AppendLine($"{i + 1,4}: {lines[i]}");
-            return sb.ToString();
         }
     }
 

@@ -451,7 +451,8 @@ public sealed unsafe class SharedGlfwHost : IDisposable
         int x, int y,
         int w, int h,
         string title,
-        CodeDrawWindow owner)
+        CodeDrawWindow owner,
+        bool stealFocusOnOpen)
     {
         WindowHandle* result = null;
 
@@ -466,7 +467,10 @@ public sealed unsafe class SharedGlfwHost : IDisposable
 
             ApplyCommonHints();
 
-            result = LockedGlfw.CreateWindow(w, h, title, null, ShareRoot);
+            WithCreateHints(stealFocusOnOpen, () =>
+            {
+                result = LockedGlfw.CreateWindow(w, h, title, null, ShareRoot);
+            });
             if (result == null) throw new Exception("CreateWindow failed");
 
             OnNativeWindowCreated();
@@ -482,9 +486,11 @@ public sealed unsafe class SharedGlfwHost : IDisposable
 
             RegisterInputCallbacks(result, windowId);
 
-            // touch context once (like you already do)
             LockedGlfw.MakeContextCurrent(result);
             LockedGlfw.MakeContextCurrent(null);
+            
+            if (stealFocusOnOpen)
+                LockedGlfw.FocusWindow(result);
         });
 
         return result;
@@ -662,6 +668,16 @@ public sealed unsafe class SharedGlfwHost : IDisposable
         LockedGlfw.WindowHint(WindowHintBool.Visible, true);
     }
     
+    private static void WithCreateHints(bool stealFocusOnOpen, Action body)
+    {
+        ApplyCommonHints();
+
+        LockedGlfw.WindowHint(WindowHintBool.Focused, stealFocusOnOpen);
+
+        body();
+        ApplyCommonHints();
+    }
+    
     private static bool ShouldRecreateForState(WindowState s)
         => s is WindowState.Maximized
             or WindowState.BorderlessMaximized
@@ -692,11 +708,15 @@ public sealed unsafe class SharedGlfwHost : IDisposable
                     // destroy old
                     DestroyWindowById(windowId);
 
-                    // create new with current desired snapshot as base
-                    ApplyCommonHints();
-                    var created = LockedGlfw.CreateWindow(desired.Size.X, desired.Size.Y, desired.Title, null, ShareRoot);
-                    if (created == null) throw new Exception("CreateWindow failed");
+                    WindowHandle* created = null;
+                    WithCreateHints(desired.StealFocusOnOpen, () =>
+                    {
+                        // create new with current desired snapshot as base
+                        created = LockedGlfw.CreateWindow(desired.Size.X, desired.Size.Y, desired.Title, null, ShareRoot);
+                    });
 
+                    if (created == null) throw new Exception("CreateWindow failed");
+                    
                     LockedGlfw.SetWindowPos(created, desired.WindowPosition.X, desired.WindowPosition.Y);
 
                     // mappings
@@ -711,6 +731,9 @@ public sealed unsafe class SharedGlfwHost : IDisposable
                     LockedGlfw.MakeContextCurrent(created);
                     LockedGlfw.MakeContextCurrent(null);
 
+                    if (desired.StealFocusOnOpen)
+                        LockedGlfw.FocusWindow(created);
+                    
                     // tell window object about new handle and restart presenter
                     owner.Host_SetNativeHandle(created);
                     owner.Host_RestartPresenterIfOpen();

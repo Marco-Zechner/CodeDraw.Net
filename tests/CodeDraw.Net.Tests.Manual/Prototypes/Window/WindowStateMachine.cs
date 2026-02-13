@@ -79,8 +79,6 @@ internal sealed unsafe partial class WindowStateMachine
             if (dirty.HasFlag(WindowDirty.CanvasSize))
                 LockedGlfw.SetWindowSize(win, desired.Size.X, desired.Size.Y);
         }
-
-        LockedGlfw.FocusWindow(win);
     }
 
     // -------------------------

@@ -138,6 +138,12 @@ public partial class CodeDrawWindow
         get => Settings.TransparentAlpha;
         set => Settings = RawSettings with { TransparentAlpha = value };
     }
+    
+    public bool StealFocusOnOpen
+    {
+        get => Settings.StealFocusOnOpen;
+        set => Settings = RawSettings with { StealFocusOnOpen = value };
+    }
 
     public string Title
     {

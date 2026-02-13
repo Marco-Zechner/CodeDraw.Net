@@ -241,7 +241,7 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
         int w, int h,
         int x, int y,
         string title,
-        bool autoOpen = true)
+        bool autoOpen = true, bool stealFocusOnOpen = false)
     {
         _host = host;
 
@@ -257,7 +257,8 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
             AspectRatio: Vector2<int>.Zero,
             State: WindowState.Windowed,
             ClickThrough: false,
-            TransparentAlpha: true
+            TransparentAlpha: true,
+            StealFocusOnOpen: stealFocusOnOpen
         ).Normalize();
 
         WindowId = _host.ReserveWindowId();
@@ -271,7 +272,7 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
         _updateThread.Start();
 
         if (autoOpen)
-            Open(); // uses current settings
+            Open();
     }
 
     public CodeDrawWindow(SharedGlfwHost host, int w, int h, string title, bool autoOpen = true)
@@ -315,7 +316,8 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
             raw.WindowPosition.X, raw.WindowPosition.Y,
             raw.Size.X, raw.Size.Y,
             raw.Title,
-            owner: this);
+            owner: this,
+            raw.StealFocusOnOpen);
 
         Volatile.Write(ref _winPtr, (nint)created);
 

@@ -15,6 +15,7 @@ internal enum WindowDirty : uint
     WindowState      = 1u << 5,
     ClickThrough     = 1u << 6,
     TransparentAlpha = 1u << 7, // render-side only in your current design
+    FocusPolicy      = 1u << 8,
 }
 
 public enum WindowState
@@ -53,7 +54,8 @@ public readonly record struct WindowSettingsSnapshot(
 
     WindowState State,
     bool ClickThrough,
-    bool TransparentAlpha
+    bool TransparentAlpha,
+    bool StealFocusOnOpen
 )
 {
     // How many pixels are "wasted" by the fake fullscreen hack.
@@ -150,6 +152,8 @@ public readonly record struct WindowSettingsSnapshot(
         if (WindowPosition != newSettings.WindowPosition) d |= WindowDirty.WindowPos;
         if (Size != newSettings.Size) d |= WindowDirty.CanvasSize;
 
+        if (StealFocusOnOpen != newSettings.StealFocusOnOpen) d |= WindowDirty.FocusPolicy;
+        
         // border/constraints bundle
         if (FrameMode != newSettings.FrameMode ||
             ResizeMode != newSettings.ResizeMode ||

@@ -46,6 +46,7 @@ public class Prototype3 : IDisposable
             layer.Clear(1,1,1,0.5f);
             DrawOrbitingDots(layer, 200, 200, 10, 50, 2, 0, new Rgba(0.5f, 0, 0, 1f));
             DrawOrbitingDots(layer, 200, 200, 10, 80, 2*80/50f, 0, new Rgba(0.0f, 1, 1, 1f));
+            DrawOrbitingDots(layer, 350, 350, 4, 35, -2*80/50f, 0, new Rgba(0.0f, 1, 1, 1f));
             layer.Render();
 
             if (context.Input.GetKeyDown(Keys.N))
@@ -134,18 +135,13 @@ public class Prototype3 : IDisposable
 
             var layer = win.Layer;
 
-            if (!_win.Layer.TryGetLastRenderTexture(out var lastRenderTexture))
-            {
-                Console.WriteLine("No render texture available yet.");
-                return;
-            }
-
             layer.Clear();
             layer.SetBlendMode(BlendMode.NONE);
             layer.CustomDrawRect(
+                0,0, layer.Width, layer.Height,
                 shader: colorShiftShader,
                 uniforms: Uniforms.Of(
-                    UniformValue.Tex2D("uTex", lastRenderTexture),
+                    UniformValue.Tex2D("uTex", _win.Layer),
                     UniformValue.Float("uTime", layer.LayerAliveForSeconds())
                 )
             );
@@ -154,13 +150,14 @@ public class Prototype3 : IDisposable
 
         return;
 
-        void DrawOrbitingDots(CodeDrawLayer layer, float centerX, float centerY, float radiusDot, float radiusOrbit, float period, float timeOffset, Rgba color)
+        void DrawOrbitingDots(CodeDrawLayer layer, int centerX, int centerY, int radiusDot, int radiusOrbit, float period, float timeOffset, Rgba color)
         {
+            var size = radiusOrbit * 2 + radiusDot * 2;
+            
             layer.CustomDrawRect(
+                centerX-size/2, centerY-size/2, size, size,
                 shader: orbitShader,
                 uniforms: Uniforms.Of(
-                    UniformValue.Float2("uPos", centerX, centerY),
-                    UniformValue.Float2("uSize", layer.Width, layer.Height),
                     UniformValue.Float("uTime", layer.LayerAliveForSeconds()),
                     UniformValue.Float4("uColor", color.R, color.G, color.B, color.A),
                     UniformValue.Float("uRadius1", radiusDot),

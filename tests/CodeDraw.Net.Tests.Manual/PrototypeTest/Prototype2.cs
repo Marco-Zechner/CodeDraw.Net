@@ -152,10 +152,9 @@ public sealed class Prototype2 : IDisposable
             layer.DrawRect(mx + 3, my + 3, 10, 10, 1f, 1f, 1f, 1f);
 
             layer.CustomDrawRect(
+                0,0, layer.Width, layer.Height,
                 shader: orbitShader,
                 uniforms: Uniforms.Of(
-                    UniformValue.Float2("uPos", 200, 150),
-                    UniformValue.Float2("uSize", 800, 500),
                     UniformValue.Float("uTime", layer.LayerAliveForSeconds()),
                     UniformValue.Float4("uColor", 1,1,1,1),
                     UniformValue.Float("uRadius1", 20),
@@ -165,18 +164,19 @@ public sealed class Prototype2 : IDisposable
                 )
             );
 
-            DrawOrbitingDots(layer, 200, 150, 20f, 200f, 20, 5f, new Rgba(1f, 0.5f, 0f, MathF.Sin(_t * 1.6f) * 0.5f + 0.5f));
+            DrawOrbitingDots(layer, 400, 250, 20, 200, 20, 5f, new Rgba(1f, 0.5f, 0f, MathF.Sin(_t * 1.6f) * 0.5f + 0.5f));
 
             layer.Render();
         };
 
-        void DrawOrbitingDots(CodeDrawLayer layer, float centerX, float centerY, float radiusDot, float radiusOrbit, float period, float timeOffset, Rgba color)
+        void DrawOrbitingDots(CodeDrawLayer layer, int centerX, int centerY, int radiusDot, int radiusOrbit, float period, float timeOffset, Rgba color)
         {
+            var size = radiusOrbit * 2 + radiusDot * 2;
+            
             layer.CustomDrawRect(
+                centerX-size/2, centerY-size/2, size, size,
                 shader: orbitShader,
                 uniforms: Uniforms.Of(
-                    UniformValue.Float2("uPos", centerX, centerY),
-                    UniformValue.Float2("uSize", layer.Width, layer.Height),
                     UniformValue.Float("uTime", layer.LayerAliveForSeconds()),
                     UniformValue.Float4("uColor", color.R, color.G, color.B, color.A),
                     UniformValue.Float("uRadius1", radiusDot),

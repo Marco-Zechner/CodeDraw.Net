@@ -38,6 +38,9 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
     {
         public AutoProgram Prog = null!;
 
+        public AutoUniform UPosSize = null!;
+        public AutoUniform URes = null!;
+
         // Common (layer copy)
         public AutoUniform UTex = null!;
 
@@ -342,6 +345,8 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
                 _extCache[key] = new ExtShaderEntry
                 {
                     Prog = ap,
+                    UPosSize = new AutoUniform(_gl, this, ap, "uPosSize"),
+                    URes     = new AutoUniform(_gl, this, ap, "uRes"), 
                     UTex = new AutoUniform(_gl, this, ap, "uTex"),
                 };
             }
@@ -550,27 +555,38 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
         gl.UseProgram(0);
     }
 
-        private void ExecCustomRect(
+    private void ExecCustomRect(
         GL gl,
+        int x, int y, int w, int h,
         CustomShader? shader,
         Uniforms uniforms)
     {
         uint prog;
+        int uPosSize;
+        int uRes;
 
         if (shader == null)
         {
-            // Default to engine rect
             prog = _progRect;
+            uPosSize = _uRectPosSize;
+            uRes = _uRectRes;
         }
         else
         {
             ExtShaderEntry? entry;
-            lock (_extShaderLock)
+            lock (_extShaderLock) _extCache.TryGetValue(shader.Key, out entry);
+            if (entry == null)
             {
-                _extCache.TryGetValue(shader.Key, out entry);
+                prog = _progRect;
+                uPosSize = _uRectPosSize;
+                uRes = _uRectRes;
             }
-
-            prog = entry == null ? _progRect : entry.Prog;
+            else
+            {
+                prog = entry.Prog;
+                uPosSize = entry.UPosSize;
+                uRes = entry.URes;
+            }
         }
 
         if (prog == 0) return;
@@ -578,16 +594,27 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
         gl.UseProgram(prog);
         gl.BindVertexArray(_vao);
 
+        if (uPosSize >= 0) Uniform4F(gl, uPosSize, x, y, w, h);
+        if (uRes >= 0) Uniform2F(gl, uRes, _w, _h);
+        
         // User uniforms
-        int usedTexUnits = 0;
+        var usedTexUnits = 0;
         if (shader != null && uniforms.Values.Length > 0)
         {
-            ApplyUserUniforms(gl, prog, shader.Key, uniforms, out usedTexUnits);
+            // If resolving a layer-texture fails, skip the draw entirely.
+            if (!ApplyUserUniforms(gl, prog, shader.Key, uniforms, out usedTexUnits))
+            {
+                gl.BindVertexArray(0);
+                gl.UseProgram(0);
+                return;
+            }
         }
-
+        _gl.Enable(GLEnum.ScissorTest);
+        _gl.Scissor(x, _h - (y + h), (uint)w, (uint)h);
         gl.DrawElements(GLEnum.Triangles, 6, GLEnum.UnsignedInt, null);
-
-        for (int i = 0; i < usedTexUnits; i++)
+        _gl.Disable(GLEnum.ScissorTest);
+        
+        for (var i = 0; i < usedTexUnits; i++)
         {
             gl.ActiveTexture(GLEnum.Texture0 + i);
             gl.BindTexture(GLEnum.Texture2D, 0);
@@ -597,7 +624,7 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
         gl.UseProgram(0);
     }
 
-    private void ApplyUserUniforms(GL gl, uint prog, ShaderKey key, Uniforms uniforms, out int usedTexUnits)
+    private bool ApplyUserUniforms(GL gl, uint prog, ShaderKey key, Uniforms uniforms, out int usedTexUnits)
     {
         usedTexUnits = 0;
 
@@ -607,7 +634,7 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
         lock (_extShaderLock)
         {
             if (!_extCache.TryGetValue(key, out var entry))
-                return;
+                return true;
 
             if (!entry.UserLocCache.TryGetValue(prog, out locMap!))
             {
@@ -636,17 +663,34 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
                 case UniformType.FLOAT3: gl.Uniform3(loc, u.A, u.B, u.C); break;
                 case UniformType.FLOAT4: gl.Uniform4(loc, u.A, u.B, u.C, u.D); break;
                 case UniformType.TEX_2D:
-                    if (u.TexRef is null) break;
+                {
+                    // Resolve texture handle at execution time
+                    uint tex;
+
+                    if (u.LayerRef is { IsDisposed: false } layer)
+                    {
+                        // last published (visible) frame
+                        if (!layer.TryGetLatest(out var t, out _, out _, out _, out _))
+                            return false; // required input missing -> abort draw
+                        tex = t;
+                    }
+                    else return false; // no texture source
+                    
+
+                    if (tex == 0) return false;
+
                     gl.ActiveTexture(GLEnum.Texture0 + nextTexUnit);
-                    gl.BindTexture(GLEnum.Texture2D, u.TexRef.Value.Tex);
+                    gl.BindTexture(GLEnum.Texture2D, tex);
                     gl.Uniform1(loc, nextTexUnit);
                     nextTexUnit++;
                     break;
+                }
 
                 default:
                     throw new ArgumentOutOfRangeException();
             }
         }
         usedTexUnits = nextTexUnit;
+        return true;
     }
 }

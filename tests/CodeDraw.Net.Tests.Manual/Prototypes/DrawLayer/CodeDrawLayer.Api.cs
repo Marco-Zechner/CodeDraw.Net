@@ -68,6 +68,7 @@ public sealed partial class CodeDrawLayer
 
 
     public void CustomDrawRect(
+        int x, int y, int w, int h,
         CustomShader shader,
         Uniforms uniforms)
     {
@@ -82,15 +83,17 @@ public sealed partial class CodeDrawLayer
 
         Enqueue(new CmdCustomRect
         {
+            X = x, Y = y, W = w, H = h,
             Shader = shader,
             Uniforms = new Uniforms(copy)
         });
     }
 
     public void CustomDrawRect(
+        int x, int y, int w, int h,
         CustomShader shader,
         params UniformValue[] uniforms)
-        => CustomDrawRect(shader, new Uniforms(uniforms));
+        => CustomDrawRect(x,y,w,h,shader, new Uniforms(uniforms));
 
     #region Transform Point Helpers
 

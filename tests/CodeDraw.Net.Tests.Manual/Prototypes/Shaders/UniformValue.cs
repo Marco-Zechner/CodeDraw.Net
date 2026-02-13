@@ -21,9 +21,9 @@ public readonly struct UniformValue
     public readonly string Name;
     public readonly UniformType Type;
     public readonly float A, B, C, D;
-    public readonly CodeDrawLayer.LayerTextureRef? TexRef;
+    public readonly CodeDrawLayer? LayerRef;
 
-    private UniformValue(string name, UniformType type, float a, float b, float c, float d, CodeDrawLayer.LayerTextureRef? texRef)
+    private UniformValue(string name, UniformType type, float a, float b, float c, float d, CodeDrawLayer? layerRef)
     {
         if (string.IsNullOrWhiteSpace(name))
             throw new ArgumentException("Uniform name must not be null/empty.", nameof(name));
@@ -31,7 +31,7 @@ public readonly struct UniformValue
         Name = name;
         Type = type;
         A = a; B = b; C = c; D = d;
-        TexRef = texRef;
+        LayerRef = layerRef;
     }
 
     public static UniformValue Float(string name, float v)
@@ -46,6 +46,6 @@ public readonly struct UniformValue
     public static UniformValue Float4(string name, float x, float y, float z, float w)
         => new(name, UniformType.FLOAT4, x, y, z, w, null);
 
-    public static UniformValue Tex2D(string name, CodeDrawLayer.LayerTextureRef texRef)
-        => new(name, UniformType.TEX_2D, 0, 0, 0, 0, texRef);
+    public static UniformValue Tex2D(string name, CodeDrawLayer layerRef)
+        => new(name, UniformType.TEX_2D, 0, 0, 0, 0, layerRef);
 }

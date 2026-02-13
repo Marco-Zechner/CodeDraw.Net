@@ -121,7 +121,8 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
         }
     }
 
-    private bool _clearFirst = true;
+    private bool _clearFirst;
+    public bool Debug;
 
     private BlendMode _blendMode = BlendMode.SOURCE_OVER_ALPHA;
 

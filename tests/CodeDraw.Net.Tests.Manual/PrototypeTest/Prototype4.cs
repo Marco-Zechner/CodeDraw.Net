@@ -6,7 +6,6 @@ using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.Window;
 using MarcoZechner.ColorDotNet;
 using MarcoZechner.MathDotNet;
 using Silk.NET.GLFW;
-using Silk.NET.Input;
 using MouseButton = Silk.NET.GLFW.MouseButton;
 
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.PrototypeTest;
@@ -39,10 +38,12 @@ public class Prototype4 : IDisposable
         }
         
         _fullMonitorLayer.Dispose();
+        _trailLayer.Dispose();
     }
     
     private readonly List<CodeDrawWindow> _windows = [];
     private readonly CodeDrawLayer _fullMonitorLayer;
+    private readonly CodeDrawLayer _trailLayer;
 
     private readonly Vector2<int> _worldOrigin; // monitor work-area top-left
     private readonly Vector2<int> _worldSize;   // monitor work-area size
@@ -56,6 +57,8 @@ public class Prototype4 : IDisposable
         _fullMonitorLayer = new CodeDrawLayer(_host, _worldSize.X, _worldSize.Y, "FullMonitorLayer");
         var orbitShader = CustomShader.CsProject("orbitDots", "PrototypeTest/shaders");
         var postProcessingBloom = CustomShader.CsProject("bloom" , "PrototypeTest/shaders/ppShader");
+        
+        _trailLayer = new CodeDrawLayer(_host, 468, 468, "TrailLayer");
 
         _host.Input.OnKeyDown += (window, key, mod) =>
         {
@@ -199,8 +202,16 @@ public class Prototype4 : IDisposable
             layer.DrawRect(mx - 7, my - 7, 14, 14, 1f, 1f, 1f, 1f);
 
             // --- Orbiting dots around world center (simple, no shader) ---
-            DrawOrbitDots(layer, orbitShader, (int)cx, (int)cy, 14, 220, 6f, 0, new Rgba(1.00f, 0.45f, 0.10f, 1.00f));
+
+            _trailLayer.DrawRect(0,0, _trailLayer.Width, _trailLayer.Height, 0f,0f,0f, 0.005f); // fade old frames
+            DrawOrbitDots(_trailLayer, orbitShader, _trailLayer.Width/2, _trailLayer.Height/2, 14, 220, 6f, 0, new Rgba(1.00f, 0.45f, 0.10f, 1.00f));
+            _trailLayer.Render();
+            layer.SetBlendMode(BlendMode.ADD);
+            layer.DrawLayer(_trailLayer, dstRect: new RectF(cx-_trailLayer.Width/2f, cy-_trailLayer.Height/2f, _trailLayer.Width, _trailLayer.Height));
+            layer.SetBlendMode(BlendMode.SOURCE_OVER_ALPHA);
+            
             DrawOrbitDots(layer, orbitShader, (int)cx, (int)cy, 10,360, -4f, 0, new Rgba(0.10f, 0.80f, 1.00f, 1.00f));
+            DrawOrbitDots(layer, orbitShader, (int)cx, (int)cy, 10,360, -4f, 1, new Rgba(0.10f, 0.80f, 1.00f, 1.00f));
             DrawOrbitDots(layer, orbitShader, (int)cx, (int)cy, 8, 520, 25f, 0, new Rgba(0.80f, 0.20f, 1.00f, 1.00f));
 
             var glow = 25 + 25 * MathF.Sin(t * 5f);
@@ -238,7 +249,7 @@ public class Prototype4 : IDisposable
 
     private void CreateNextWindow()
     {
-        var win = new CodeDrawWindow(_host, 800, 800, 200, 200, $"Prototype4 - {_windows.Count}");
+        var win = new CodeDrawWindow(_host, 1200, 1200, _fullMonitorLayer.Width/2-600, _fullMonitorLayer.Height/2-600, $"Prototype4 - {_windows.Count}");
         _windows.Add(win);
         
         win.SetPresentedLayer(_fullMonitorLayer);

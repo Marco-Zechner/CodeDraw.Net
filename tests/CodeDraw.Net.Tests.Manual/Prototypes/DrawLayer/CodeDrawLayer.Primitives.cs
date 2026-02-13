@@ -5,6 +5,7 @@ public sealed unsafe partial class CodeDrawLayer
     /// <summary>
     /// If enabled, every Render() begins with ClearColor+Clear,
     /// and we never CopyFrontToBack(). This prevents "retained" accumulation.
+    /// Default is false
     /// </summary>
     public bool AutoClearLastFrame
     {

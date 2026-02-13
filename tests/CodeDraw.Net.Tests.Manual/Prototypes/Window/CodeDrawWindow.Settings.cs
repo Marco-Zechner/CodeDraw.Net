@@ -51,6 +51,7 @@ public partial class CodeDrawWindow
         set
         {
             var raw = RawSettings;
+            if (raw.WindowPosition == value) return; // avoid unnecessary state change
             if (raw.State != WindowState.Windowed)
                 Settings = raw with { State = WindowState.Windowed, WindowPosition = value };
             else
@@ -64,6 +65,7 @@ public partial class CodeDrawWindow
         set
         {
             var raw = RawSettings;
+            if (raw.Size == value) return; // avoid unnecessary state change
             if (raw.State != WindowState.Windowed)
                 Settings = raw with { State = WindowState.Windowed, Size = value };
             else
@@ -88,17 +90,35 @@ public partial class CodeDrawWindow
         get => Settings.State;
         set => Settings = RawSettings with { State = value };
     }
+    
+    public void ToggleState(WindowState state)
+    {
+        var raw = RawSettings;
+        Settings = raw with { State = raw.State != state ? state : WindowState.Windowed };
+    }
 
     public WindowFrameMode FrameMode
     {
         get => Settings.FrameMode;
         set => Settings = RawSettings with { FrameMode = value };
     }
+    
+    public void ToggleFrameMode()
+    {
+        var raw = RawSettings;
+        Settings = raw with { FrameMode = raw.FrameMode == WindowFrameMode.Decorated ? WindowFrameMode.Hidden : WindowFrameMode.Decorated };
+    }
 
     public WindowResizeMode ResizeMode
     {
         get => Settings.ResizeMode;
         set => Settings = RawSettings with { ResizeMode = value };
+    }
+    
+    public void ToggleResizeMode(WindowResizeMode mode)
+    {
+        var raw = RawSettings;
+        Settings = raw with { ResizeMode = raw.ResizeMode != mode ? mode : WindowResizeMode.Resizable };
     }
 
     public bool AlwaysOnTop

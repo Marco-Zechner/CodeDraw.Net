@@ -207,7 +207,7 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
     public string DebugName => $"[Window:{WindowId}:'{Title}']";
 
     private WindowState _preMinimizeState = WindowState.Windowed;
-    public CodeDrawLayer? Layer { get; private set; }
+    public CodeDrawLayer Layer { get; private set; }
     public WindowInput Input { get; } = new();
 
     public int UpdateDelayMs { get; set; } = 16;
@@ -223,8 +223,10 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
 
     public void SetPresentedLayer(CodeDrawLayer? layer, bool keepLastFrameUntilReady = true)
     {
-        if (ReferenceEquals(Layer, layer))
-            return;
+        if (ReferenceEquals(Layer, layer)) return;
+
+        // a window always needs a layer.
+        if (layer == null) return;
 
         Layer = layer;
         _keepLastFrameUntilReady = keepLastFrameUntilReady;
@@ -347,7 +349,7 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
         ReleaseIdOnceFinal();
 
         _host.NotifyWindowDisposed(WindowId);
-        Layer = null;
+        Layer = null!; // Layer can now be set null, since window is dead.
     }
     
     private void StopPresentThread()

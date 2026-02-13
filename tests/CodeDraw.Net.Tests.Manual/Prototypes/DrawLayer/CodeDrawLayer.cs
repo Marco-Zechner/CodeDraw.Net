@@ -570,14 +570,7 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
                 _extCache.TryGetValue(shader.Key, out entry);
             }
 
-            if (entry == null)
-            {
-                prog = _progRect;
-            }
-            else
-            {
-                prog = entry.Prog;
-            }
+            prog = entry == null ? _progRect : entry.Prog;
         }
 
         if (prog == 0) return;

@@ -67,11 +67,10 @@ public sealed unsafe partial class CodeDrawLayer
         _gl.BindVertexArray(_textVao);
 
         // Base quad: 2 triangles as 6 verts in local 0..1 space
-        Span<float> quad = stackalloc float[]
-        {
+        Span<float> quad = [
             0,0,  1,0,  1,1,
-            0,0,  1,1,  0,1
-        };
+            0,0,  1,1,  0,1,
+        ];
 
         _gl.BindBuffer(GLEnum.ArrayBuffer, _textVboQuad);
         fixed (float* p = quad)
@@ -104,6 +103,15 @@ public sealed unsafe partial class CodeDrawLayer
     }
 
     // ---------- Public API ----------
+    public Vector2 MeasureText(string text, TextStyle style)
+    {
+        if (_textLayout == null || string.IsNullOrEmpty(text))
+            return Vector2.Zero;
+
+        var m = _textLayout.Measure(text, style);
+        return new Vector2(m.Width, m.Height);
+    }
+    
     public void DrawText(string text, float x, float y, TextStyle style, GlyphEffect? effect = null)
     {
         if (_disposed) return;
@@ -115,7 +123,8 @@ public sealed unsafe partial class CodeDrawLayer
         {
             Font = style.Font,
             SizePx = style.SizePx,
-            LineHeightPx = style.LineHeightPx,
+            RelativeLineSpacing = style.RelativeLineSpacing,
+            RelativeCharacterSpacing = style.RelativeCharacterSpacing,
             WrapWidthPx = style.WrapWidthPx,
             Align = style.Align,
             VAlign = style.VAlign,
@@ -177,6 +186,17 @@ public sealed unsafe partial class CodeDrawLayer
 
         int timeMs = (int)(LayerAliveForSeconds() * 1000.0f);
 
+        style.MonoCellWidthResolver = (fontRef, px) =>
+        {
+            // compute from glyph cache using the same logic as layout uses:
+            var gi = _textGlyphCache!.GetGlyph(fontRef, px, 'M');
+            float w = (gi.AdvanceX > 0.01f) ? gi.AdvanceX : Math.Max(1f, gi.BitmapW);
+            if (w > 0.01f) return w;
+
+            gi = _textGlyphCache!.GetGlyph(fontRef, px, '0');
+            return (gi.AdvanceX > 0.01f) ? gi.AdvanceX : Math.Max(1f, gi.BitmapW);
+        };
+        
         _textLayout.Layout(text, style, effect, timeMs, out var draws, out _);
 
         _textDrawsScratch.Clear();

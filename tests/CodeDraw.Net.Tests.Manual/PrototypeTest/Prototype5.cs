@@ -37,7 +37,7 @@ public class Prototype5 : IDisposable
     private readonly List<CodeDrawWindow> _windows = [];
     public Prototype5(SharedGlfwHost host)
     {
-        var win = new CodeDrawWindow(host, 400, 400 , "Prototype5");
+        var win = new CodeDrawWindow(host, 400, 400, 50, 50, "Prototype5");
         var layerSpin = CodeDrawShader.CsProject("layerSpin", "PrototypeTest/shaders");
 
         win.ResizeMode = WindowResizeMode.Aspect;
@@ -45,31 +45,34 @@ public class Prototype5 : IDisposable
         win.OnUpdate += context =>
         {
             var layer = context.Win.Layer;
-            // layer.Clear(0,0,0,1);
-            layer.DrawRect(0,0, layer.Width, layer.Height, 0,0,0, 0.05f);
+            layer.Clear(0,0,0,1);
+            // layer.DrawRect(0,0, layer.Width, layer.Height, 0,0,0, 0.05f);
             
             TextStyle style = new TextStyle
             {
                 Font = FontRef.FromFile("C:\\DevProjects\\CodeDraw.Net\\tests\\CodeDraw.Net.Tests.Manual\\resources\\fonts\\FiraCode-VF.ttf")
                     .WithVariant(FontVariant.BoldItalic),
-                SizePx = 128,
+                SizePx = 24,
                 Align = TextAlign.Center,
                 VAlign = TextVAlign.Middle,
             };
             
-            // Plain text
-            float time = layer.LayerAliveForSeconds();
-            //3 phase colors
-            float r = 0.5f + 0.5f * MathF.Sin(time * 2);
-            float g = 0.5f + 0.5f * MathF.Sin(time * 2 + 2);
-            float b = 0.5f + 0.5f * MathF.Sin(time * 2 + 4);
-            style.Color = new Rgba(r, g, b, 1);
-            layer.DrawText(">I<", x: 200, y: 200, style);
-            style.SizePx = 400;
-            style.Color = new Rgba(1, 1, 1, 1f);
-            layer.DrawText("O", x: 200, y: 200, style);
-            layer.DrawRect(200-1,200-1,2,2, 1,1,1,1); // baseline marker
-
+            // // Plain text
+            // float time = layer.LayerAliveForSeconds();
+            // //3 phase colors
+            // float r = 0.5f + 0.5f * MathF.Sin(time * 2);
+            // float g = 0.5f + 0.5f * MathF.Sin(time * 2 + 2);
+            // float b = 0.5f + 0.5f * MathF.Sin(time * 2 + 4);
+            // style.Color = new Rgba(r, g, b, 1);
+            // layer.DrawText(">I<", x: 200, y: 200, style);
+            // style.SizePx = 400;
+            // style.Color = new Rgba(1, 1, 1, 1f);
+            // layer.DrawText("O", x: 200, y: 200, style);
+            // layer.DrawRect(200-1,200-1,2,2, 1,1,1,1); // baseline marker
+            
+            layer.DrawText("Hello\nWorld", x: 200, y: 200, style);   // multiline
+            layer.DrawRect(200-25,200-(50-24)/2f,50,50-24, 1,1,1,0.5f); // text bounds
+            
             // Rich text string (tags override base style)
             // layer.DrawRichText("[color=#ff0]Hello[/color] World", x: 20, y: 40, style);
             //
@@ -86,11 +89,11 @@ public class Prototype5 : IDisposable
 
             // layer.DrawText(specialText, x: 20, y: 40, style); // base style applies where spans don't override
             
-            layer.PostProcess(layerSpin,
-                uniforms: Uniforms.Of(
-                    UniformValue.Float("uTime", layer.LayerAliveForSeconds()),
-                    UniformValue.Float("uSpeed", 1.0f) // rad/s (≈ 57.3°/s). Use 2*PI for 1 rev/s
-                ));
+            // layer.PostProcess(layerSpin,
+            //     uniforms: Uniforms.Of(
+            //         UniformValue.Float("uTime", layer.LayerAliveForSeconds()),
+            //         UniformValue.Float("uSpeed", 1.0f) // rad/s (≈ 57.3°/s). Use 2*PI for 1 rev/s
+            //     ));
             
             layer.Render();
         };

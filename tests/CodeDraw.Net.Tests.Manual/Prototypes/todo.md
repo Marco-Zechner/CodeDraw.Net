@@ -12,7 +12,6 @@ layer.Export(output.png);
 draw simply shapes like line, rectangle, circle, ellipse, arc, triangle, polygon, bezier curve
 via a shader
 
-draw text via a shader (with custom font support)
 
 import Bitmap into layer and export layer as Bitmap
 add a "SetPixel" method to layer to set a single pixel color

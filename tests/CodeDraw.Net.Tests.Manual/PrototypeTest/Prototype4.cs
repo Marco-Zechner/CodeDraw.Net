@@ -148,11 +148,9 @@ public class Prototype4 : IDisposable
             layer.RequestLayerSize(_worldSize.X, _worldSize.Y);
 
             // --- Background ---
-            layer.SetBlendMode(BlendMode.NONE);
             layer.Clear(0.05f, 0.06f, 0.07f, 1f);
 
             // --- Grid (thin + thick) ---
-            layer.SetBlendMode(BlendMode.SOURCE_OVER_ALPHA);
 
             for (var x = 0; x <= _worldSize.X; x += GRID_STEP)
             {

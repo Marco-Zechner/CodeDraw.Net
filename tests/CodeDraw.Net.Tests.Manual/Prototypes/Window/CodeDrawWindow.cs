@@ -279,7 +279,7 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
             AspectRatio: Vector2<int>.Zero,
             State: WindowState.Windowed,
             ClickThrough: false,
-            TransparentAlpha: true,
+            TransparentAlpha: false,
             StealFocusOnOpen: stealFocusOnOpen,
             PresentMode: WindowPresentMode.FitStretch,
             BackgroundColor: Color.Transparent

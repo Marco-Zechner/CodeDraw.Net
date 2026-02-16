@@ -25,5 +25,3 @@ We apply a postprocessing shader to give a glowing effect to the text-wall aroun
 Once CodeDraw.Net is fully visible the other characters stop changing. only when the user moves the cursor then they change again while he moves it.
 
 ---
-aspect mode in proto6 has no effect
-default transparency to off?

@@ -95,7 +95,11 @@ public sealed class Prototype7 : IDisposable
             DebugMode = TextDebugMode.None,
             DebugRects = DebugRectMode.Outline,
             DebugOutlinePx = 1,
-            MonospaceSnapLineAlignToCells = true
+            MonospaceSnapLineAlignToCells = true,
+            BackgroundMode = TextBackgroundMode.PerLine,
+            BackgroundIncludeSpaces = true,
+            BackgroundPaddingPx = 4f,
+            BackgroundBlendMode = BlendMode.NONE
         };
 
         var styleHud = new TextStyle

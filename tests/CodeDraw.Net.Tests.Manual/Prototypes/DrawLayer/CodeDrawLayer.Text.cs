@@ -162,14 +162,14 @@ public sealed unsafe partial class CodeDrawLayer
         // Only run if Background is set and BackgroundMode != None.
         if (style.Background is { } bg && style.BackgroundMode != TextBackgroundMode.None)
         {
-            SetBlendMode(style.BackgroundBlendMode);
+            ApplyBlendMode(style.BackgroundBlendMode);
 
             DrawTextBackgrounds(gl, text, x, y, style, bg);
         }
         
         // ---- Glyphs ----
         // Apply user-chosen font blending, independent of "global layer blend"
-        SetBlendMode(style.FontBlendMode);
+        ApplyBlendMode(style.FontBlendMode);
         
         // Draw debug rects with fontBlendMode and on top of background
         foreach (var r in _debugScratch)
@@ -277,15 +277,14 @@ public sealed unsafe partial class CodeDrawLayer
         if (mode is DebugRectMode.Fill or DebugRectMode.FillAndOutline)
             ExecRect(gl, x, y, w, h, c.R, c.G, c.B, c.A);
 
-        if (mode is DebugRectMode.Outline or DebugRectMode.FillAndOutline)
-        {
-            var a = MathF.Min(1f, c.A * 2f);
+        if (mode is not (DebugRectMode.Outline or DebugRectMode.FillAndOutline)) return;
 
-            ExecRect(gl, x, y, w, outlinePx, c.R, c.G, c.B, a);
-            ExecRect(gl, x, y + h - outlinePx, w, outlinePx, c.R, c.G, c.B, a);
-            ExecRect(gl, x, y, outlinePx, h, c.R, c.G, c.B, a);
-            ExecRect(gl, x + w - outlinePx, y, outlinePx, h, c.R, c.G, c.B, a);
-        }
+        var a = MathF.Min(1f, c.A * 2f);
+
+        ExecRect(gl, x, y, w, outlinePx, c.R, c.G, c.B, a);
+        ExecRect(gl, x, y + h - outlinePx, w, outlinePx, c.R, c.G, c.B, a);
+        ExecRect(gl, x, y, outlinePx, h, c.R, c.G, c.B, a);
+        ExecRect(gl, x + w - outlinePx, y, outlinePx, h, c.R, c.G, c.B, a);
     }
 
     // -------- GL atlas backend --------
@@ -362,9 +361,7 @@ public sealed unsafe partial class CodeDrawLayer
         }
         lineCols.Add(cols);
 
-        var maxCols = 0;
-        for (var i = 0; i < lineCols.Count; i++)
-            if (lineCols[i] > maxCols) maxCols = lineCols[i];
+        var maxCols = lineCols.Prepend(0).Max();
 
         var totalW = maxCols * cellW;
         var totalH = lineCols.Count * lineH;
@@ -416,11 +413,8 @@ public sealed unsafe partial class CodeDrawLayer
                 var col = 0;
                 var row = 0;
 
-                for (var i = 0; i < text.Length; i++)
+                foreach (var c in text.Where(c => c != '\r'))
                 {
-                    var c = text[i];
-                    if (c == '\r') continue;
-
                     if (c == '\n')
                     {
                         col = 0;
@@ -450,9 +444,7 @@ public sealed unsafe partial class CodeDrawLayer
                 // You already computed glyph positions in _glyphScratch; use those.
                 // This backgrounds only where glyph bitmap exists (nice for "tight highlight").
                 foreach (var g in _glyphScratch)
-                {
                     ExecRect(gl, g.X - pad, g.Y - pad, g.W + 2 * pad, g.H + 2 * pad, bg.R, bg.G, bg.B, bg.A);
-                }
                 break;
             }
         }

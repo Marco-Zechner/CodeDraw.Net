@@ -86,8 +86,10 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
 
     public BlendMode GetBlendMode() => _blendMode;
 
-    private void ApplyBlendMode()
+    private void ApplyBlendMode(BlendMode? force = null)
     {
+        if (force != null) _blendMode = force.Value;
+
         switch (_blendMode)
         {
             case BlendMode.NONE:
@@ -98,6 +100,12 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
                 _gl.Enable(GLEnum.Blend);
                 _gl.BlendEquationSeparate(GLEnum.FuncAdd, GLEnum.FuncAdd);
                 _gl.BlendFunc(GLEnum.SrcAlpha, GLEnum.OneMinusSrcAlpha);
+                break;
+
+            case BlendMode.PREMULTIPLIED_ALPHA:
+                _gl.Enable(GLEnum.Blend);
+                _gl.BlendEquationSeparate(GLEnum.FuncAdd, GLEnum.FuncAdd);
+                _gl.BlendFunc(GLEnum.One, GLEnum.OneMinusSrcAlpha);
                 break;
 
             case BlendMode.ADD:
@@ -112,6 +120,31 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
                 _gl.BlendFunc(GLEnum.DstColor, GLEnum.Zero);
                 break;
 
+            case BlendMode.SUBTRACT:
+                _gl.Enable(GLEnum.Blend);
+                _gl.BlendEquationSeparate(GLEnum.FuncReverseSubtract, GLEnum.FuncReverseSubtract); // dst - src
+                _gl.BlendFunc(GLEnum.One, GLEnum.One);
+                break;
+
+            case BlendMode.INVERSE_SUBTRACT:
+                _gl.Enable(GLEnum.Blend);
+                _gl.BlendEquationSeparate(GLEnum.FuncSubtract, GLEnum.FuncSubtract); // src - dst
+                _gl.BlendFunc(GLEnum.One, GLEnum.One);
+                break;
+
+            case BlendMode.MIN:
+                _gl.Enable(GLEnum.Blend);
+                _gl.BlendEquationSeparate(GLEnum.Min, GLEnum.Min);
+                // BlendFunc is ignored for MIN/MAX, but leaving a sane value avoids weird driver edge cases.
+                _gl.BlendFunc(GLEnum.One, GLEnum.One);
+                break;
+
+            case BlendMode.MAX:
+                _gl.Enable(GLEnum.Blend);
+                _gl.BlendEquationSeparate(GLEnum.Max, GLEnum.Max);
+                _gl.BlendFunc(GLEnum.One, GLEnum.One);
+                break;
+
             case BlendMode.RGB_ALPHA_KEEP_DST_A:
                 _gl.Enable(GLEnum.Blend);
                 _gl.BlendEquationSeparate(GLEnum.FuncAdd, GLEnum.FuncAdd);
@@ -119,6 +152,10 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
                     GLEnum.SrcAlpha, GLEnum.OneMinusSrcAlpha, // RGB
                     GLEnum.Zero,     GLEnum.One              // A: keep dst
                 );
+                break;
+
+            default:
+                _gl.Disable(GLEnum.Blend);
                 break;
         }
     }

@@ -23,3 +23,7 @@ A wall of lightgray characters randomly changing with a clock ticking sound. (da
 Slowly in the center character for character the text "CodeDraw.Net" appears. those colors become a white color.
 We apply a postprocessing shader to give a glowing effect to the text-wall around the cursor position.
 Once CodeDraw.Net is fully visible the other characters stop changing. only when the user moves the cursor then they change again while he moves it.
+
+---
+aspect mode in proto6 has no effect
+default transparency to off?

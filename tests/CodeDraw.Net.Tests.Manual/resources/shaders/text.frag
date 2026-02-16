@@ -9,6 +9,6 @@ out vec4 outColor;
 
 void main()
 {
-    float a = texture(uAtlas, vUv).r; // because GL_R8 / GL_RED
+    float a = texture(uAtlas, vUv).r;
     outColor = vec4(vColor.rgb, vColor.a * a);
 }

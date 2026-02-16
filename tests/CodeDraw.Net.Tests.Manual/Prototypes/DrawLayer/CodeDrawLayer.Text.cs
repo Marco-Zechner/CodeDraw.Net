@@ -1,12 +1,4 @@
-﻿// FILE: tests/CodeDraw.Net.Tests.Manual/Prototypes/DrawLayer/CodeDrawLayer.Text.cs
-// Adds:
-//  - GL atlas backend implementation
-//  - text shader + instanced draw pipeline
-//  - public DrawText() method
-//  - CmdText command
-//
-// Assumes your text code lives in namespace MarcoZechner.CodeDrawDotNet.Text (as you posted).
-
+﻿// File: tests/CodeDraw.Net.Tests.Manual/Prototypes/DrawLayer/CodeDrawLayer.Text.cs
 using System.Numerics;
 using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.DrawLayer.Text;
 using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.Shaders;
@@ -16,253 +8,145 @@ namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.DrawLayer;
 
 public sealed unsafe partial class CodeDrawLayer
 {
-    // ---------- Text rendering state (render-thread only) ----------
+    // -------- Text state (render thread) --------
     private bool _textInit;
+
     private AutoProgram _progText = null!;
     private AutoUniform _uTextRes = null!;
     private AutoUniform _uTextAtlas = null!;
 
     private uint _textVao;
-    private uint _textVboQuad;
-    private uint _textVboInstances;
+    private uint _textVbo; // streamed vertices (no instancing -> no glVertexAttribDivisor)
 
     private GlGlyphAtlasBackend? _textAtlasBackend;
     private GlyphCache? _textGlyphCache;
-    private TextLayoutEngine? _textLayout;
+    private FontMetricsProvider? _textMetrics;
+    private MonospaceLayout? _textLayout;
 
-    // Instance data we send to GPU
-    // (packed to 16-byte multiples)
-    private struct TextInstance
-    {
-        public Vector4 PosSize; // x y w h
-        public Vector4 Uv;      // u0 v0 u1 v1
-        public Vector4 Color;   // r g b a
-    }
-
-    // Very small CPU-side scratch buffers to avoid GC thrash
-    private readonly List<GlyphDraw> _textDrawsScratch = new(256);
-    private readonly List<TextInstance> _textInstancesScratch = new(256);
-    private readonly Dictionary<int, (int start, int count)> _textBatchesScratch = new(); // page -> range
+    private readonly List<MonospaceLayout.GlyphInstance> _glyphScratch = new(2048);
+    private readonly List<MonospaceLayout.DebugRect> _debugScratch = new(2048);
 
     private void EnsureTextInit()
     {
         if (_textInit) return;
         _textInit = true;
 
-        // Shader program (add these as engine shaders in your ShaderStore)
         _progText = new AutoProgram(this, ShaderPath.Engine("text"));
         _uTextRes = new AutoUniform(_gl, this, _progText, "uRes");
         _uTextAtlas = new AutoUniform(_gl, this, _progText, "uAtlas");
 
-        // Atlas backend + glyph cache + layout engine
         _textAtlasBackend = new GlGlyphAtlasBackend(_gl);
         _textGlyphCache = new GlyphCache(_textAtlasBackend);
-        _textLayout = new TextLayoutEngine(_textGlyphCache);
+        _textMetrics = new FontMetricsProvider(_textGlyphCache);
+        _textLayout = new MonospaceLayout(_textGlyphCache, _textMetrics);
 
-        // VAO + buffers
         _textVao = _gl.GenVertexArray();
-        _textVboQuad = _gl.GenBuffer();
-        _textVboInstances = _gl.GenBuffer();
+        _textVbo = _gl.GenBuffer();
 
         _gl.BindVertexArray(_textVao);
+        _gl.BindBuffer(GLEnum.ArrayBuffer, _textVbo);
 
-        // Base quad: 2 triangles as 6 verts in local 0..1 space
-        Span<float> quad = [
-            0,0,  1,0,  1,1,
-            0,0,  1,1,  0,1,
-        ];
-
-        _gl.BindBuffer(GLEnum.ArrayBuffer, _textVboQuad);
-        fixed (float* p = quad)
-            _gl.BufferData(GLEnum.ArrayBuffer, (nuint)(quad.Length * sizeof(float)), p, GLEnum.StaticDraw);
+        // layout: pos(2), uv(2), color(4) => 8 floats
+        uint stride = (uint)(sizeof(float) * 8);
 
         _gl.EnableVertexAttribArray(0);
-        _gl.VertexAttribPointer(0, 2, GLEnum.Float, false, 2 * sizeof(float), (void*)0);
+        _gl.VertexAttribPointer(0, 2, GLEnum.Float, false, stride, (void*)0);
 
-        // Instance buffer (streamed)
-        _gl.BindBuffer(GLEnum.ArrayBuffer, _textVboInstances);
-        _gl.BufferData(GLEnum.ArrayBuffer, (nuint)(256 * sizeof(TextInstance)), null, GLEnum.StreamDraw);
-
-        // iPosSize (vec4) at loc=1
         _gl.EnableVertexAttribArray(1);
-        _gl.VertexAttribPointer(1, 4, GLEnum.Float, false, (uint)sizeof(TextInstance), (void*)0);
-        _gl.VertexAttribDivisor(1, 1);
+        _gl.VertexAttribPointer(1, 2, GLEnum.Float, false, stride, (void*)(sizeof(float) * 2));
 
-        // iUv (vec4) at loc=2
         _gl.EnableVertexAttribArray(2);
-        _gl.VertexAttribPointer(2, 4, GLEnum.Float, false, (uint)sizeof(TextInstance), (void*)(sizeof(float) * 4));
-        _gl.VertexAttribDivisor(2, 1);
-
-        // iColor (vec4) at loc=3
-        _gl.EnableVertexAttribArray(3);
-        _gl.VertexAttribPointer(3, 4, GLEnum.Float, false, (uint)sizeof(TextInstance), (void*)(sizeof(float) * 8));
-        _gl.VertexAttribDivisor(3, 1);
+        _gl.VertexAttribPointer(2, 4, GLEnum.Float, false, stride, (void*)(sizeof(float) * 4));
 
         _gl.BindBuffer(GLEnum.ArrayBuffer, 0);
         _gl.BindVertexArray(0);
     }
 
-    // ---------- Public API ----------
     public Vector2 MeasureText(string text, TextStyle style)
     {
-        if (_textLayout == null || string.IsNullOrEmpty(text))
-            return Vector2.Zero;
+        EnsureTextInit();
+        if (_textLayout == null) return Vector2.Zero;
 
         var m = _textLayout.Measure(text, style);
         return new Vector2(m.Width, m.Height);
     }
-    
-    public void DrawText(string text, float x, float y, TextStyle style, GlyphEffect? effect = null)
+
+    public void DrawText(string text, float x, float y, TextStyle style)
     {
         if (_disposed) return;
         if (string.IsNullOrEmpty(text)) return;
 
-        // TextStyle is a class; snapshot what we need to keep command immutable-ish.
-        // (If you mutate style after calling DrawText, you don't want races.)
-        var styleCopy = new TextStyle
+        // snapshot style to avoid mutation during render-thread exec
+        var copy = new TextStyle
         {
             Font = style.Font,
             SizePx = style.SizePx,
-            RelativeLineSpacing = style.RelativeLineSpacing,
-            RelativeCharacterSpacing = style.RelativeCharacterSpacing,
-            WrapWidthPx = style.WrapWidthPx,
             Align = style.Align,
             VAlign = style.VAlign,
             Color = style.Color,
-            Background = style.Background
+            Background = style.Background,
+
+            ExtraAbovePx = style.ExtraAbovePx,
+            ExtraBelowPx = style.ExtraBelowPx,
+            ExtraLineGapPx = style.ExtraLineGapPx,
+            ExtraCellGapPx = style.ExtraCellGapPx,
+            OverrideCellWidthPx = style.OverrideCellWidthPx,
+            OverrideLineHeightPx = style.OverrideLineHeightPx,
+
+            MonospaceSnapLineAlignToCells = style.MonospaceSnapLineAlignToCells,
+
+            DebugMode = style.DebugMode,
+            DebugRects = style.DebugRects,
+            DebugOutlinePx = style.DebugOutlinePx
         };
 
-        Enqueue(new CmdText
-        {
-            Text = text,
-            X = x,
-            Y = y,
-            Style = styleCopy,
-            Effect = effect,
-        });
+        Enqueue(new CmdText { Text = text, X = x, Y = y, Style = copy });
     }
 
-    // ---------- Command ----------
     private sealed class CmdText : ICmd
     {
         public string Text = "";
         public float X, Y;
         public TextStyle Style = null!;
-        public GlyphEffect? Effect;
-
-        public void Exec(GL gl, CodeDrawLayer self) => self.ExecText(gl, Text, X, Y, Style, Effect);
+        public void Exec(GL gl, CodeDrawLayer self) => self.ExecText(gl, Text, X, Y, Style);
     }
-    
-    private static void ComputeBlockBounds(
-        List<GlyphDraw> draws,
-        out float minX, out float minY,
-        out float maxX, out float maxY)
+
+    private void DrawDebugRect(GL gl, float x, float y, float w, float h, Rgba c, DebugRectMode mode, float outlinePx)
     {
-        minX = float.PositiveInfinity;
-        minY = float.PositiveInfinity;
-        maxX = float.NegativeInfinity;
-        maxY = float.NegativeInfinity;
+        outlinePx = MathF.Max(1, outlinePx);
 
-        for (int i = 0; i < draws.Count; i++)
+        if (mode is DebugRectMode.Fill or DebugRectMode.FillAndOutline)
+            ExecRect(gl, x, y, w, h, c.R, c.G, c.B, c.A);
+
+        if (mode is DebugRectMode.Outline or DebugRectMode.FillAndOutline)
         {
-            var g = draws[i];
-            if (g.AtlasPage < 0 || g.WidthPx <= 0 || g.HeightPx <= 0) continue;
+            float a = MathF.Min(1f, c.A * 2f);
 
-            minX = Math.Min(minX, g.X);
-            minY = Math.Min(minY, g.Y);
-            maxX = Math.Max(maxX, g.X + g.WidthPx);
-            maxY = Math.Max(maxY, g.Y + g.HeightPx);
+            ExecRect(gl, x, y, w, outlinePx, c.R, c.G, c.B, a);                 // top
+            ExecRect(gl, x, y + h - outlinePx, w, outlinePx, c.R, c.G, c.B, a); // bottom
+            ExecRect(gl, x, y, outlinePx, h, c.R, c.G, c.B, a);                 // left
+            ExecRect(gl, x + w - outlinePx, y, outlinePx, h, c.R, c.G, c.B, a); // right
         }
-
-        if (!float.IsFinite(minX)) { minX = minY = maxX = maxY = 0; }
     }
 
-    // ---------- Render-thread execution ----------
-    private void ExecText(GL gl, string text, float x, float y, TextStyle style, GlyphEffect? effect)
+    private void ExecText(GL gl, string text, float x, float y, TextStyle style)
     {
         EnsureTextInit();
         if (_textLayout == null || _textAtlasBackend == null) return;
-        if (string.IsNullOrEmpty(text)) return;
 
-        int timeMs = (int)(LayerAliveForSeconds() * 1000.0f);
+        _glyphScratch.Clear();
+        _debugScratch.Clear();
 
-        style.MonoCellWidthResolver = (fontRef, px) =>
+        _textLayout.Layout(text, x, y, style, _glyphScratch, _debugScratch);
+
+        // Debug rects first (glyphs on top)
+        for (int i = 0; i < _debugScratch.Count; i++)
         {
-            // compute from glyph cache using the same logic as layout uses:
-            var gi = _textGlyphCache!.GetGlyph(fontRef, px, 'M');
-            float w = (gi.AdvanceX > 0.01f) ? gi.AdvanceX : Math.Max(1f, gi.BitmapW);
-            if (w > 0.01f) return w;
-
-            gi = _textGlyphCache!.GetGlyph(fontRef, px, '0');
-            return (gi.AdvanceX > 0.01f) ? gi.AdvanceX : Math.Max(1f, gi.BitmapW);
-        };
-        
-        _textLayout.Layout(text, style, effect, timeMs, out var draws, out _);
-
-        _textDrawsScratch.Clear();
-        _textDrawsScratch.AddRange(draws);
-
-        // Compute real drawn bounds (this is what VAlign must use)
-        ComputeBlockBounds(_textDrawsScratch, out float minX, out float minY, out float maxX, out float maxY);
-
-        float blockW = maxX - minX;
-        float blockH = maxY - minY;
-
-        // If WrapWidthPx > 0, treat that as the horizontal "box" width for anchoring,
-        // but still use real min/max for vertical.
-        float boxW = (style.WrapWidthPx > 0) ? style.WrapWidthPx : blockW;
-
-        float anchorX = style.Align switch
-        {
-            TextAlign.Left   => minX,
-            TextAlign.Center => minX + boxW * 0.5f,
-            TextAlign.Right  => minX + boxW,
-            _ => minX
-        };
-
-        float anchorY = style.VAlign switch
-        {
-            TextVAlign.Top    => minY,
-            TextVAlign.Middle => minY + blockH * 0.5f,
-            TextVAlign.Bottom => maxY,
-            _ => minY
-        };
-
-        float baseX = x - anchorX;
-        float baseY = y - anchorY;
-
-        // Build instances...
-        _textInstancesScratch.Clear();
-        _textBatchesScratch.Clear();
-
-        for (int i = 0; i < _textDrawsScratch.Count; i++)
-        {
-            var g = _textDrawsScratch[i];
-            if (g.AtlasPage < 0 || g.WidthPx <= 0 || g.HeightPx <= 0) continue;
-
-            var inst = new TextInstance
-            {
-                PosSize = new Vector4(baseX + g.X, baseY + g.Y, g.WidthPx, g.HeightPx),
-                Uv      = g.Uv,
-                Color   = new Vector4(g.Color.R, g.Color.G, g.Color.B, g.Color.A),
-            };
-
-            int page = g.AtlasPage;
-
-            if (_textBatchesScratch.TryGetValue(page, out var range))
-            {
-                range.count++;
-                _textBatchesScratch[page] = range;
-            }
-            else
-            {
-                _textBatchesScratch[page] = (start: _textInstancesScratch.Count, count: 1);
-            }
-
-            _textInstancesScratch.Add(inst);
+            var r = _debugScratch[i];
+            DrawDebugRect(gl, r.X, r.Y, r.W, r.H, r.Color, style.DebugRects, style.DebugOutlinePx);
         }
 
-        if (_textInstancesScratch.Count == 0) return;
+        if (_glyphScratch.Count == 0) return;
 
         gl.BindVertexArray(_textVao);
         gl.UseProgram(_progText);
@@ -272,50 +156,106 @@ public sealed unsafe partial class CodeDrawLayer
 
         gl.ActiveTexture(GLEnum.Texture0);
 
-        // Draw per-page (simple GL 3.3 safe way: re-upload slice)
-        foreach (var kv in _textBatchesScratch)
+        // Group by atlas page (usually small count)
+        var byPage = new Dictionary<int, List<MonospaceLayout.GlyphInstance>>();
+        for (int i = 0; i < _glyphScratch.Count; i++)
+        {
+            var g = _glyphScratch[i];
+            if (!byPage.TryGetValue(g.Page, out var list))
+            {
+                list = new List<MonospaceLayout.GlyphInstance>(256);
+                byPage[g.Page] = list;
+            }
+            list.Add(g);
+        }
+
+        foreach (var kv in byPage)
         {
             int page = kv.Key;
-            var (start, count) = kv.Value;
+            var glyphs = kv.Value;
+            if (glyphs.Count == 0) continue;
 
             uint tex = _textAtlasBackend.GetPageTexture(page);
             if (tex == 0) continue;
 
             gl.BindTexture(GLEnum.Texture2D, tex);
 
-            gl.BindBuffer(GLEnum.ArrayBuffer, _textVboInstances);
-            nuint sliceBytes = (nuint)(count * sizeof(TextInstance));
-            gl.BufferData(GLEnum.ArrayBuffer, sliceBytes, null, GLEnum.StreamDraw);
+            int vertCount = glyphs.Count * 6;
+            nuint bytes = (nuint)(vertCount * sizeof(float) * 8);
 
-            var tmp = new TextInstance[count];
-            for (int i = 0; i < count; i++)
-                tmp[i] = _textInstancesScratch[start + i];
+            // Stream vertices
+            gl.BindBuffer(GLEnum.ArrayBuffer, _textVbo);
+            gl.BufferData(GLEnum.ArrayBuffer, bytes, null, GLEnum.StreamDraw);
+
+            var data = new float[vertCount * 8];
+            int o = 0;
+
+            for (int i = 0; i < glyphs.Count; i++)
+            {
+                var g = glyphs[i];
+
+                float x0 = g.X;
+                float y0 = g.Y;
+                float x1 = g.X + g.W;
+                float y1 = g.Y + g.H;
+
+                float u0 = g.Uv.X;
+                float v0 = g.Uv.Y;
+                float u1 = g.Uv.Z;
+                float v1 = g.Uv.W;
+
+                float r = g.Color.R;
+                float gg = g.Color.G;
+                float b = g.Color.B;
+                float a = g.Color.A;
+
+                // tri 1
+                Write(data, ref o, x0, y0, u0, v0, r, gg, b, a);
+                Write(data, ref o, x1, y0, u1, v0, r, gg, b, a);
+                Write(data, ref o, x1, y1, u1, v1, r, gg, b, a);
+
+                // tri 2
+                Write(data, ref o, x0, y0, u0, v0, r, gg, b, a);
+                Write(data, ref o, x1, y1, u1, v1, r, gg, b, a);
+                Write(data, ref o, x0, y1, u0, v1, r, gg, b, a);
+            }
 
             unsafe
             {
-                fixed (TextInstance* pp = tmp)
-                    gl.BufferSubData(GLEnum.ArrayBuffer, 0, sliceBytes, pp);
+                fixed (float* p = data)
+                    gl.BufferSubData(GLEnum.ArrayBuffer, 0, bytes, p);
             }
 
-            gl.BindBuffer(GLEnum.ArrayBuffer, 0);
+            gl.DrawArrays(GLEnum.Triangles, 0, (uint)vertCount);
 
-            gl.DrawArraysInstanced(GLEnum.Triangles, 0, 6, (uint)count);
+            gl.BindBuffer(GLEnum.ArrayBuffer, 0);
         }
 
         gl.BindTexture(GLEnum.Texture2D, 0);
         gl.ActiveTexture(GLEnum.Texture0);
         gl.BindVertexArray(0);
         gl.UseProgram(0);
+
+        static void Write(float[] dst, ref int o, float x, float y, float u, float v, float r, float g, float b, float a)
+        {
+            dst[o++] = x;
+            dst[o++] = y;
+            dst[o++] = u;
+            dst[o++] = v;
+            dst[o++] = r;
+            dst[o++] = g;
+            dst[o++] = b;
+            dst[o++] = a;
+        }
     }
 
-    // ---------- GL atlas backend ----------
+    // -------- GL atlas backend --------
     private sealed class GlGlyphAtlasBackend(GL gl) : IGlyphAtlasBackend
     {
         private readonly List<(uint tex, int w, int h)> _pages = new();
 
         public int EnsurePage(int minW, int minH)
         {
-            // Always create exactly the requested size (your packer assumes fixed page size anyway)
             int w = minW;
             int h = minH;
 
@@ -347,13 +287,10 @@ public sealed unsafe partial class CodeDrawLayer
 
         public void UploadAlpha8(int page, int x, int y, int w, int h, ReadOnlySpan<byte> alpha)
         {
-            if ((uint)page >= (uint)_pages.Count) throw new ArgumentOutOfRangeException(nameof(page));
-
             var (tex, _, _) = _pages[page];
             if (tex == 0) return;
 
             gl.BindTexture(GLEnum.Texture2D, tex);
-
             gl.PixelStore(GLEnum.UnpackAlignment, 1);
 
             unsafe

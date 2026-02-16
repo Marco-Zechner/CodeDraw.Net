@@ -1,6 +1,6 @@
-﻿using MarcoZechner.CodeDrawDotNet.Tests.Manual.Experiments;
+﻿using Legacy1.MarcoZechner.CodeDrawDotNet.Tests.Manual.Tests;
 
-namespace MarcoZechner.CodeDrawDotNet.Tests.Manual;
+namespace Legacy1.MarcoZechner.CodeDrawDotNet.Tests.Manual;
 
 public static class Program
 {

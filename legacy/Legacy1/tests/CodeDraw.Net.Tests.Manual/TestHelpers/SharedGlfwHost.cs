@@ -2,7 +2,7 @@ using System.Collections.Concurrent;
 using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
 
-namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Helpers;
+namespace Legacy1.MarcoZechner.CodeDrawDotNet.Tests.Manual.TestHelpers;
 
 public sealed unsafe class SharedGlfwHost : IDisposable
 {

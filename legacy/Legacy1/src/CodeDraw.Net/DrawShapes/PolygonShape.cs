@@ -1,7 +1,7 @@
 using MarcoZechner.MathDotNet;
 using SkiaSharp;
 
-namespace MarcoZechner.CodeDrawDotNet;
+namespace Legacy1.MarcoZechner.CodeDrawDotNet.DrawShapes;
 
 public record PolygonShape(Vector2[] Points) : IDrawShape
 {

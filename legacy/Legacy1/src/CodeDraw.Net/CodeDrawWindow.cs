@@ -1,13 +1,15 @@
 using System.Runtime.InteropServices;
+using Legacy1.MarcoZechner.CodeDrawDotNet.CodeDrawSettings;
+using Legacy1.MarcoZechner.CodeDrawDotNet.CodeDrawSettings.DrawSettings;
+using Legacy1.MarcoZechner.CodeDrawDotNet.CodeDrawSettings.FontSettings;
+using Legacy1.MarcoZechner.CodeDrawDotNet.Extensions;
 using MarcoZechner.ColorDotNet;
-using MarcoZechner.CodeDrawDotNet.Extensions;
 using MarcoZechner.MathDotNet;
-using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
 using Silk.NET.Windowing;
 using SkiaSharp;
 
-namespace MarcoZechner.CodeDrawDotNet;
+namespace Legacy1.MarcoZechner.CodeDrawDotNet;
 
 public partial class CodeDrawWindow
 {

@@ -1,7 +1,7 @@
 using MarcoZechner.MathDotNet;
 using SkiaSharp;
 
-namespace MarcoZechner.CodeDrawDotNet;
+namespace Legacy1.MarcoZechner.CodeDrawDotNet.DrawShapes;
 
 public record RectShape(Vector2 Position, Vector2 Size) : IDrawShape
 {

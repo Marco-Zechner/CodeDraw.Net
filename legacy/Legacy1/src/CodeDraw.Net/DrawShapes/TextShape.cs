@@ -1,8 +1,9 @@
+using Legacy1.MarcoZechner.CodeDrawDotNet.CodeDrawSettings.FontSettings;
 using MarcoZechner.MathDotNet;
 using SkiaSharp;
 using Topten.RichTextKit;
 
-namespace MarcoZechner.CodeDrawDotNet;
+namespace Legacy1.MarcoZechner.CodeDrawDotNet.DrawShapes;
 
 public record TextShape(Vector2 Position, string Text, TextFormat Format) : IDrawShape
 {

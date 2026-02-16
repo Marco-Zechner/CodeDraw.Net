@@ -1,6 +1,6 @@
 using System.Diagnostics;
 
-namespace MarcoZechner.CodeDrawDotNet;
+namespace Legacy1.MarcoZechner.CodeDrawDotNet;
 
 public unsafe partial class GlfwWindow
 {

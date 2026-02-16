@@ -1,8 +1,12 @@
+using Legacy1.MarcoZechner.CodeDrawDotNet.CodeDrawSettings;
+using Legacy1.MarcoZechner.CodeDrawDotNet.CodeDrawSettings.DrawSettings;
+using Legacy1.MarcoZechner.CodeDrawDotNet.CodeDrawSettings.FontSettings;
+using Legacy1.MarcoZechner.CodeDrawDotNet.DrawShapes;
 using MarcoZechner.ColorDotNet;
 using MarcoZechner.MathDotNet;
 using Topten.RichTextKit;
 
-namespace MarcoZechner.CodeDrawDotNet;
+namespace Legacy1.MarcoZechner.CodeDrawDotNet;
 
 public partial class Shapes
 {

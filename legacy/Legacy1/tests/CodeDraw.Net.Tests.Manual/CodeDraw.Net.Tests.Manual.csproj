@@ -9,9 +9,9 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <AssemblyName>CodeDraw.Net.Tests.Manual</AssemblyName>
-    <RootNamespace>MarcoZechner.CodeDrawDotNet.Tests.Manual</RootNamespace>
-    <PackageId>MarcoZechner.CodeDraw.Net.Tests.Manual</PackageId>
+    <AssemblyName>Legacy1.CodeDraw.Net.Tests.Manual</AssemblyName>
+    <RootNamespace>Legacy1.MarcoZechner.CodeDrawDotNet.Tests.Manual</RootNamespace>
+    <PackageId>Legacy1.MarcoZechner.CodeDraw.Net.Tests.Manual</PackageId>
   </PropertyGroup>
 
   <ItemGroup>

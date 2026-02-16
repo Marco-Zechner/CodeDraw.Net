@@ -1,9 +1,9 @@
 using System.Collections.Concurrent;
-using MarcoZechner.CodeDrawDotNet.Extensions;
+using Legacy1.MarcoZechner.CodeDrawDotNet.Extensions;
 using MarcoZechner.MathDotNet;
 using Silk.NET.Windowing;
 
-namespace MarcoZechner.CodeDrawDotNet;
+namespace Legacy1.MarcoZechner.CodeDrawDotNet;
 
 internal static class WindowManager
 {

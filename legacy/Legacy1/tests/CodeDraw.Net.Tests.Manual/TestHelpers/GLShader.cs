@@ -1,6 +1,6 @@
 using Silk.NET.OpenGL;
 
-namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Helpers;
+namespace Legacy1.MarcoZechner.CodeDrawDotNet.Tests.Manual.TestHelpers;
 
 public static class GlShader
 {

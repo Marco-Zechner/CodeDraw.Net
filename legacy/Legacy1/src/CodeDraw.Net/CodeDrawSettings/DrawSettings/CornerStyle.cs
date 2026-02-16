@@ -1,4 +1,4 @@
-namespace MarcoZechner.CodeDrawDotNet;
+namespace Legacy1.MarcoZechner.CodeDrawDotNet.CodeDrawSettings.DrawSettings;
 
 public enum CornerStyle
 {	

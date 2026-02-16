@@ -1,11 +1,11 @@
+using Legacy1.MarcoZechner.CodeDrawDotNet.Extensions;
 using MarcoZechner.ColorDotNet;
-using MarcoZechner.CodeDrawDotNet.Extensions;
 using MarcoZechner.MathDotNet;
 using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
 using SkiaSharp;
 
-namespace MarcoZechner.CodeDrawDotNet;
+namespace Legacy1.MarcoZechner.CodeDrawDotNet;
 
 public unsafe partial class GlfwWindow
 {

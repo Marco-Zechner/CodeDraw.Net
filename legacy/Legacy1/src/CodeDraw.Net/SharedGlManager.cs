@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
 
-namespace MarcoZechner.CodeDrawDotNet;
+namespace Legacy1.MarcoZechner.CodeDrawDotNet;
 
 public sealed class SharedGlManager : IDisposable
 {

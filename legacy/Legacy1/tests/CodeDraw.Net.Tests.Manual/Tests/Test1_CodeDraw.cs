@@ -1,8 +1,9 @@
+using Legacy1.MarcoZechner.CodeDrawDotNet.CodeDrawSettings.FontSettings;
 using MarcoZechner.ColorDotNet;
 using MarcoZechner.MathDotNet;
 using Silk.NET.GLFW;
 
-namespace MarcoZechner.CodeDrawDotNet.Tests.Manual;
+namespace Legacy1.MarcoZechner.CodeDrawDotNet.Tests.Manual.Tests;
 
 public class Test1CodeDraw
 {

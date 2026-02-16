@@ -1,7 +1,7 @@
 using MarcoZechner.MathDotNet;
 using SkiaSharp;
 
-namespace MarcoZechner.CodeDrawDotNet;
+namespace Legacy1.MarcoZechner.CodeDrawDotNet.DrawShapes;
 
 public record PieShape(Vector2 Center, float Radius, float StartAngle, float SweepAngle, AngleUnit AngleUnit = AngleUnit.DEGREES) : IDrawShape
 {

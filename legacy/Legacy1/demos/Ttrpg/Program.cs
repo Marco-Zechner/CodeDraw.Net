@@ -1,5 +1,5 @@
-﻿
-using MarcoZechner.CodeDrawDotNet;
+﻿using Legacy1.MarcoZechner.CodeDrawDotNet;
+using Legacy1.MarcoZechner.CodeDrawDotNet.CodeDrawSettings.FontSettings;
 using MarcoZechner.ColorDotNet;
 using MarcoZechner.MathDotNet;
 using Silk.NET.GLFW;

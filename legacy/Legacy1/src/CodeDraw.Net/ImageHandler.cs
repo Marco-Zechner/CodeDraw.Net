@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
 using SkiaSharp;
 
-namespace MarcoZechner.CodeDrawDotNet;
+namespace Legacy1.MarcoZechner.CodeDrawDotNet;
 
 public static class ImageHandler
 {

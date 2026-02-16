@@ -2,7 +2,7 @@ using MarcoZechner.ColorDotNet;
 using SkiaSharp;
 using SysColor = System.Drawing.Color;
 
-namespace MarcoZechner.CodeDrawDotNet.Extensions;
+namespace Legacy1.MarcoZechner.CodeDrawDotNet.Extensions;
 
 public static class ColorConversionExtensions
 {

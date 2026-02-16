@@ -1,8 +1,8 @@
+using Legacy1.MarcoZechner.CodeDrawDotNet.Tests.Manual.TestHelpers;
 using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
-using MarcoZechner.CodeDrawDotNet.Tests.Manual.Helpers;
 
-namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Experiments;
+namespace Legacy1.MarcoZechner.CodeDrawDotNet.Tests.Manual.Tests;
 
 public unsafe static class Experiment2
 {

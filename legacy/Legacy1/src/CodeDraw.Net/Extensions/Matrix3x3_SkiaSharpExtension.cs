@@ -1,7 +1,7 @@
 using MarcoZechner.MathDotNet;
 using SkiaSharp;
 
-namespace MarcoZechner.CodeDrawDotNet.Extensions;
+namespace Legacy1.MarcoZechner.CodeDrawDotNet.Extensions;
 
 public static class MatrixSkiaExtensions
 {

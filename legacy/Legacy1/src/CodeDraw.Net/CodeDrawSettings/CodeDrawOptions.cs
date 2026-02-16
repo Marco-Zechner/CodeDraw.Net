@@ -1,10 +1,11 @@
-using MarcoZechner.CodeDrawDotNet.Extensions;
+using Legacy1.MarcoZechner.CodeDrawDotNet.Extensions;
 using MarcoZechner.MathDotNet;
-using Silk.NET.Windowing;
+using WindowBorder = Legacy1.MarcoZechner.CodeDrawDotNet.CodeDrawSettings.WindowOptions.WindowBorder;
 using WindowBorderSilk = Silk.NET.Windowing.WindowBorder;
+using WindowState = Legacy1.MarcoZechner.CodeDrawDotNet.CodeDrawSettings.WindowOptions.WindowState;
 using WindowStateSilk = Silk.NET.Windowing.WindowState;
 
-namespace MarcoZechner.CodeDrawDotNet;
+namespace Legacy1.MarcoZechner.CodeDrawDotNet.CodeDrawSettings;
 
 public class CodeDrawOptions {
     /// <summary>
@@ -41,8 +42,8 @@ public class CodeDrawOptions {
     public WindowState WindowState { get; set; } = WindowState.NORMAL; //TODO: update this value if it gets changed
 
     // implicit convertion to WindowOptions
-    public static implicit operator WindowOptions(CodeDrawOptions options) => 
-        WindowOptions.Default with
+    public static implicit operator Silk.NET.Windowing.WindowOptions(CodeDrawOptions options) => 
+        Silk.NET.Windowing.WindowOptions.Default with
         {
             Title = options.Title,
             Size = options.Size.ToSilkI(),

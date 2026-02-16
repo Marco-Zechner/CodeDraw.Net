@@ -9,9 +9,9 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <AssemblyName>CodeDraw.Net</AssemblyName>
-    <RootNamespace>MarcoZechner.CodeDrawDotNet</RootNamespace>
-    <PackageId>MarcoZechner.CodeDraw.Net</PackageId>
+    <AssemblyName>Legacy1.CodeDraw.Net</AssemblyName>
+    <RootNamespace>Legacy1.MarcoZechner.CodeDrawDotNet</RootNamespace>
+    <PackageId>Legacy1.MarcoZechner.CodeDraw.Net</PackageId>
   </PropertyGroup>
 
   <ItemGroup>

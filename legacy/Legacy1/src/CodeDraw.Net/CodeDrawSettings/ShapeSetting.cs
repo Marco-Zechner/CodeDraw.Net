@@ -1,6 +1,7 @@
+using Legacy1.MarcoZechner.CodeDrawDotNet.CodeDrawSettings.DrawSettings;
 using MarcoZechner.ColorDotNet;
 
-namespace MarcoZechner.CodeDrawDotNet;
+namespace Legacy1.MarcoZechner.CodeDrawDotNet.CodeDrawSettings;
 
 public record ShapeSettings(
     Color DrawColor,

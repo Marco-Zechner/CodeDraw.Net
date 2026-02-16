@@ -1,4 +1,4 @@
-namespace MarcoZechner.CodeDrawDotNet;
+namespace Legacy1.MarcoZechner.CodeDrawDotNet.CodeDrawSettings.FontSettings;
 
 public class TextFormat {
     public string FontFamily { get; set; } = "Arial";

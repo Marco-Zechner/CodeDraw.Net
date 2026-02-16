@@ -9,7 +9,14 @@ public sealed class TextStyle
     public TextVAlign VAlign { get; set; } = TextVAlign.Top;
 
     public Rgba Color { get; set; } = new(1, 1, 1, 1);
-    public Rgba? Background { get; set; } = null;
+    public Rgba Background { get; set; } = new(0, 0, 0, 0.5f);
+    
+    public BlendMode FontBlendMode { get; set; } = BlendMode.SOURCE_OVER_ALPHA;
+    public BlendMode BackgroundBlendMode { get; set; } = BlendMode.SOURCE_OVER_ALPHA;
+
+    public TextBackgroundMode BackgroundMode { get; set; } = TextBackgroundMode.None;
+    public bool BackgroundIncludeSpaces { get; set; } = false;
+    public float BackgroundPaddingPx { get; set; } = 0f;
 
     // --- Monospace layout control ---
 

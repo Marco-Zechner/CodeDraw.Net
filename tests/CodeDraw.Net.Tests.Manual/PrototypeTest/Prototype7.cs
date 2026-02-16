@@ -65,7 +65,6 @@ public sealed class Prototype7 : IDisposable
             Align = TextAlign.Left,
             VAlign = TextVAlign.Top,
             Color = new Rgba(0.1f, 0.1f, 0.1f, 1f),
-            Background = null,
             DebugMode = TextDebugMode.None,
             DebugRects = DebugRectMode.Outline,
             DebugOutlinePx = 1,
@@ -79,7 +78,6 @@ public sealed class Prototype7 : IDisposable
             Align = TextAlign.Left,
             VAlign = TextVAlign.Top,
             Color = new Rgba(0.05f, 0.05f, 0.05f, 0.95f),
-            Background = null,
             DebugMode = TextDebugMode.None,
             DebugRects = DebugRectMode.Outline,
             DebugOutlinePx = 1,
@@ -129,7 +127,7 @@ public sealed class Prototype7 : IDisposable
             "AAAA\n" +
             "BBBBB\n" +
             "CCCC\n" +
-            "DDDDD\n" +
+            "DDD D\n" +
             "ÄÖÜ\n" +
             "gyp";
 
@@ -138,7 +136,17 @@ public sealed class Prototype7 : IDisposable
             // --- Input ---
             if (ctx.Input.GetKeyDown(Keys.F1)) showDebug = !showDebug;
             if (ctx.Input.GetKeyDown(Keys.F2)) snap = !snap;
-            if (ctx.Input.GetKeyDown(Keys.F3)) showBg = !showBg;
+            if (ctx.Input.GetKeyDown(Keys.F3))
+            {
+                styleMonoBig.BackgroundMode = styleMonoBig.BackgroundMode switch
+                {
+                    TextBackgroundMode.None => TextBackgroundMode.PerCell,
+                    TextBackgroundMode.PerCell => TextBackgroundMode.PerLine,
+                    TextBackgroundMode.PerLine => TextBackgroundMode.PerGlyphBox,
+                    TextBackgroundMode.PerGlyphBox => TextBackgroundMode.None,
+                    _ => TextBackgroundMode.None,
+                };
+            }
 
             // --- Timing / FPS ---
             var dt = ctx.DeltaSeconds;
@@ -164,20 +172,16 @@ public sealed class Prototype7 : IDisposable
             styleHud.DebugMode = dbg;
 
             styleMonoBig.MonospaceSnapLineAlignToCells = snap;
-
-            // Optional backgrounds
-            styleMonoBig.Background = showBg ? new Rgba(0.08f, 0.1f, 0.14f, 0.9f) : null;
-            styleHud.Background = new Rgba(0f, 0f, 0f, 0.55f);
-
+            
             // --- Simple "paper" margins ---
-            var pad = 24f;
+            const float PAD = 24f;
 
             // --- Title block ---
-            layer.DrawText(demoTitle, pad, pad, styleTitle);
+            layer.DrawText(demoTitle, PAD, PAD, styleTitle);
 
             // --- Body block ---
-            var bodyY = pad + 60f;
-            layer.DrawText(demoBody, pad, bodyY, styleBody);
+            var bodyY = PAD + 60f;
+            layer.DrawText(demoBody, PAD, bodyY, styleBody);
 
             // --- Monospace snap/center test block ---
             // Center anchor marker
@@ -211,12 +215,12 @@ public sealed class Prototype7 : IDisposable
             hud.AppendLine();
             hud.AppendLine($"Snap-centering: {(snap ? "ON" : "OFF")}");
             hud.AppendLine($"Debug overlays: {(showDebug ? "ON" : "OFF")}");
-            hud.AppendLine($"Mono-bg: {(showBg ? "ON" : "OFF")}");
+            hud.AppendLine($"Mono-bg: {styleMonoBig.BackgroundMode.ToString()}");
             hud.AppendLine($"UPS: {ups:0.0}");
 
             var hudSize = layer.MeasureText(hud.ToString(), styleHud);
             
-            layer.DrawText(hud.ToString(), pad, layer.Height - pad - hudSize.Y, styleHud);
+            layer.DrawText(hud.ToString(), PAD, layer.Height - PAD - hudSize.Y, styleHud);
 
             layer.Render();
         };

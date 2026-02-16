@@ -55,6 +55,7 @@ public sealed unsafe partial class CodeDrawLayer
 
     private readonly List<MonospaceLayout.GlyphInstance> _glyphScratch = new(2048);
     private readonly List<MonospaceLayout.DebugRect> _debugScratch = new(2048);
+    private readonly List<MonospaceLayout.GlyphInstance> _glyphSorted = new(2048);
 
     private void EnsureTextInit()
     {
@@ -99,13 +100,14 @@ public sealed unsafe partial class CodeDrawLayer
         if (string.IsNullOrEmpty(text)) return;
 
         // snapshot style to avoid mutation during render-thread exec
-        var copy = new TextStyle
+        var copy = new TextStyle //TODO: make TextStyle immutable and remove this copying, or move it into the TextStyle class
         {
             Font = style.Font,
             SizePx = style.SizePx,
             Align = style.Align,
             VAlign = style.VAlign,
             Color = style.Color,
+
             Background = style.Background,
 
             ExtraAbovePx = style.ExtraAbovePx,
@@ -114,12 +116,16 @@ public sealed unsafe partial class CodeDrawLayer
             ExtraCellGapPx = style.ExtraCellGapPx,
             OverrideCellWidthPx = style.OverrideCellWidthPx,
             OverrideLineHeightPx = style.OverrideLineHeightPx,
-
             MonospaceSnapLineAlignToCells = style.MonospaceSnapLineAlignToCells,
-
             DebugMode = style.DebugMode,
             DebugRects = style.DebugRects,
-            DebugOutlinePx = style.DebugOutlinePx
+            DebugOutlinePx = style.DebugOutlinePx,
+
+            BackgroundMode = style.BackgroundMode,
+            BackgroundPaddingPx = style.BackgroundPaddingPx,
+            BackgroundIncludeSpaces = style.BackgroundIncludeSpaces,
+            BackgroundBlendMode = style.BackgroundBlendMode,
+            FontBlendMode = style.FontBlendMode,
         };
 
         Enqueue(new CmdText { Text = text, X = x, Y = y, Style = copy });
@@ -142,40 +148,32 @@ public sealed unsafe partial class CodeDrawLayer
         _debugScratch.Clear();
 
         _textLayout.Layout(text, x, y, style, _glyphScratch, _debugScratch);
+        
+        if (_glyphScratch.Count == 0)
+        {
+            // Try to draw Debug rects first
+            foreach (var r in _debugScratch)
+                DrawDebugRect(gl, r.X, r.Y, r.W, r.H, r.Color, style.DebugRects, style.DebugOutlinePx);
+            return;
+        }
 
-        // Debug rects first (glyphs on top)
+        var userBlend = GetBlendMode();
+
+        // Only run if Background is set and BackgroundMode != None.
+        if (style.Background is { } bg && style.BackgroundMode != TextBackgroundMode.None)
+        {
+            SetBlendMode(style.BackgroundBlendMode);
+
+            DrawTextBackgrounds(gl, text, x, y, style, bg);
+        }
+        
+        // ---- Glyphs ----
+        // Apply user-chosen font blending, independent of "global layer blend"
+        SetBlendMode(style.FontBlendMode);
+        
+        // Draw debug rects with fontBlendMode and on top of background
         foreach (var r in _debugScratch)
-        {
             DrawDebugRect(gl, r.X, r.Y, r.W, r.H, r.Color, style.DebugRects, style.DebugOutlinePx);
-        }
-
-        if (_glyphScratch.Count == 0) return;
-
-        if (style.Background is { } bg)
-        {
-            var m = _textLayout.Measure(text, style); // returns width/height
-
-            var ax = style.Align switch
-            {
-                TextAlign.Left => 0,
-                TextAlign.Center => m.Width * 0.5f,
-                TextAlign.Right => m.Width,
-                _ => 0,
-            };
-
-            var ay = style.VAlign switch
-            {
-                TextVAlign.Top => 0,
-                TextVAlign.Middle => m.Height * 0.5f,
-                TextVAlign.Bottom => m.Height,
-                _ => 0,
-            };
-
-            var bx = x - ax;
-            var by = y - ay;
-
-            ExecRect(gl, bx, by, m.Width, m.Height, bg.R, bg.G, bg.B, bg.A);
-        }
         
         gl.BindVertexArray(_textVao);
         gl.UseProgram(_progText);
@@ -185,67 +183,26 @@ public sealed unsafe partial class CodeDrawLayer
 
         gl.ActiveTexture(GLEnum.Texture0);
 
-        // Group by atlas page
-        var byPage = new Dictionary<int, List<MonospaceLayout.GlyphInstance>>();
-        foreach (var g in _glyphScratch)
+        // Sort by page and draw page-runs (no Dictionary allocs)
+        _glyphSorted.Clear();
+        _glyphSorted.AddRange(_glyphScratch);
+        _glyphSorted.Sort(static (a, b) => a.Page.CompareTo(b.Page));
+
+        int start = 0;
+        while (start < _glyphSorted.Count)
         {
-            if (!byPage.TryGetValue(g.Page, out var list))
+            int page = _glyphSorted[start].Page;
+            int end = start + 1;
+            while (end < _glyphSorted.Count && _glyphSorted[end].Page == page) end++;
+
+            uint tex = _textAtlasBackend.GetPageTexture(page);
+            if (tex != 0)
             {
-                list = new List<MonospaceLayout.GlyphInstance>(256);
-                byPage[g.Page] = list;
-            }
-            list.Add(g);
-        }
-
-        foreach (var kv in byPage)
-        {
-            var page = kv.Key;
-            var glyphs = kv.Value;
-            if (glyphs.Count == 0) continue;
-
-            var tex = _textAtlasBackend.GetPageTexture(page);
-            if (tex == 0) continue;
-
-            gl.BindTexture(GLEnum.Texture2D, tex);
-
-            var vertCount = glyphs.Count * 6;
-            var bytes = (nuint)(vertCount * sizeof(float) * 8);
-
-            gl.BindBuffer(GLEnum.ArrayBuffer, _textVbo);
-            gl.BufferData(GLEnum.ArrayBuffer, bytes, null, GLEnum.StreamDraw);
-
-            var data = new float[vertCount * 8];
-            var o = 0;
-
-            foreach (var g in glyphs)
-            {
-                var x0 = g.X;
-                var y0 = g.Y;
-                var x1 = g.X + g.W;
-                var y1 = g.Y + g.H;
-
-                var u0 = g.Uv.X;
-                var v0 = g.Uv.Y;
-                var u1 = g.Uv.Z;
-                var v1 = g.Uv.W;
-
-                float r = g.Color.R, gg = g.Color.G, b = g.Color.B, a = g.Color.A;
-
-                Write(data, ref o, x0, y0, u0, v0, r, gg, b, a);
-                Write(data, ref o, x1, y0, u1, v0, r, gg, b, a);
-                Write(data, ref o, x1, y1, u1, v1, r, gg, b, a);
-
-                Write(data, ref o, x0, y0, u0, v0, r, gg, b, a);
-                Write(data, ref o, x1, y1, u1, v1, r, gg, b, a);
-                Write(data, ref o, x0, y1, u0, v1, r, gg, b, a);
+                gl.BindTexture(GLEnum.Texture2D, tex);
+                DrawGlyphRun(gl, _glyphSorted, start, end);
             }
 
-            fixed (float* p = data)
-                gl.BufferSubData(GLEnum.ArrayBuffer, 0, bytes, p);
-
-            gl.DrawArrays(GLEnum.Triangles, 0, (uint)vertCount);
-
-            gl.BindBuffer(GLEnum.ArrayBuffer, 0);
+            start = end;
         }
 
         gl.BindTexture(GLEnum.Texture2D, 0);
@@ -253,8 +210,57 @@ public sealed unsafe partial class CodeDrawLayer
         gl.BindVertexArray(0);
         gl.UseProgram(0);
 
-        return;
-        
+        SetBlendMode(userBlend);
+    }
+    
+    private void DrawGlyphRun(GL gl, List<MonospaceLayout.GlyphInstance> glyphs, int start, int end)
+    {
+        var glyphCount = end - start;
+        var vertCount = glyphCount * 6;
+
+        var bytes = (nuint)(vertCount * sizeof(float) * 8);
+
+        gl.BindBuffer(GLEnum.ArrayBuffer, _textVbo);
+        gl.BufferData(GLEnum.ArrayBuffer, bytes, null, GLEnum.StreamDraw);
+
+        // You can pool this later; keep simple for now.
+        var data = new float[vertCount * 8];
+        var o = 0;
+
+        for (var i = start; i < end; i++)
+        {
+            var g = glyphs[i];
+
+            var x0 = g.X;
+            var y0 = g.Y;
+            var x1 = g.X + g.W;
+            var y1 = g.Y + g.H;
+
+            var u0 = g.Uv.X;
+            var v0 = g.Uv.Y;
+            var u1 = g.Uv.Z;
+            var v1 = g.Uv.W;
+
+            float r = g.Color.R, gg = g.Color.G, b = g.Color.B, a = g.Color.A;
+
+            // tri 1
+            Write(data, ref o, x0, y0, u0, v0, r, gg, b, a);
+            Write(data, ref o, x1, y0, u1, v0, r, gg, b, a);
+            Write(data, ref o, x1, y1, u1, v1, r, gg, b, a);
+
+            // tri 2
+            Write(data, ref o, x0, y0, u0, v0, r, gg, b, a);
+            Write(data, ref o, x1, y1, u1, v1, r, gg, b, a);
+            Write(data, ref o, x0, y1, u0, v1, r, gg, b, a);
+        }
+
+        fixed (float* p = data)
+            gl.BufferSubData(GLEnum.ArrayBuffer, 0, bytes, p);
+
+        gl.DrawArrays(GLEnum.Triangles, 0, (uint)vertCount);
+
+        gl.BindBuffer(GLEnum.ArrayBuffer, 0);
+
         static void Write(float[] dst, ref int o, float x, float y, float u, float v, float r, float g, float b, float a)
         {
             dst[o++] = x; dst[o++] = y;
@@ -262,6 +268,7 @@ public sealed unsafe partial class CodeDrawLayer
             dst[o++] = r; dst[o++] = g; dst[o++] = b; dst[o++] = a;
         }
     }
+    
 
     private void DrawDebugRect(GL gl, float x, float y, float w, float h, Rgba c, DebugRectMode mode, float outlinePx)
     {
@@ -331,5 +338,143 @@ public sealed unsafe partial class CodeDrawLayer
         }
 
         public uint GetPageTexture(int page) => _pages[page].tex;
+    }
+    
+    private void DrawTextBackgrounds(GL gl, string text, float x, float y, TextStyle style, Rgba bg)
+    {
+        // We need cellW/lineH/baselineFromTop and the same anchor math as Layout().
+        _textLayout!.GetCellMetrics(style, out var cellW, out var lineH, out var baselineFromTop);
+
+        if (cellW <= 0 || lineH <= 0) return;
+
+        // line columns
+        var lineCols = new List<int>(32);
+        var cols = 0;
+        foreach (var c in text.Where(c => c != '\r'))
+        {
+            if (c == '\n')
+            {
+                lineCols.Add(cols);
+                cols = 0;
+                continue;
+            }
+            cols++;
+        }
+        lineCols.Add(cols);
+
+        var maxCols = 0;
+        for (var i = 0; i < lineCols.Count; i++)
+            if (lineCols[i] > maxCols) maxCols = lineCols[i];
+
+        var totalW = maxCols * cellW;
+        var totalH = lineCols.Count * lineH;
+
+        var ax = style.Align switch
+        {
+            TextAlign.Left => 0,
+            TextAlign.Center => totalW * 0.5f,
+            TextAlign.Right => totalW,
+            _ => 0
+        };
+
+        var ay = style.VAlign switch
+        {
+            TextVAlign.Top => 0,
+            TextVAlign.Middle => totalH * 0.5f,
+            TextVAlign.Bottom => totalH,
+            _ => 0
+        };
+
+        var originX = x - ax;
+        var originY = y - ay;
+
+        var pad = MathF.Max(0, style.BackgroundPaddingPx);
+
+        var includeSpaces = style.BackgroundIncludeSpaces;
+
+        switch (style.BackgroundMode)
+        {
+            case TextBackgroundMode.PerLine:
+            {
+                for (var row = 0; row < lineCols.Count; row++)
+                {
+                    var lc = lineCols[row];
+                    if (lc <= 0) continue;
+
+                    var lineOff = LineOffsetPx(row);
+                    var bx = originX + lineOff;
+                    var by = originY + row * lineH;
+                    var bw = lc * cellW;
+
+                    ExecRect(gl, bx - pad, by - pad, bw + 2 * pad, lineH + 2 * pad, bg.R, bg.G, bg.B, bg.A);
+                }
+                break;
+            }
+
+            case TextBackgroundMode.PerCell:
+            {
+                var col = 0;
+                var row = 0;
+
+                for (var i = 0; i < text.Length; i++)
+                {
+                    var c = text[i];
+                    if (c == '\r') continue;
+
+                    if (c == '\n')
+                    {
+                        col = 0;
+                        row++;
+                        continue;
+                    }
+
+                    if (!includeSpaces && c == ' ')
+                    {
+                        col++;
+                        continue;
+                    }
+
+                    var lineOff = LineOffsetPx(row);
+                    var cx = originX + lineOff + col * cellW;
+                    var cy = originY + row * lineH;
+
+                    ExecRect(gl, cx - pad, cy - pad, cellW + 2 * pad, lineH + 2 * pad, bg.R, bg.G, bg.B, bg.A);
+
+                    col++;
+                }
+                break;
+            }
+
+            case TextBackgroundMode.PerGlyphBox:
+            {
+                // You already computed glyph positions in _glyphScratch; use those.
+                // This backgrounds only where glyph bitmap exists (nice for "tight highlight").
+                foreach (var g in _glyphScratch)
+                {
+                    ExecRect(gl, g.X - pad, g.Y - pad, g.W + 2 * pad, g.H + 2 * pad, bg.R, bg.G, bg.B, bg.A);
+                }
+                break;
+            }
+        }
+
+        return;
+
+        // Per-line offsets like Layout()
+        float LineOffsetPx(int r)
+        {
+            var lc = (r >= 0 && r < lineCols.Count) ? lineCols[r] : 0;
+            var diff = maxCols - lc;
+
+            if (style.Align == TextAlign.Left) return 0;
+
+            if (style.MonospaceSnapLineAlignToCells)
+            {
+                var offCols = style.Align == TextAlign.Center ? (diff / 2) : diff;
+                return offCols * cellW;
+            }
+
+            var off = style.Align == TextAlign.Center ? (diff * 0.5f) : diff;
+            return off * cellW;
+        }
     }
 }

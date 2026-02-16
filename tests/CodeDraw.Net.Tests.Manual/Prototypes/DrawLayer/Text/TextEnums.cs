@@ -28,3 +28,11 @@ public enum DebugRectMode
     Outline,
     FillAndOutline
 }
+
+public enum TextBackgroundMode
+{
+    None,
+    PerLine,
+    PerCell,
+    PerGlyphBox
+}

@@ -84,6 +84,8 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
         }
     }
 
+    public BlendMode GetBlendMode() => _blendMode;
+
     private void ApplyBlendMode()
     {
         switch (_blendMode)

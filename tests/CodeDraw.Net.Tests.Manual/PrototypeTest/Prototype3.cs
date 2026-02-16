@@ -1,7 +1,6 @@
-﻿using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes;
-using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.DrawLayer;
-using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.Shaders;
-using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.Window;
+﻿using MarcoZechner.CodeDrawDotNet.DrawLayer;
+using MarcoZechner.CodeDrawDotNet.Shaders;
+using MarcoZechner.CodeDrawDotNet.Window;
 using MarcoZechner.MathDotNet;
 using Silk.NET.GLFW;
 using Silk.NET.Input;

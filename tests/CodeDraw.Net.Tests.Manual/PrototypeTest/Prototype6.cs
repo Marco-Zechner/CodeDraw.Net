@@ -1,8 +1,7 @@
 ﻿using System.Text;
-using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes;
-using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.DrawLayer;
-using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.DrawLayer.Text;
-using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.Window;
+using MarcoZechner.CodeDrawDotNet.DrawLayer;
+using MarcoZechner.CodeDrawDotNet.DrawLayer.Text;
+using MarcoZechner.CodeDrawDotNet.Window;
 using Silk.NET.GLFW;
 
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.PrototypeTest;

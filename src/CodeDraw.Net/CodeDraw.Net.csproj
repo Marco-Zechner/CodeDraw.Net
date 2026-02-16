@@ -15,15 +15,36 @@
 
   <ItemGroup>
     <PackageReference Include="Silk.NET" Version="2.22.0" />
-<!--    <PackageReference Include="SkiaSharp" Version="3.116.1" />-->
-<!--    <PackageReference Include="Topten.RichTextKit" Version="0.4.167" />-->
-<!--    <PackageReference Include="StbImageSharp" Version="2.30.15" />-->
+    <PackageReference Include="SpaceWizards.SharpFont" Version="1.1.0" />
+    <PackageReference Include="SharpFont.Dependencies" Version="2.5.5" />
   </ItemGroup>
 
+  <Target Name="CopySharpFontNative" AfterTargets="Build">
+    <!-- pick one msvc folder that exists; msvc12 is usually fine -->
+    <PropertyGroup>
+      <SharpFontDepsDir>$(NuGetPackageRoot)sharpfont.dependencies\2.5.5\bin\msvc12</SharpFontDepsDir>
+    </PropertyGroup>
+
+    <ItemGroup Condition="Exists('$(SharpFontDepsDir)\x64\freetype6.dll')">
+      <SharpFontNative Include="$(SharpFontDepsDir)\x64\freetype6.dll" />
+    </ItemGroup>
+
+    <Copy SourceFiles="@(SharpFontNative)"
+          DestinationFolder="$(TargetDir)"
+          SkipUnchangedFiles="true"
+          Condition="@(SharpFontNative) != ''" />
+  </Target>
+  
   <ItemGroup>
     <ProjectReference Include="..\..\libs\Diagnostics.Net\Diagnostics.Net.csproj" />
     <ProjectReference Include="..\..\libs\Color.Net\Color.Net.csproj" />
     <ProjectReference Include="..\..\libs\Math.Net\Math.Net.csproj" />
   </ItemGroup>
 
+  <!--    <ItemGroup Condition="'$(Configuration)'=='Debug' Or '$(Configuration)'=='Release'">-->
+  <!--        <Content Include="resources\**\*.*">-->
+  <!--            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>-->
+  <!--        </Content>-->
+  <!--    </ItemGroup>-->
+  
 </Project>

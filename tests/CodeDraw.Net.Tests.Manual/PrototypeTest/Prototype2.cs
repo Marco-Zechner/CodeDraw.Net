@@ -1,9 +1,8 @@
-﻿using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes;
-using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.DrawLayer;
-using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.Shaders;
-using MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.Window;
+﻿using MarcoZechner.CodeDrawDotNet.DrawLayer;
+using MarcoZechner.CodeDrawDotNet.Shaders;
+using MarcoZechner.CodeDrawDotNet.Window;
 using Silk.NET.GLFW;
-using CodeDrawLayer = MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.DrawLayer.CodeDrawLayer;
+using CodeDrawLayer = MarcoZechner.CodeDrawDotNet.DrawLayer.CodeDrawLayer;
 
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.PrototypeTest;
 

@@ -3,16 +3,23 @@ using SharpFont;
 
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.DrawLayer.Text;
 
-public sealed class GlyphCache(IGlyphAtlasBackend backend) : IDisposable
+public sealed class GlyphCache : IDisposable
 {
     private readonly FontLibrary _lib = new();
 
     private readonly Dictionary<(string path, int sizePx), FontFace> _faces = new();
     private readonly Dictionary<GlyphKey, GlyphInfo> _glyphs = new();
 
-    private readonly GlyphAtlas _atlas = new(backend);
+    private readonly IGlyphAtlasBackend? _backend;
+    private readonly GlyphAtlas? _atlas;
 
     private const int PAD = 1;
+
+    public GlyphCache(IGlyphAtlasBackend? backend)
+    {
+        _backend = backend;
+        _atlas = backend != null ? new GlyphAtlas(backend) : null;
+    }
 
     public void Dispose()
     {
@@ -60,6 +67,7 @@ public sealed class GlyphCache(IGlyphAtlasBackend backend) : IDisposable
 
         var info = new GlyphInfo
         {
+            AtlasPage = -1, // IMPORTANT: default to "not in atlas"
             AdvanceX = advance,
             BearingX = slot.BitmapLeft,
             BearingY = slot.BitmapTop,
@@ -67,6 +75,14 @@ public sealed class GlyphCache(IGlyphAtlasBackend backend) : IDisposable
             BitmapH = gh,
         };
 
+        // CPU-only mode: skip atlas upload entirely
+        if (_backend == null || _atlas == null)
+        {
+            _glyphs[key] = info;
+            return info;
+        }
+
+        // GPU mode: upload into atlas
         if (gw > 0 && gh > 0)
         {
             int allocW = gw + PAD * 2;
@@ -92,7 +108,7 @@ public sealed class GlyphCache(IGlyphAtlasBackend backend) : IDisposable
                     }
                 }
 
-                backend.UploadAlpha8(page, x + PAD, y + PAD, gw, gh, tmp.AsSpan(0, gw * gh));
+                _backend.UploadAlpha8(page, x + PAD, y + PAD, gw, gh, tmp.AsSpan(0, gw * gh));
             }
             finally
             {
@@ -105,7 +121,7 @@ public sealed class GlyphCache(IGlyphAtlasBackend backend) : IDisposable
             info.W = gw;
             info.H = gh;
 
-            var pageSize = backend.GetPageSize(page);
+            var pageSize = _backend.GetPageSize(page);
             info.Uv = new(
                 info.X / pageSize.X,
                 info.Y / pageSize.Y,

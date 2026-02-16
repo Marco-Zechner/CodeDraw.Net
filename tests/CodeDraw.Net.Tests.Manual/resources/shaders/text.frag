@@ -3,12 +3,12 @@
 in vec2 vUv;
 in vec4 vColor;
 
-uniform sampler2D uAtlas;
-
 out vec4 outColor;
+
+uniform sampler2D uAtlas;
 
 void main()
 {
-    float a = texture(uAtlas, vUv).r;
-    outColor = vec4(vColor.rgb, vColor.a * a);
+    float cov = texture(uAtlas, vUv).r;
+    outColor = vec4(vColor.rgb, vColor.a * cov);
 }

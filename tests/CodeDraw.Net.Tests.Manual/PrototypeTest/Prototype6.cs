@@ -58,7 +58,7 @@ public class Prototype6 : IDisposable
             ExtraLineGapPx = 0,
             ExtraCellGapPx = 0,
 
-            DebugMode = TextDebugMode.Cells // only show cells for grid verification
+            DebugMode = TextDebugMode.All // only show cells for grid verification
         };
 
         var wall = new StringBuilder();
@@ -90,7 +90,7 @@ public class Prototype6 : IDisposable
 
                 for (int y = 0; y < rows; y++)
                 {
-                    wall.Append(RandomString(cols, "█"));
+                    wall.Append(RandomString(cols));
                     if (y != rows - 1) wall.Append('\n');
                 }
             }

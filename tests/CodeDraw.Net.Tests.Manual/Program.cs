@@ -102,7 +102,23 @@ public static class Program
 
             var selectedId = args.Where(s => int.TryParse(s, out _))
                 .Select(int.Parse)
-                .FirstOrDefault();
+                .FirstOrDefault(-1);
+
+            if (selectedId == -1)
+            {
+                Console.WriteLine("No prototype id specified after -p. Please enter an id from the list below:");
+                foreach (var p in allPrototypes)                {
+                    Console.WriteLine($"  [{p.Id}] {p.Type.Name})");
+                }
+                Console.Write("Enter prototype id to run: ");
+                var line = Console.ReadLine();
+                if (line is null || !int.TryParse(line.Trim(), out selectedId))
+                {
+                    Console.WriteLine("Invalid input. Exiting.");
+                    return;
+                }
+                Console.Clear();
+            }
 
             var target = selectedId != 0
                 ? allPrototypes.FirstOrDefault(t => t.Id == selectedId)

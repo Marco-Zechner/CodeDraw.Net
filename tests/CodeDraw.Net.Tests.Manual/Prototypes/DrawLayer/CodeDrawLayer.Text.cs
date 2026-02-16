@@ -8,7 +8,37 @@ namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.DrawLayer;
 
 public sealed unsafe partial class CodeDrawLayer
 {
-    // -------- Text state (render thread) --------
+    // =========================
+    // CPU-only text (NO GL)
+    // =========================
+    private bool _textCpuInit;
+    private GlyphCache? _cpuGlyphs;
+    private FontMetricsProvider? _cpuMetrics;
+    private MonospaceLayout? _cpuLayout;
+
+    private void EnsureTextCpuInit()
+    {
+        if (_textCpuInit) return;
+        _textCpuInit = true;
+
+        // backend=null => NO atlas upload => safe on any thread
+        _cpuGlyphs = new GlyphCache(null);
+        _cpuMetrics = new FontMetricsProvider(_cpuGlyphs);
+        _cpuLayout = new MonospaceLayout(_cpuGlyphs, _cpuMetrics);
+    }
+
+    public Vector2 MeasureText(string text, TextStyle style)
+    {
+        EnsureTextCpuInit();
+        if (_cpuLayout == null) return Vector2.Zero;
+
+        var m = _cpuLayout.Measure(text, style);
+        return new Vector2(m.Width, m.Height);
+    }
+
+    // =========================
+    // GPU text (render thread)
+    // =========================
     private bool _textInit;
 
     private AutoProgram _progText = null!;
@@ -16,7 +46,7 @@ public sealed unsafe partial class CodeDrawLayer
     private AutoUniform _uTextAtlas = null!;
 
     private uint _textVao;
-    private uint _textVbo; // streamed vertices (no instancing -> no glVertexAttribDivisor)
+    private uint _textVbo;
 
     private GlGlyphAtlasBackend? _textAtlasBackend;
     private GlyphCache? _textGlyphCache;
@@ -31,6 +61,7 @@ public sealed unsafe partial class CodeDrawLayer
         if (_textInit) return;
         _textInit = true;
 
+        // MUST be called on render thread with current context
         _progText = new AutoProgram(this, ShaderPath.Engine("text"));
         _uTextRes = new AutoUniform(_gl, this, _progText, "uRes");
         _uTextAtlas = new AutoUniform(_gl, this, _progText, "uAtlas");
@@ -46,8 +77,8 @@ public sealed unsafe partial class CodeDrawLayer
         _gl.BindVertexArray(_textVao);
         _gl.BindBuffer(GLEnum.ArrayBuffer, _textVbo);
 
-        // layout: pos(2), uv(2), color(4) => 8 floats
-        uint stride = (uint)(sizeof(float) * 8);
+        // pos(2), uv(2), color(4) => 8 floats
+        var stride = (uint)(sizeof(float) * 8);
 
         _gl.EnableVertexAttribArray(0);
         _gl.VertexAttribPointer(0, 2, GLEnum.Float, false, stride, (void*)0);
@@ -60,15 +91,6 @@ public sealed unsafe partial class CodeDrawLayer
 
         _gl.BindBuffer(GLEnum.ArrayBuffer, 0);
         _gl.BindVertexArray(0);
-    }
-
-    public Vector2 MeasureText(string text, TextStyle style)
-    {
-        EnsureTextInit();
-        if (_textLayout == null) return Vector2.Zero;
-
-        var m = _textLayout.Measure(text, style);
-        return new Vector2(m.Width, m.Height);
     }
 
     public void DrawText(string text, float x, float y, TextStyle style)
@@ -111,24 +133,6 @@ public sealed unsafe partial class CodeDrawLayer
         public void Exec(GL gl, CodeDrawLayer self) => self.ExecText(gl, Text, X, Y, Style);
     }
 
-    private void DrawDebugRect(GL gl, float x, float y, float w, float h, Rgba c, DebugRectMode mode, float outlinePx)
-    {
-        outlinePx = MathF.Max(1, outlinePx);
-
-        if (mode is DebugRectMode.Fill or DebugRectMode.FillAndOutline)
-            ExecRect(gl, x, y, w, h, c.R, c.G, c.B, c.A);
-
-        if (mode is DebugRectMode.Outline or DebugRectMode.FillAndOutline)
-        {
-            float a = MathF.Min(1f, c.A * 2f);
-
-            ExecRect(gl, x, y, w, outlinePx, c.R, c.G, c.B, a);                 // top
-            ExecRect(gl, x, y + h - outlinePx, w, outlinePx, c.R, c.G, c.B, a); // bottom
-            ExecRect(gl, x, y, outlinePx, h, c.R, c.G, c.B, a);                 // left
-            ExecRect(gl, x + w - outlinePx, y, outlinePx, h, c.R, c.G, c.B, a); // right
-        }
-    }
-
     private void ExecText(GL gl, string text, float x, float y, TextStyle style)
     {
         EnsureTextInit();
@@ -140,14 +144,39 @@ public sealed unsafe partial class CodeDrawLayer
         _textLayout.Layout(text, x, y, style, _glyphScratch, _debugScratch);
 
         // Debug rects first (glyphs on top)
-        for (int i = 0; i < _debugScratch.Count; i++)
+        foreach (var r in _debugScratch)
         {
-            var r = _debugScratch[i];
             DrawDebugRect(gl, r.X, r.Y, r.W, r.H, r.Color, style.DebugRects, style.DebugOutlinePx);
         }
 
         if (_glyphScratch.Count == 0) return;
 
+        if (style.Background is { } bg)
+        {
+            var m = _textLayout.Measure(text, style); // returns width/height
+
+            var ax = style.Align switch
+            {
+                TextAlign.Left => 0,
+                TextAlign.Center => m.Width * 0.5f,
+                TextAlign.Right => m.Width,
+                _ => 0,
+            };
+
+            var ay = style.VAlign switch
+            {
+                TextVAlign.Top => 0,
+                TextVAlign.Middle => m.Height * 0.5f,
+                TextVAlign.Bottom => m.Height,
+                _ => 0,
+            };
+
+            var bx = x - ax;
+            var by = y - ay;
+
+            ExecRect(gl, bx, by, m.Width, m.Height, bg.R, bg.G, bg.B, bg.A);
+        }
+        
         gl.BindVertexArray(_textVao);
         gl.UseProgram(_progText);
 
@@ -156,11 +185,10 @@ public sealed unsafe partial class CodeDrawLayer
 
         gl.ActiveTexture(GLEnum.Texture0);
 
-        // Group by atlas page (usually small count)
+        // Group by atlas page
         var byPage = new Dictionary<int, List<MonospaceLayout.GlyphInstance>>();
-        for (int i = 0; i < _glyphScratch.Count; i++)
+        foreach (var g in _glyphScratch)
         {
-            var g = _glyphScratch[i];
             if (!byPage.TryGetValue(g.Page, out var list))
             {
                 list = new List<MonospaceLayout.GlyphInstance>(256);
@@ -171,60 +199,49 @@ public sealed unsafe partial class CodeDrawLayer
 
         foreach (var kv in byPage)
         {
-            int page = kv.Key;
+            var page = kv.Key;
             var glyphs = kv.Value;
             if (glyphs.Count == 0) continue;
 
-            uint tex = _textAtlasBackend.GetPageTexture(page);
+            var tex = _textAtlasBackend.GetPageTexture(page);
             if (tex == 0) continue;
 
             gl.BindTexture(GLEnum.Texture2D, tex);
 
-            int vertCount = glyphs.Count * 6;
-            nuint bytes = (nuint)(vertCount * sizeof(float) * 8);
+            var vertCount = glyphs.Count * 6;
+            var bytes = (nuint)(vertCount * sizeof(float) * 8);
 
-            // Stream vertices
             gl.BindBuffer(GLEnum.ArrayBuffer, _textVbo);
             gl.BufferData(GLEnum.ArrayBuffer, bytes, null, GLEnum.StreamDraw);
 
             var data = new float[vertCount * 8];
-            int o = 0;
+            var o = 0;
 
-            for (int i = 0; i < glyphs.Count; i++)
+            foreach (var g in glyphs)
             {
-                var g = glyphs[i];
+                var x0 = g.X;
+                var y0 = g.Y;
+                var x1 = g.X + g.W;
+                var y1 = g.Y + g.H;
 
-                float x0 = g.X;
-                float y0 = g.Y;
-                float x1 = g.X + g.W;
-                float y1 = g.Y + g.H;
+                var u0 = g.Uv.X;
+                var v0 = g.Uv.Y;
+                var u1 = g.Uv.Z;
+                var v1 = g.Uv.W;
 
-                float u0 = g.Uv.X;
-                float v0 = g.Uv.Y;
-                float u1 = g.Uv.Z;
-                float v1 = g.Uv.W;
+                float r = g.Color.R, gg = g.Color.G, b = g.Color.B, a = g.Color.A;
 
-                float r = g.Color.R;
-                float gg = g.Color.G;
-                float b = g.Color.B;
-                float a = g.Color.A;
-
-                // tri 1
                 Write(data, ref o, x0, y0, u0, v0, r, gg, b, a);
                 Write(data, ref o, x1, y0, u1, v0, r, gg, b, a);
                 Write(data, ref o, x1, y1, u1, v1, r, gg, b, a);
 
-                // tri 2
                 Write(data, ref o, x0, y0, u0, v0, r, gg, b, a);
                 Write(data, ref o, x1, y1, u1, v1, r, gg, b, a);
                 Write(data, ref o, x0, y1, u0, v1, r, gg, b, a);
             }
 
-            unsafe
-            {
-                fixed (float* p = data)
-                    gl.BufferSubData(GLEnum.ArrayBuffer, 0, bytes, p);
-            }
+            fixed (float* p = data)
+                gl.BufferSubData(GLEnum.ArrayBuffer, 0, bytes, p);
 
             gl.DrawArrays(GLEnum.Triangles, 0, (uint)vertCount);
 
@@ -236,16 +253,31 @@ public sealed unsafe partial class CodeDrawLayer
         gl.BindVertexArray(0);
         gl.UseProgram(0);
 
+        return;
+        
         static void Write(float[] dst, ref int o, float x, float y, float u, float v, float r, float g, float b, float a)
         {
-            dst[o++] = x;
-            dst[o++] = y;
-            dst[o++] = u;
-            dst[o++] = v;
-            dst[o++] = r;
-            dst[o++] = g;
-            dst[o++] = b;
-            dst[o++] = a;
+            dst[o++] = x; dst[o++] = y;
+            dst[o++] = u; dst[o++] = v;
+            dst[o++] = r; dst[o++] = g; dst[o++] = b; dst[o++] = a;
+        }
+    }
+
+    private void DrawDebugRect(GL gl, float x, float y, float w, float h, Rgba c, DebugRectMode mode, float outlinePx)
+    {
+        outlinePx = MathF.Max(1, outlinePx);
+
+        if (mode is DebugRectMode.Fill or DebugRectMode.FillAndOutline)
+            ExecRect(gl, x, y, w, h, c.R, c.G, c.B, c.A);
+
+        if (mode is DebugRectMode.Outline or DebugRectMode.FillAndOutline)
+        {
+            var a = MathF.Min(1f, c.A * 2f);
+
+            ExecRect(gl, x, y, w, outlinePx, c.R, c.G, c.B, a);
+            ExecRect(gl, x, y + h - outlinePx, w, outlinePx, c.R, c.G, c.B, a);
+            ExecRect(gl, x, y, outlinePx, h, c.R, c.G, c.B, a);
+            ExecRect(gl, x + w - outlinePx, y, outlinePx, h, c.R, c.G, c.B, a);
         }
     }
 
@@ -256,22 +288,11 @@ public sealed unsafe partial class CodeDrawLayer
 
         public int EnsurePage(int minW, int minH)
         {
-            int w = minW;
-            int h = minH;
-
-            uint tex = gl.GenTexture();
+            var tex = gl.GenTexture();
             gl.BindTexture(GLEnum.Texture2D, tex);
 
-            gl.TexImage2D(
-                GLEnum.Texture2D,
-                0,
-                (int)GLEnum.R8,
-                (uint)w,
-                (uint)h,
-                0,
-                GLEnum.Red,
-                GLEnum.UnsignedByte,
-                null);
+            gl.TexImage2D(GLEnum.Texture2D, 0, (int)GLEnum.R8,
+                (uint)minW, (uint)minH, 0, GLEnum.Red, GLEnum.UnsignedByte, null);
 
             gl.TexParameter(GLEnum.Texture2D, GLEnum.TextureMinFilter, (int)GLEnum.Linear);
             gl.TexParameter(GLEnum.Texture2D, GLEnum.TextureMagFilter, (int)GLEnum.Linear);
@@ -280,8 +301,8 @@ public sealed unsafe partial class CodeDrawLayer
 
             gl.BindTexture(GLEnum.Texture2D, 0);
 
-            int idx = _pages.Count;
-            _pages.Add((tex, w, h));
+            var idx = _pages.Count;
+            _pages.Add((tex, minW, minH));
             return idx;
         }
 
@@ -293,19 +314,10 @@ public sealed unsafe partial class CodeDrawLayer
             gl.BindTexture(GLEnum.Texture2D, tex);
             gl.PixelStore(GLEnum.UnpackAlignment, 1);
 
-            unsafe
+            fixed (byte* p = alpha)
             {
-                fixed (byte* p = alpha)
-                {
-                    gl.TexSubImage2D(
-                        GLEnum.Texture2D,
-                        0,
-                        x, y,
-                        (uint)w, (uint)h,
-                        GLEnum.Red,
-                        GLEnum.UnsignedByte,
-                        p);
-                }
+                gl.TexSubImage2D(GLEnum.Texture2D, 0, x, y, (uint)w, (uint)h,
+                    GLEnum.Red, GLEnum.UnsignedByte, p);
             }
 
             gl.PixelStore(GLEnum.UnpackAlignment, 4);

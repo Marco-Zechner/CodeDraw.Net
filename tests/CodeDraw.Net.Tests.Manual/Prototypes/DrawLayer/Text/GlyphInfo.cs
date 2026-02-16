@@ -4,7 +4,7 @@ namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.Prototypes.DrawLayer.Text;
 
 public sealed class GlyphInfo
 {
-    public int AtlasPage;
+    public int AtlasPage = -1;
 
     public int X, Y, W, H;
     public Vector4 Uv;

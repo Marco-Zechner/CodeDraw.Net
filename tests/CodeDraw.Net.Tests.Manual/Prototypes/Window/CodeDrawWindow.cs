@@ -666,14 +666,12 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
                 if (lastTex != 0)
                 {
                     var bg = snap.BackgroundColor;
-
-                    // If TransparentAlpha is false, force alpha=1 on the clear too (and uForceOpaque already does the final alpha)
-                    if (!snap.TransparentAlpha)
-                        bg.A = 1f;
-
-                    gl.Disable(GLEnum.ScissorTest);
-                    gl.ClearColor(bg.R, bg.G, bg.B, bg.A);
-                    gl.Clear((uint)ClearBufferMask.ColorBufferBit);
+                    if (snap.PresentMode == WindowPresentMode.Camera)
+                    {
+                        gl.Disable(GLEnum.ScissorTest);
+                        gl.ClearColor(bg.R, bg.G, bg.B, opaque ? 1f : bg.A);
+                        gl.Clear((uint)ClearBufferMask.ColorBufferBit);
+                    }
 
                     gl.Enable(GLEnum.ScissorTest);
                     gl.Scissor(0, 0, (uint)client.X, (uint)client.Y);

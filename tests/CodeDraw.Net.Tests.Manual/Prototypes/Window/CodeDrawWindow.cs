@@ -665,9 +665,9 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
 
                 if (lastTex != 0)
                 {
-                    var bg = snap.BackgroundColor;
                     if (snap.PresentMode == WindowPresentMode.Camera)
                     {
+                        var bg = snap.BackgroundColor;
                         gl.Disable(GLEnum.ScissorTest);
                         gl.ClearColor(bg.R, bg.G, bg.B, opaque ? 1f : bg.A);
                         gl.Clear((uint)ClearBufferMask.ColorBufferBit);
@@ -686,7 +686,6 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
                     if (uPresentMode >= 0) gl.Uniform1(uPresentMode, (int)snap.PresentMode);
                     if (uWindowSize >= 0) Uniform2F(gl, uWindowSize, client.X, client.Y);
                     if (uLayerSize >= 0)  Uniform2F(gl, uLayerSize, layer.Width, layer.Height);
-                    if (uBg >= 0)         Uniform4F(gl, uBg, bg.R, bg.G, bg.B, bg.A);
                     
                     if (snap.PresentMode == WindowPresentMode.Camera && uW2L >= 0)
                     {

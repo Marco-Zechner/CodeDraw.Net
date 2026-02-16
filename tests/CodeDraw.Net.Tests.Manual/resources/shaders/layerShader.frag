@@ -9,7 +9,6 @@ uniform int  uPresentMode;
 uniform vec2 uWindowSizePx;
 uniform vec2 uLayerSizePx;
 uniform mat3 uWindowToLayer;
-uniform vec4 uBackground;
 uniform int  uForceOpaque;
 
 vec4 sample_layer_uv(vec2 uv)
@@ -21,34 +20,27 @@ vec4 sample_layer_uv(vec2 uv)
 
 void main()
 {
-    vec4 bg = uBackground;
-
     vec2 winPx = vec2(gl_FragCoord.x, uWindowSizePx.y - gl_FragCoord.y);
 
     vec4 src;
-    if (uPresentMode == 0)
+    if (uPresentMode == 0) // stretch to fill
     {
         src = texture(uTex, vUV);
     }
-    else if (uPresentMode == 2)
+    else if (uPresentMode == 2) // tile
     {
         vec2 uv = fract(winPx / uLayerSizePx);
         src = texture(uTex, uv);
     }
-    else
+    else // camera
     {
         vec3 lp = uWindowToLayer * vec3(winPx, 1.0);
         vec2 uv = lp.xy / uLayerSizePx;
         src = sample_layer_uv(uv);
     }
 
-    vec4 outc = vec4(
-    src.rgb * src.a + bg.rgb * (1.0 - src.a),
-    src.a + bg.a * (1.0 - src.a)
-    );
-
     if (uForceOpaque != 0)
-    outc.a = 1.0;
+        src.a = 1.0;
 
-    out_color = outc;
+    out_color = src;
 }

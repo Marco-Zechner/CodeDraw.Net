@@ -114,10 +114,11 @@ public class Prototype3 : IDisposable
             
             var layer = win.Layer;
 
-            layer.Clear(1,1,1,0.5f);
+            layer.Clear(1,1,1, 0.5f);
             DrawOrbitingDots(layer, 200, 200, 10, 50, 2, 0, new Rgba(0.5f, 0, 0, 1f));
             DrawOrbitingDots(layer, 200, 200, 10, 80, 2*80/50f, 0, new Rgba(0.0f, 1, 1, 1f));
             DrawOrbitingDots(layer, 350, 350, 4, 35, -2*80/50f, 0, new Rgba(0.0f, 1, 1, 1f));
+            layer.DrawRect(100,100,100,100, 1,0,0,0.5f);
             layer.Render();
         };
 

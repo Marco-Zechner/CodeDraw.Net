@@ -12,14 +12,15 @@ public sealed partial class CodeDrawLayer
     /// </summary>
     /// <param name="w"></param>
     /// <param name="h"></param>
-    public void RequestLayerSize(int w, int h)
+    public bool RequestLayerSize(int w, int h)
     {
-        if (_disposed) return;
-        if (w <= 0 || h <= 0) return;
-        if (w == _w && h == _h) return;
+        if (_disposed) return false;
+        if (w <= 0 || h <= 0) return false;
+        if (w == _w && h == _h) return false;
 
         Enqueue(new CmdResize(w, h));
         Render();
+        return true;
     }
 
     public void Render()

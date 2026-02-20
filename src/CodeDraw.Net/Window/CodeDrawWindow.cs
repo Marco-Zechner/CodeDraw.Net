@@ -605,7 +605,6 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
             var uWindowSize  = new AutoUniform(gl, this, progBlit, "uWindowSizePx");
             var uLayerSize   = new AutoUniform(gl, this, progBlit, "uLayerSizePx");
             var uW2L         = new AutoUniform(gl, this, progBlit, "uWindowToLayer");
-            var uBg          = new AutoUniform(gl, this, progBlit, "uBackground");
 
             gl.Disable(GLEnum.Blend);
 

@@ -39,7 +39,6 @@ public class Prototype6 : IDisposable
     {
         var window = new CodeDrawWindow(_host, 1920, 1080, 50, 50, "Prototype6 - Grid Test");
         var textLayer = new CodeDrawLayer(_host, window.Width, window.Height);
-        var glowLayer = new CodeDrawLayer(_host, window.Width, window.Height);
         var glowShader = CodeDrawShader.CsProject("glowShader", "PrototypeTest/shaders");
         var circleCopyShader = CodeDrawShader.CsProject("circleCopy", "PrototypeTest/shaders");
         _windows.Add(window);
@@ -47,7 +46,7 @@ public class Prototype6 : IDisposable
         
         const int FONT_PX = 24;
         var padding = (X: 12, Y: 12);
-        float background = 0.3f;
+        var background = 0.3f;
         
         var style = new TextStyle
         {
@@ -133,7 +132,8 @@ public class Prototype6 : IDisposable
                 }
             }
 
-            textLayer.RequestLayerSize(window.Width, window.Height);
+            var resized = textLayer.RequestLayerSize(window.Width, window.Height);
+            window.Layer.RequestLayerSize(window.Width, window.Height); // important to have a good text quality. TODO: let window do that automatically in some cases. see todo.md
             textLayer.Clear();
             
             Vector2<double> mousePos = new(ctx.Win.Input.MouseX, ctx.Win.Input.MouseY);
@@ -151,91 +151,142 @@ public class Prototype6 : IDisposable
             var m2 = textLayer.MeasureText("█\n█", style);
             var cellW = m1.X;
             var lineH = m2.Y / 2f;
+            
+            cellW = MathF.Round(cellW * 2)/2f;    // or Round(cellW * 2)/2 for half-pixel
+            lineH = MathF.Round(lineH * 2)/2f;
 
             var cols = (int)((textLayer.Width - padding.X * 2) / cellW);
             var rows = (int)((textLayer.Height - padding.Y * 2) / lineH);
 
             
-            var title = $"This{(rows % 2 == 0 ? "  " : "\n")}is\nCodeDraw.Net";
+            var title = (rows & 1) == 0
+                ? "This  is\nCodeDraw.Net"
+                : "This  is\n\nCodeDraw.Net";
             
             var titleLines = title.Split('\n');
             var titleLineCount = titleLines.Length;
-            var maxTitleLineLength = titleLines.Max(x => x.Length);
-            
+
+            var titleGlyphCount = title.Count(t => t != '\n' && t != '\r');
+
+            // Distance -> how many title characters are “revealed”
             var distanceToCenter = (mousePos - textLayer.Size / 2).Length<double>();
             var maxDistance = (textLayer.Size / 2).Length<double>() / 1.5f;
             var minDistance = (textLayer.Size / 2).Length<double>() / 15;
-            var displayedChars = (int)MathG.MapClamped(distanceToCenter, minDistance, maxDistance, title.Length, 0);
-            
-            if (mouseMoved)
+
+            var desiredVisible = (int)MathG.MapClamped(
+                distanceToCenter,
+                minDistance,
+                maxDistance,
+                titleGlyphCount,
+                0
+            );
+
+            // only rebuild when mouse moved OR after some time has passed (optional)
+            var shouldRebuild = mouseMoved || resized;
+
+            string textWall;
+            string displayTitleStr;
+
+            if (shouldRebuild)
             {
-                displayTitle.Clear();
-                
-                for (var i = 0; i < titleLineCount; i++)
-                {
-                    displayTitle.Append(' ', maxTitleLineLength);
-                    if (i != titleLines.Length - 1) displayTitle.AppendLine();
-                }
-                
-                lastReset = textLayer.LayerAliveForSeconds();
-                wall.Clear();
+                // Build fresh random wall buffer
+                var wallBuf = CreateRandomWallBuffer(rows, cols);
 
-                for (var y = 0; y < rows; y++)
-                {
-                    wall.Append(RandomString(cols));
-                    if (y != rows - 1) wall.Append('\n');
-                }
-                
-                var middleLineIndex = rows / 2;
-                var middleLineStart = middleLineIndex * (cols + 1);
-                
-                var titleMiddleIndex = titleLineCount / 2;
-                var titleMiddleLineStart = titleMiddleIndex * (maxTitleLineLength + 1);
+                // Build a title buffer (same grid size) filled with spaces/newlines later
+                var titleBuf = CreateBlankBuffer(rows, cols);
 
-                var desiredVisible = displayedChars;
-                while (title.Take(displayedChars).Count(c => c != ' ') != desiredVisible)
+                // Reveal characters linearly across the title (left->right, top->bottom).
+                // Also: ensure we only count non-space chars as "revealed".
+                var remainingVisible = desiredVisible;
+
+                // Centering that works for odd/even:
+                // Example: 3 lines => startRow = centerRow - 1
+                //          4 lines => startRow = centerRow - 1  (slightly top-biased, stable)
+                var centerRow = rows / 2;
+                var centerCol = cols / 2;
+                var startRow = centerRow - (titleLineCount - 1) / 2;
+                if ((rows & 1) == 0) startRow--;
+
+                for (var li = 0; li < titleLineCount; li++)
                 {
-                    displayedChars++;
-                    if (displayedChars > title.Length) break;
-                }
-                
-                var charsToClear = displayedChars;
-                for (var i = 0; i < titleLines.Length; i++)
-                {
-                    var line = titleLines[i];
-                    var charsToReplaceThisLine = Math.Min(charsToClear, line.Length);
-                    charsToClear -= charsToReplaceThisLine;
-                    
-                    var lineStartIndex = middleLineStart + (i-1) * (cols + 1);
-                    var lineMiddleIndex = lineStartIndex + cols / 2;
-                    var lineInsertIndex = lineMiddleIndex - line.Length / 2;
-                    for (var j = 0; j < charsToReplaceThisLine; j++)
+                    var line = titleLines[li];
+                    var row = startRow + li;
+
+                    if ((uint)row >= (uint)rows) continue; // out of bounds (tiny windows)
+
+                    var colStart = centerCol - (line.Length / 2);
+
+                    // clamp start so we never write outside
+                    if (colStart < 0) colStart = 0;
+                    if (colStart + line.Length > cols) colStart = Math.Max(0, cols - line.Length);
+
+                    // Determine how many chars of THIS line are revealed, counting only non-spaces.
+                    var revealThisLine = 0;
+                    for (var j = 0; j < line.Length && remainingVisible > 0; j++)
                     {
                         if (line[j] != ' ')
-                            wall.Remove(lineInsertIndex + i, 1).Insert(lineInsertIndex + i, new string(' ', 1));
+                        {
+                            revealThisLine++;
+                            remainingVisible--;
+                        }
                     }
-                    
-                    var titleLineStartIndex = titleMiddleLineStart + (i-1) * (maxTitleLineLength + 1);
-                    var titleLineInsertIndex = titleLineStartIndex + maxTitleLineLength / 2;
-                    var titleInsertIndex = titleLineInsertIndex - line.Length / 2;
-                    if (i != 0) titleInsertIndex += 1;
-                    displayTitle.Remove(titleInsertIndex, charsToReplaceThisLine).Insert(titleInsertIndex, line[..charsToReplaceThisLine]);
+
+                    // Now actually write revealed chars (and carve the wall underneath).
+                    var writtenNonSpace = 0;
+                    for (var j = 0; j < line.Length; j++)
+                    {
+                        var c = line[j];
+                        if (c == ' ') continue;
+
+                        if (writtenNonSpace >= revealThisLine) break;
+
+                        var col = colStart + j;
+                        if ((uint)col >= (uint)cols) continue;
+
+                        // carve wall behind the title
+                        wallBuf[row][col] = ' ';
+
+                        // put title char into title buffer
+                        titleBuf[row][col] = c;
+
+                        writtenNonSpace++;
+                    }
                 }
+
+                // Convert buffers to strings
+                textWall = BufferToString(wallBuf);
+                displayTitleStr = BufferToString(titleBuf);
+
+                // stash for reuse if you want (instead of re-creating each time)
+                wall.Clear();
+                wall.Append(textWall);
+                displayTitle.Clear();
+                displayTitle.Append(displayTitleStr);
             }
-            
-            var textWall = wall.ToString();
-            
-            var size = textLayer.MeasureText(textWall, style);
-            var offsetX = (textLayer.Width - size.X) / 2f;
-            var offsetY = (textLayer.Height - size.Y) / 2f;
-            
+            else
+            {
+                // reuse previous (cheap)
+                textWall = wall.ToString();
+                displayTitleStr = displayTitle.ToString();
+            }
+
+            // draw wall
+            var gridW = cols * cellW;
+            var gridH = rows * lineH;
+
+            // symmetric leftover space
+            var offsetX = (textLayer.Width  - gridW) * 0.5f;
+            var offsetY = (textLayer.Height - gridH) * 0.5f;
+
+            offsetX = MathF.Round(offsetX);
+            offsetY = MathF.Round(offsetY);
+
+            offsetX = MathF.Max(offsetX, padding.X);
+            offsetY = MathF.Max(offsetY, padding.Y);
+
+            // Now draw using these offsets:
             textLayer.DrawText(textWall, offsetX, offsetY, style);
-            
-            var titleSize = textLayer.MeasureText(title, style);
-            var titleOffsetX = offsetX + size.X/2f - titleSize.X/2f;
-            var titleOffsetY = offsetY + size.Y/2f - titleSize.Y/2f;
-            
-            textLayer.DrawText(displayTitle.ToString(), titleOffsetX, titleOffsetY, titleStyle);
+            textLayer.DrawText(displayTitleStr, offsetX, offsetY, titleStyle);
             
             textLayer.Render();
 
@@ -276,10 +327,44 @@ public class Prototype6 : IDisposable
     }
 
     private static readonly Random _random = new();
-
-    public static string RandomString(int length, string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+    
+    private static char[][] CreateRandomWallBuffer(int rows, int cols, string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
     {
-        return new string(Enumerable.Repeat(chars, length)
-            .Select(s => s[_random.Next(s.Length)]).ToArray());
+        var buf = new char[rows][];
+        for (var r = 0; r < rows; r++)
+        {
+            var row = new char[cols];
+            for (var c = 0; c < cols; c++)
+                row[c] = chars[_random.Next(chars.Length)];
+            buf[r] = row;
+        }
+        return buf;
+    }
+
+    private static char[][] CreateBlankBuffer(int rows, int cols)
+    {
+        var buf = new char[rows][];
+        for (var r = 0; r < rows; r++)
+        {
+            var row = new char[cols];
+            Array.Fill(row, ' ');
+            buf[r] = row;
+        }
+        return buf;
+    }
+
+    private static string BufferToString(char[][] buf)
+    {
+        var rows = buf.Length;
+        var cols = rows > 0 ? buf[0].Length : 0;
+
+        // rows*(cols + newline)
+        var sb = new StringBuilder(rows * (cols + 1));
+        for (var r = 0; r < rows; r++)
+        {
+            sb.Append(buf[r]);
+            if (r != rows - 1) sb.Append('\n');
+        }
+        return sb.ToString();
     }
 }

@@ -25,3 +25,13 @@ We apply a postprocessing shader to give a glowing effect to the text-wall aroun
 Once CodeDraw.Net is fully visible the other characters stop changing. only when the user moves the cursor then they change again while he moves it.
 
 ---
+
+TODO:
+add setting to layer to follow a window resize "layer.FollowWindowSize(window); //or null for none"
+the "auto-layer" of a window will have this set by default to follow. if the layer is once manually resized or another window is also set to draw it, then this setting will reset to none.
+
+win1 = new Window(); //auto-layer follows
+win2 = new Window();
+win2.SetPresentedLayer(win1.Layer); //auto-layer won't change anymore on resize.
+win1.Layer.FollowWindowSize(win2); //auto-layer will now follow win2 size changes
+win2.Layer.RequestLayerSize(100, 100); //auto-layer won't change anymore on resize. (win2.Layer is the same as win1.Layer, since both present the same layer)

@@ -8,10 +8,6 @@ namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.PrototypeTest;
 
 public sealed class Prototype2
 {
-    private readonly CodeDrawWindow _winSrc;
-    private readonly CodeDrawWindow _winDst;
-    private readonly CodeDrawWindow _winFull;
-
     private float _t;
 
     private enum HoverRegion
@@ -51,24 +47,23 @@ public sealed class Prototype2
     [ConstructorPrototype(2)]
     public Prototype2()
     {
-        var host = SharedGlfwHost.Instance;
-        host.Start();
+        using var app = CodeDrawHost.Started();
         
-        _winSrc = new CodeDrawWindow(host, 800, 500, 50, 120, "2B: Source (Pattern Atlas)");
-        _winDst = new CodeDrawWindow(host, 800, 500, 850, 120, "2B: Dest (Crop/Place Tests)");
-        _winFull = new CodeDrawWindow(host, 800, 500, 1650, 120, "2B: Full (Copy Src fully, mostly desaturated)");
+        var winSrc = new CodeDrawWindow(800, 500, 50, 120, "2B: Source (Pattern Atlas)");
+        var winDst = new CodeDrawWindow(800, 500, 850, 120, "2B: Dest (Crop/Place Tests)");
+        var winFull = new CodeDrawWindow(800, 500, 1650, 120, "2B: Full (Copy Src fully, mostly desaturated)");
 
         var desatCopyShader = CodeDrawShader.CsProject("desat", "PrototypeTest/shaders");
         var orbitShader = CodeDrawShader.CsProject("orbitDots", "PrototypeTest/shaders");
 
-        _winSrc.OnStart = w => Console.WriteLine($"2B Src started (id={w.WindowId})");
-        _winDst.OnStart = w => Console.WriteLine($"2B Dst started (id={w.WindowId})");
-        _winFull.OnStart = w => Console.WriteLine($"2B Full started (id={w.WindowId})");
-        _winSrc.OnClose = w => Console.WriteLine($"2B Src closed (id={w.WindowId})");
-        _winDst.OnClose = w => Console.WriteLine($"2B Dst closed (id={w.WindowId})");
-        _winFull.OnClose = w => Console.WriteLine($"2B Full closed (id={w.WindowId})");
+        winSrc.OnStart = w => Console.WriteLine($"2B Src started (id={w.WindowId})");
+        winDst.OnStart = w => Console.WriteLine($"2B Dst started (id={w.WindowId})");
+        winFull.OnStart = w => Console.WriteLine($"2B Full started (id={w.WindowId})");
+        winSrc.OnClose = w => Console.WriteLine($"2B Src closed (id={w.WindowId})");
+        winDst.OnClose = w => Console.WriteLine($"2B Dst closed (id={w.WindowId})");
+        winFull.OnClose = w => Console.WriteLine($"2B Full closed (id={w.WindowId})");
 
-        host.Input.OnKeyDown += (win, key, mods) =>
+        app.Input.OnKeyDown += (win, key, _) =>
         {
             switch (key)
             {
@@ -82,53 +77,55 @@ public sealed class Prototype2
         };
 
 
-        _winSrc.OnUpdate = ctx =>
+        winSrc.OnUpdate = ctx =>
         {
             _t += ctx.DeltaSeconds;
 
             var layer = ctx.Win.Layer;
-            if (layer is null || layer.IsDisposed) return;
+            if (layer.IsDisposed) return;
 
             const int W = 800;
             const int H = 500;
+            const int HALF_W = W/2;
+            const int HALF_H = H/2;
 
             layer.RequestLayerSize(W, H);
             layer.Clear(0.02f, 0.02f, 0.02f, 1f);
 
             // --- 1) Quadrants (unique colors) ---
             layer.SetBlendMode(BlendMode.NONE);
-            layer.DrawRect(0, 0, W / 2, H / 2, 0.85f, 0.20f, 0.20f, 1f);              // TL red
-            layer.DrawRect(W / 2, 0, W / 2, H / 2, 0.20f, 0.85f, 0.20f, 1f);           // TR green
-            layer.DrawRect(0, H / 2, W / 2, H / 2, 0.20f, 0.35f, 0.95f, 1f);           // BL blue
-            layer.DrawRect(W / 2, H / 2, W / 2, H / 2, 0.90f, 0.85f, 0.20f, 1f);       // BR yellow
+            layer.DrawRect(0, 0, HALF_W, HALF_H, 0.85f, 0.20f, 0.20f, 1f);              // TL red
+            layer.DrawRect(HALF_W, 0, HALF_W, HALF_H, 0.20f, 0.85f, 0.20f, 1f);           // TR green
+            layer.DrawRect(0, HALF_H, HALF_W, HALF_H, 0.20f, 0.35f, 0.95f, 1f);           // BL blue
+            layer.DrawRect(HALF_W, HALF_H, HALF_W, HALF_H, 0.90f, 0.85f, 0.20f, 1f);       // BR yellow
 
             // --- 2) Stripe overlays (easy to spot scaling/cropping correctness) ---
             // vertical stripes in lower half
             for (var x = 0; x < W; x += 20)
             {
                 var a = (x / 20) % 2 == 0 ? 0.35f : 0.08f;
-                layer.DrawRect(x, H/2, 10, H / 2, 1f, 1f, 1f, a);
+                layer.DrawRect(x, HALF_H, 10, HALF_H, 1f, 1f, 1f, a);
             }
 
             // horizontal stripes in upper half
-            for (var y = 0; y < H/2; y += 20)
+            for (var y = 0; y < HALF_H; y += 20)
             {
-                var a = ((y - H / 2) / 20) % 2 == 0 ? 0.35f : 0.08f;
+                var a = ((y - HALF_H) / 20) % 2 == 0 ? 0.35f : 0.08f;
                 layer.DrawRect(0, y, W, 10, 1f, 1f, 1f, a);
             }
 
             // --- 3) Center crosshair (exact pixel) ---
-            const float cx = W / 2f;
-            const float cy = H / 2f;
-            const int th = 4;
-            const int pad = 4;
-            layer.DrawRect(cx - (60+pad), cy - (th+pad), 120+pad*2, th*2+pad*2, 1f, 0f, 1f, 1f);
-            layer.DrawRect(cx - (th+pad), cy - (60+pad), th*2+pad*2, 120+pad*2, 1f, 0f, 1f, 1f);
-            layer.DrawRect(cx - (40+pad), cy - (60+pad), 80+pad*2, th*2+pad*2, 1f, 0f, 1f, 1f);
+            const float CX = HALF_W;
+            const float CY = HALF_H;
+            const int TH = 4;
+            const int PAD = 4;
+            layer.DrawRect(CX - (60+PAD), CY - (TH+PAD), 120+PAD*2, TH*2+PAD*2, 1f, 0f, 1f, 1f);
+            layer.DrawRect(CX - (TH+PAD), CY - (60+PAD), TH*2+PAD*2, 120+PAD*2, 1f, 0f, 1f, 1f);
+            layer.DrawRect(CX - (40+PAD), CY - (60+PAD), 80+PAD*2, TH*2+PAD*2, 1f, 0f, 1f, 1f);
 
-            layer.DrawRect(cx - 60, cy - th, 120, th*2, 1f, 1f, 1f, 1f);
-            layer.DrawRect(cx - th, cy - 60, th*2, 120, 1f, 1f, 1f, 1f);
-            layer.DrawRect(cx - 40, cy - 60, 80, th*2, 1f, 1f, 1f, 1f);
+            layer.DrawRect(CX - 60, CY - TH, 120, TH*2, 1f, 1f, 1f, 1f);
+            layer.DrawRect(CX - TH, CY - 60, TH*2, 120, 1f, 1f, 1f, 1f);
+            layer.DrawRect(CX - 40, CY - 60, 80, TH*2, 1f, 1f, 1f, 1f);
 
             // --- 4) Border outline (detect UV flip / off-by-one / scaling) ---
             DrawOutline(layer, new RectF(0, 0, W, H), new Rgba(1f, 1f, 1f, 1f), 3);
@@ -175,10 +172,10 @@ public sealed class Prototype2
             );
         }
 
-        _winDst.OnUpdate = ctx =>
+        winDst.OnUpdate = ctx =>
         {
             var dst = ctx.Win.Layer;
-            if (dst is null || dst.IsDisposed) return;
+            if (dst.IsDisposed) return;
 
             const int W = 800;
             const int H = 500;
@@ -186,8 +183,8 @@ public sealed class Prototype2
             dst.RequestLayerSize(W, H);
             dst.Clear(0.06f, 0.06f, 0.06f, 1f);
 
-            var src = _winSrc.Layer;
-            if (src is null || src.IsDisposed) { dst.Render(); return; }
+            var src = winSrc.Layer;
+            if (src.IsDisposed) { dst.Render(); return; }
 
             var (mxCanvas, myCanvas) = dst.TransformPointFrom(ctx.Win, (float)ctx.Input.MouseX, (float)ctx.Input.MouseY);
 
@@ -239,16 +236,16 @@ public sealed class Prototype2
             dst.Render();
         };
 
-        _winFull.OnUpdate = ctx =>
+        winFull.OnUpdate = ctx =>
         {
             var dst = ctx.Win.Layer;
-            if (dst is null || dst.IsDisposed) return;
+            if (dst.IsDisposed) return;
 
             dst.RequestLayerSize(800, 500);
             dst.Clear(0.03f, 0.03f, 0.03f, 1f);
 
-            var src = _winSrc.Layer;
-            if (src is null || src.IsDisposed) { dst.Render(); return; }
+            var src = winSrc.Layer;
+            if (src.IsDisposed) { dst.Render(); return; }
 
             dst.DrawLayer(src, desatCopyShader);
 
@@ -263,14 +260,14 @@ public sealed class Prototype2
 
             var hover = (HoverRegion)Volatile.Read(ref _hoverRegion);
 
-            const int baseT = 3;
-            const int hotT = 20; // thicker when hovered
+            const int BASE_T = 3;
+            const int HOT_T = 20; // thicker when hovered
 
-            DrawOutline(dst, regionB, new Rgba(1f, 1f, 1f, 1f), hover == HoverRegion.B_FULL ? hotT : baseT);
-            DrawOutline(dst, srcC,    new Rgba(1f, 0.5f, 0.5f, 1f), hover == HoverRegion.C_TL_QUADRANT ? hotT : baseT);
-            DrawOutline(dst, srcD,    new Rgba(0.6f, 1f, 0.6f, 1f), hover == HoverRegion.D_BAND ? hotT : baseT);
-            DrawOutline(dst, srcE,    new Rgba(0.6f, 0.8f, 1f, 1f), hover == HoverRegion.E_CENTER ? hotT : baseT);
-            DrawOutline(dst, srcF,    new Rgba(1f, 1f, 0.6f, 1f), hover == HoverRegion.F_BR_QUADRANT ? hotT : baseT);
+            DrawOutline(dst, regionB, new Rgba(1f, 1f, 1f, 1f), hover == HoverRegion.B_FULL ? HOT_T : BASE_T);
+            DrawOutline(dst, srcC,    new Rgba(1f, 0.5f, 0.5f, 1f), hover == HoverRegion.C_TL_QUADRANT ? HOT_T : BASE_T);
+            DrawOutline(dst, srcD,    new Rgba(0.6f, 1f, 0.6f, 1f), hover == HoverRegion.D_BAND ? HOT_T : BASE_T);
+            DrawOutline(dst, srcE,    new Rgba(0.6f, 0.8f, 1f, 1f), hover == HoverRegion.E_CENTER ? HOT_T : BASE_T);
+            DrawOutline(dst, srcF,    new Rgba(1f, 1f, 0.6f, 1f), hover == HoverRegion.F_BR_QUADRANT ? HOT_T : BASE_T);
 
             MarkCorner(dst, regionB, new Rgba(1f, 1f, 1f, 1f));
             MarkCorner(dst, srcC,    new Rgba(1f, 0.5f, 0.5f, 1f));
@@ -281,13 +278,7 @@ public sealed class Prototype2
             dst.Render();
         };
         
-        host.WaitUntilAllWindowsClosed();
-        
-        _winSrc.Dispose();
-        _winDst.Dispose();
-        _winFull.Dispose();
-        
-        host.Stop();
+        app.WaitForClose();
     }
 
     private static void DrawOutline(CodeDrawLayer l, RectF r, Rgba c, float t = 2f)

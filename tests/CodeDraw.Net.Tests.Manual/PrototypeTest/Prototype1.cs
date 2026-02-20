@@ -6,34 +6,29 @@ namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.PrototypeTest;
 
 public sealed class Prototype1
 {
-    private readonly CodeDrawWindow _winLayerA;
-    private readonly CodeDrawWindow _winLayerB;
-    private readonly CodeDrawWindow _winCombined;
-    // private readonly CodeDrawWindow _winCombined2;
-
     private float _tA;
     private float _tOverlay;
 
     [ConstructorPrototype(1)]
     public Prototype1()
     {
-        var host = SharedGlfwHost.Instance;
-        host.Start();
+        using var app = CodeDrawHost.Started();
         
-        _winCombined = new CodeDrawWindow(host, 800, 500, "Combined");
-        _winLayerA = new CodeDrawWindow(host, 800, 500, "LayerA");
-        _winLayerB = new CodeDrawWindow(host, 800, 500, "LayerB");
-        // _winCombined2 = new CodeDrawWindow(host, 800, 500, "Combined");
-        // _winCombined2.SetPresentedLayer(_winCombined.Layer);
+        
+        var winCombined = new CodeDrawWindow(800, 500, "Combined");
+        var winLayerA = new CodeDrawWindow(800, 500, "LayerA");
+        var winLayerB = new CodeDrawWindow(800, 500, "LayerB");
 
-        _winLayerA.OnStart = w => Console.WriteLine($"A started (id={w.WindowId})");
-        _winLayerB.OnStart = w => Console.WriteLine($"B started (id={w.WindowId})");
-        _winCombined.OnStart = w => Console.WriteLine($"Combined started (id={w.WindowId})");
-        _winLayerA.OnClose = w => Console.WriteLine($"A closed (id={w.WindowId})");
-        _winLayerB.OnClose = w => Console.WriteLine($"B closed (id={w.WindowId})");
-        _winCombined.OnClose = w => Console.WriteLine($"Combined closed (id={w.WindowId})");
+        // var winCombined2 = new CodeDrawWindow(800, 500, "Combined");
+        // winCombined2.SetPresentedLayer(winCombined.Layer);
+        winLayerA.OnStart = w => Console.WriteLine($"A started (id={w.WindowId})");
+        winLayerB.OnStart = w => Console.WriteLine($"B started (id={w.WindowId})");
+        winCombined.OnStart = w => Console.WriteLine($"Combined started (id={w.WindowId})");
+        winLayerA.OnClose = w => Console.WriteLine($"A closed (id={w.WindowId})");
+        winLayerB.OnClose = w => Console.WriteLine($"B closed (id={w.WindowId})");
+        winCombined.OnClose = w => Console.WriteLine($"Combined closed (id={w.WindowId})");
 
-        host.Input.OnKeyDown += ((win, key, mods) =>
+        app.Input.OnKeyDown += ((win, key, _) =>
         {
             switch (key)
             {
@@ -45,13 +40,15 @@ public sealed class Prototype1
                     break;
             }
         });
+        
+        winLayerA.OnClose += window => window.Dispose(); 
 
-        _winLayerA.OnUpdate = ctx =>
+        winLayerA.OnUpdate = ctx =>
         {
             _tA += ctx.DeltaSeconds;
 
             var layer = ctx.Win.Layer;
-            if (layer is null || layer.IsDisposed) return;
+            if (layer.IsDisposed) return;
 
             layer.RequestLayerSize(800, 500);
             layer.Clear();
@@ -66,13 +63,13 @@ public sealed class Prototype1
             layer.Render();
         };
 
-        _winLayerB.UpdateDelayMs = 33;
-        _winLayerB.OnUpdate = ctx =>
+        winLayerB.UpdateDelayMs = 33;
+        winLayerB.OnUpdate = ctx =>
         {
             _tOverlay += ctx.DeltaSeconds;
 
             var layer = ctx.Win.Layer;
-            if (layer is null || layer.IsDisposed) return;
+            if (layer.IsDisposed) return;
 
             layer.RequestLayerSize(800, 500);
             layer.Clear();
@@ -81,34 +78,27 @@ public sealed class Prototype1
             layer.Render();
         };
 
-        _winCombined.OnUpdate = ctx =>
+        winCombined.OnUpdate = ctx =>
         {
             var layer = ctx.Win.Layer;
-            if (layer is null || layer.IsDisposed) return;
+            if (layer.IsDisposed) return;
 
             layer.RequestLayerSize(800, 500);
             layer.Clear(0.05f, 0.05f, 0.05f, 1f);
 
-            if (_winLayerA is { IsDisposed: false, ShouldClose: false, Layer.IsDisposed: false })
+            if (winLayerA is { IsDisposed: false, ShouldClose: false, Layer.IsDisposed: false })
             {
-                layer.DrawLayer(_winLayerA.Layer);
+                layer.DrawLayer(winLayerA.Layer);
             }
 
-            if (_winLayerB is { IsDisposed: false, ShouldClose: false, Layer.IsDisposed: false })
+            if (winLayerB is { IsDisposed: false, ShouldClose: false, Layer.IsDisposed: false })
             {
-                layer.DrawLayer(_winLayerB.Layer);
+                layer.DrawLayer(winLayerB.Layer);
             }
 
             layer.Render();
         };
-
         
-        host.WaitUntilAllWindowsClosed();
-        
-        _winLayerA.Dispose();
-        _winLayerB.Dispose();
-        _winCombined.Dispose();
-        
-        host.Stop();
+        app.WaitForClose();
     }
 }

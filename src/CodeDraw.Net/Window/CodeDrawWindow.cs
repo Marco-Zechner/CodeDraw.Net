@@ -174,6 +174,11 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
         }
     }
 
+    internal sealed class WindowIdBox(CodeDrawWindow window)
+    {
+        public CodeDrawWindow Window { get; } = window;
+    }
+    
     public readonly record struct UpdateContext(CodeDrawWindow Win, WindowInput Input, float DeltaSeconds, long Tick);
 
     private readonly SharedGlfwHost _host;
@@ -192,6 +197,8 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
     private int _disposed;
     public bool IsDisposed => Volatile.Read(ref _disposed) != 0;
     public bool UpdateWhileClosed { get; set; } = false;
+    
+    private int _closeFired; // 0/1
     
     public WindowCamera2D Camera { get; } = new();
     
@@ -259,13 +266,12 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
     public bool ShouldClose => _closing || IsDisposed;
 
     public CodeDrawWindow(
-        SharedGlfwHost host,
         int w, int h,
         int x, int y,
         string title,
         bool autoOpen = true, bool stealFocusOnOpen = false)
     {
-        _host = host;
+        _host = CodeDrawHost.RequireRunningHost();
 
         _settings = new WindowSettingsSnapshot(
             WindowPosition: new Vector2<int>(x, y),
@@ -286,34 +292,48 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
         ).Normalize();
 
         WindowId = _host.ReserveWindowId();
+        
+        CodeDrawHost.RequireRunningApp().OwnWindow(this);
 
-        // Layer exists regardless of open/close. It may be resized when settings change.
-        Layer = new CodeDrawLayer(_host, w, h, $"{WindowId}:'{title}'");
-        _host.RegisterAutoLayerOwner(WindowId, Layer); 
+        Layer = new CodeDrawLayer(w, h, $"{WindowId}:'{title}'");
+        
+        _host.RegisterAutoLayerOwner(WindowId, Layer);
 
-        // Always run update thread (it can idle when closed).
         _updateThread = new Thread(UpdateLoop) { IsBackground = true, Name = $"Update:{title}" };
         _updateThread.Start();
 
-        if (autoOpen)
-            Open();
+        if (autoOpen) Open();
     }
 
-    public CodeDrawWindow(SharedGlfwHost host, int w, int h, string title, bool autoOpen = true)
-        : this(host, w, h, 50, 120, title, autoOpen) {}
+    public CodeDrawWindow(int w, int h, string title, bool autoOpen = true)
+        : this(w, h, 50, 120, title, autoOpen) { }
 
     
     public void Close()
     {
-        if (IsDisposed) return;
+        // Idempotent
         if (!_nativeOpen) return;
 
+        // Mark closed FIRST to prevent re-entrant Close() from Dispose() in callback
         _nativeOpen = false;
 
+        // Fire close callback once per open-session
+        var cb = OnClose;
+        if (cb != null && Interlocked.Exchange(ref _closeFired, 1) == 0)
+        {
+            try { cb(this); }
+            catch (Exception ex) { Console.WriteLine($"[OnClose error] {ex}"); }
+
+            // If user disposed in callback, we still proceed best-effort to tear down native stuff
+            // (Dispose() will call Close() again, but _nativeOpen is already false so it won't recurse)
+        }
+
+        // Stop presenter first (it may use Win/context)
         StopPresentThread();
 
         // Destroy native window by id (host owns mapping)
-        _host.DestroyWindowById(WindowId);
+        try { _host.DestroyWindowById(WindowId); }
+        catch { /* ignored */ }
 
         Volatile.Write(ref _winPtr, 0);
         Input.ClearHeldStates();
@@ -326,6 +346,9 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
     {
         ObjectDisposedException.ThrowIf(IsDisposed, nameof(CodeDrawWindow));
         if (_nativeOpen) return;
+
+        // New open-session => allow OnClose to fire again
+        Interlocked.Exchange(ref _closeFired, 0);
 
         _nativeOpen = true;
         _presentStop = false;
@@ -345,7 +368,6 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
 
         Volatile.Write(ref _winPtr, (nint)created);
 
-        // apply snapshot to fresh window
         _host.ApplyWindowSettingsSync(created, WindowId, raw,
             WindowDirty.Title |
             WindowDirty.Border |
@@ -366,34 +388,51 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
         if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
 
         Console.WriteLine("Window " + DebugName + " Disposing...");
-        
+
+        // Close native window (idempotent). This may fire OnClose, which might call Dispose again.
         try { Close(); } catch { /* ignored */ }
 
+        // Signal update loop to stop
         _closing = true;
+
+        // IMPORTANT: do not self-join (Dispose can be called from UpdateLoop/PresentLoop)
         WaitForCloseThreads();
 
         ReleaseIdOnceFinal();
-
         _host.NotifyWindowDisposed(WindowId);
-        Layer = null!; // Layer can now be set null, since window is dead.
+
+        // Unregister from app ownership (prevents double-dispose during app shutdown)
+        try { CodeDrawHost.RequireRunningApp().DisownWindow(WindowId); } catch { /* ignored */ }
+
+        Layer = null!;
     }
+
     
     private void StopPresentThread()
     {
         _presentStop = true;
         var p = Interlocked.Exchange(ref _presentThread, null);
-        if (p is { IsAlive: true }) p.Join();
+
+        // Don't self-join
+        if (p is { IsAlive: true } && !ReferenceEquals(p, Thread.CurrentThread))
+            p.Join();
+
         _presentStop = false;
     }
 
     private void WaitForCloseThreads()
     {
+        var current = Thread.CurrentThread;
+
         var u = Interlocked.Exchange(ref _updateThread, null);
-        if (u is { IsAlive: true }) u.Join();
+        if (u is { IsAlive: true } && !ReferenceEquals(u, current))
+            u.Join();
 
         var p = Interlocked.Exchange(ref _presentThread, null);
-        if (p is { IsAlive: true }) p.Join();
+        if (p is { IsAlive: true } && !ReferenceEquals(p, current))
+            p.Join();
     }
+
 
     private void HandleEvent(object evt)
     {
@@ -553,8 +592,14 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
             if (!_startFired && OnStart != null && IsOpen)
             {
                 _startFired = true;
-                try { OnStart(this); }
-                catch (Exception ex) { Console.WriteLine($"[OnStart error] {ex}"); }
+                try
+                {
+                    OnStart(this);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[OnStart error] {ex}");
+                }
             }
 
             if (IsOpen || UpdateWhileClosed)
@@ -562,8 +607,14 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
                 var cb = OnUpdate;
                 if (cb != null)
                 {
-                    try { cb(new UpdateContext(this, Input, deltaSec, tick)); }
-                    catch (Exception ex) { Console.WriteLine($"[OnUpdate error] {ex}"); }
+                    try
+                    {
+                        cb(new UpdateContext(this, Input, deltaSec, tick));
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[OnUpdate error] {ex}");
+                    }
                 }
             }
             else
@@ -573,13 +624,11 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
 
             var elapsedMs = (int)((sw.ElapsedTicks - loopStartTicks) * 1000.0 / Stopwatch.Frequency);
             var sleepMs = UpdateDelayMs - elapsedMs;
-            if (sleepMs > 0) Thread.Sleep(sleepMs);
-            else Thread.Yield();
+            if (sleepMs > 0)
+                Thread.Sleep(sleepMs);
+            else
+                Thread.Yield();
         }
-
-        if (OnClose == null) return;
-        try { OnClose(this); }
-        catch (Exception ex) { Console.WriteLine($"[OnClose error] {ex}"); }
     }
 
     // ============================================================

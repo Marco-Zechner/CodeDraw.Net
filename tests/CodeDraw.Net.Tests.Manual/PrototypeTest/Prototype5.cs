@@ -6,16 +6,13 @@ namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.PrototypeTest;
 
 public class Prototype5
 {
-    private readonly List<CodeDrawWindow> _windows = [];
 
     [ConstructorPrototype(5)]
     public Prototype5()
     {
-        var host = SharedGlfwHost.Instance;
-        host.Start();
+        using var app = CodeDrawHost.Started();
         
-        var win = new CodeDrawWindow(host, 720, 420, 50, 50, "Prototype5 - Text Debug");
-        _windows.Add(win);
+        var win = new CodeDrawWindow(720, 420, 50, 50, "Prototype5 - Text Debug");
 
         win.ResizeMode = WindowResizeMode.Aspect;
         win.TransparentAlpha = false;
@@ -58,8 +55,6 @@ public class Prototype5
             layer.Render();
         };
         
-        host.WaitUntilAllWindowsClosed();
-        foreach (var w in _windows) w.Dispose();
-        host.Stop();
+        app.WaitForClose();
     }
 }

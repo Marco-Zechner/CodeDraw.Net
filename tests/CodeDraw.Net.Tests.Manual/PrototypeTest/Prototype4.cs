@@ -11,8 +11,6 @@ namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.PrototypeTest;
 
 public class Prototype4
 {
-    private static SharedGlfwHost _host = null!;
-    
     private readonly List<CodeDrawWindow> _windows = [];
     private readonly CodeDrawLayer _fullMonitorLayer;
 
@@ -21,21 +19,20 @@ public class Prototype4
     
     [ConstructorPrototype(4)]
     public Prototype4()
-    {
-        _host = SharedGlfwHost.Instance;
-        _host.Start();
+    {      
+        using var app = CodeDrawHost.Started();
         
-        var worldMonitor = _host.GetMonitors().First();
+        var worldMonitor = app.GetMonitors().First();
         _worldOrigin = new Vector2<int>(worldMonitor.WorkX, worldMonitor.WorkY);
         _worldSize   = new Vector2<int>(worldMonitor.WorkWidth, worldMonitor.WorkHeight);
 
-        _fullMonitorLayer = new CodeDrawLayer(_host, _worldSize.X, _worldSize.Y, "FullMonitorLayer");
+        _fullMonitorLayer = new CodeDrawLayer(_worldSize.X, _worldSize.Y, "FullMonitorLayer");
         var orbitShader = CodeDrawShader.CsProject("orbitDots", "PrototypeTest/shaders");
         var postProcessingBloom = CodeDrawShader.CsProject("bloom" , "PrototypeTest/shaders/ppShader");
         
-        var trailLayer = new CodeDrawLayer(_host, 468, 468, "TrailLayer");
+        var trailLayer = new CodeDrawLayer(468, 468, "TrailLayer");
 
-        _host.Input.OnKeyDown += (window, key, mod) =>
+        app.Input.OnKeyDown += (window, key, _) =>
         {
             Console.WriteLine(key.ToString());
             
@@ -48,7 +45,7 @@ public class Prototype4
             }
         };
         
-        _host.Input.OnKeyRepeat += (window, key, mod) =>
+        app.Input.OnKeyRepeat += (window, key, _) =>
         {
             var delta = Vector2<int>.Zero;
             
@@ -70,7 +67,7 @@ public class Prototype4
         Vector2<double> mouseWindowOffset = Vector2<double>.Zero;
         bool dragging = false;
 
-        _host.Input.OnMouseDown += (win, button, mods) =>
+        app.Input.OnMouseDown += (win, button, _) =>
         {
             if (button != MouseButton.Left) return;
             if (!win.Input.GetKey(ModifierKeys.ALT)) return;
@@ -79,23 +76,23 @@ public class Prototype4
             dragging = true;
         };
 
-        _host.Input.OnMouseUp += (win, button, mods) =>
+        app.Input.OnMouseUp += (_, button, _) =>
         {
             if (button == MouseButton.Left)
                 dragging = false;
         };
 
-        _host.Input.OnKeyUp += (window, key, mods) =>
+        app.Input.OnKeyUp += (_, key, _) =>
         {
             if (ModifierKeys.ALT.ToKeys().Contains(key)) 
                 dragging = false;
         };
 
-        _host.Input.OnMouseMove += (win, x, y) =>
+        app.Input.OnMouseMove += (win, _, _) =>
         {
             if (!dragging) return;
 
-            var mouseGlobal = _host.Input.GetAbsoluteMousePosition();
+            var mouseGlobal = app.Input.GetAbsoluteMousePosition();
 
             var delta = mouseGlobal - mouseWindowOffset;
             
@@ -111,7 +108,7 @@ public class Prototype4
         const int GRID_THIN = 1;
         const int GRID_THICK_EVERY = 5; // every 5th line thicker
 
-        while (_host.WindowsAlive > 0)
+        while (app.WindowsAlive > 0)
         {
             var t = (float)sw.Elapsed.TotalSeconds;
 
@@ -202,18 +199,7 @@ public class Prototype4
             Thread.Sleep(16);
         }
         
-        _host.WaitUntilAllWindowsClosed();
-        
-        foreach (var w in _windows)
-        {
-            w.Dispose();
-        }
-        
-        _fullMonitorLayer.Dispose();
-        trailLayer.Dispose();
-        
-        _host.Stop();
-        _host.Dispose();
+        app.WaitForClose();
     }
 
     private static void DrawOrbitDots(CodeDrawLayer layer, CodeDrawShader orbitShader, int centerX, int centerY, int radiusDot, int radiusOrbit, float period, float timeOffset, Rgba color)
@@ -235,7 +221,7 @@ public class Prototype4
 
     private void CreateNextWindow()
     {
-        var win = new CodeDrawWindow(_host, 1200, 1200, _fullMonitorLayer.Width/2-600, _fullMonitorLayer.Height/2-600, $"Prototype4 - {_windows.Count}");
+        var win = new CodeDrawWindow(1200, 1200, _fullMonitorLayer.Width/2-600, _fullMonitorLayer.Height/2-600, $"Prototype4 - {_windows.Count}");
         _windows.Add(win);
         
         win.SetPresentedLayer(_fullMonitorLayer);

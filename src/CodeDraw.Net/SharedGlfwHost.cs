@@ -9,7 +9,7 @@ using WindowStateMachine = MarcoZechner.CodeDrawDotNet.Window.WindowStateMachine
 
 namespace MarcoZechner.CodeDrawDotNet;
 
-public sealed unsafe class SharedGlfwHost : IDisposable
+internal sealed unsafe class SharedGlfwHost : IDisposable
 {
     private sealed class LayerRefInfo
     {
@@ -63,20 +63,20 @@ public sealed unsafe class SharedGlfwHost : IDisposable
         return wr.TryGetTarget(out var w) ? w : null;
     }
     
-    public HostInputHub Input { get; } = new();
+    public HostInputHub Input { get; }
 
     internal abstract record HostInputEvent(int WindowId);
 
-    private sealed record HostKeyEvent(int WindowId, Keys Key, int Scancode, InputAction Action, ModifierKeys Mods)
+    internal sealed record HostKeyEvent(int WindowId, Keys Key, int Scancode, InputAction Action, ModifierKeys Mods)
         : HostInputEvent(WindowId);
 
-    private sealed record HostMouseButtonEvent(int WindowId, MouseButton Button, InputAction Action, ModifierKeys Mods)
+    internal sealed record HostMouseButtonEvent(int WindowId, MouseButton Button, InputAction Action, ModifierKeys Mods)
         : HostInputEvent(WindowId);
 
-    private sealed record HostScrollEvent(int WindowId, double Dx, double Dy)
+    internal sealed record HostScrollEvent(int WindowId, double Dx, double Dy)
         : HostInputEvent(WindowId);
 
-    private sealed record HostCursorPosEvent(int WindowId, double X, double Y)
+    internal sealed record HostCursorPosEvent(int WindowId, double X, double Y)
         : HostInputEvent(WindowId);
 
     private readonly ConcurrentDictionary<int, ConcurrentQueue<HostInputEvent>> _hostInputById = new();
@@ -105,66 +105,6 @@ public sealed unsafe class SharedGlfwHost : IDisposable
             Input.Dispatch(windowObj, e);
     }
     
-    public sealed class HostInputHub
-    {
-        public event Action<CodeDrawWindow, Keys, ModifierKeys>? OnKeyDown;
-        public event Action<CodeDrawWindow, Keys, ModifierKeys>? OnKeyUp;
-        public event Action<CodeDrawWindow, Keys, ModifierKeys>? OnKeyRepeat;
-
-        public event Action<CodeDrawWindow, MouseButton, ModifierKeys>? OnMouseDown;
-        public event Action<CodeDrawWindow, MouseButton, ModifierKeys>? OnMouseUp;
-
-        public event Action<CodeDrawWindow, double, double>? OnScroll;
-        public event Action<CodeDrawWindow, double, double>? OnMouseMove;
-
-        internal void Dispatch(CodeDrawWindow win, HostInputEvent e)
-        {
-            switch (e)
-            {
-                case HostKeyEvent ke:
-                    switch (ke.Action)
-                    {
-                        case InputAction.Press: 
-                            OnKeyDown?.Invoke(win, ke.Key, ke.Mods); 
-                            OnKeyRepeat?.Invoke(win, ke.Key, ke.Mods);
-                            break;
-                        case InputAction.Release: 
-                            OnKeyRepeat?.Invoke(win, ke.Key, ke.Mods);
-                            OnKeyUp?.Invoke(win, ke.Key, ke.Mods); 
-                            break;
-                        case InputAction.Repeat: OnKeyRepeat?.Invoke(win, ke.Key, ke.Mods); break; //TODO: check why this is reacting with a delay...
-                    }
-                    break;
-
-                case HostMouseButtonEvent mb:
-                    if (mb.Action == InputAction.Press) OnMouseDown?.Invoke(win, mb.Button, mb.Mods);
-                    else if (mb.Action == InputAction.Release) OnMouseUp?.Invoke(win, mb.Button, mb.Mods);
-                    break;
-
-                case HostScrollEvent sc:
-                    OnScroll?.Invoke(win, sc.Dx, sc.Dy);
-                    break;
-
-                case HostCursorPosEvent mv:
-                    OnMouseMove?.Invoke(win, mv.X, mv.Y);
-                    break;
-            }
-        }
-
-        public Vector2<double> GetAbsoluteMousePosition()
-        {
-            double cx = 0, cy = 0;
-            int wx = 0, wy = 0;
-            Instance.InvokeHostSync(() =>
-            {
-                LockedGlfw.GetCursorPos(Instance.ShareRoot, out  cx, out  cy);
-                LockedGlfw.GetWindowPos(Instance.ShareRoot, out  wx, out  wy);
-            });
-
-            return new Vector2<double>(wx + cx, wy + cy);
-        }
-    }
-    
     public void DestroyWindowById(int windowId)
     {
         InvokeHostSync(() =>
@@ -189,6 +129,27 @@ public sealed unsafe class SharedGlfwHost : IDisposable
         LockedGlfw.DestroyWindow(win);
         
         OnNativeWindowDestroyed();
+    }
+    
+    internal void DestroyAllWindows()
+    {
+        // Close all currently alive native windows. Best effort, host-thread-safe.
+        InvokeHostSync(() =>
+        {
+            foreach (var kv in _idToWin)
+            {
+                var id = kv.Key;
+                var ptr = (WindowHandle*)kv.Value;
+                if (ptr != null)
+                {
+                    try { DestroyWindowInternal(ptr, id); }
+                    catch { /* ignored */ }
+                }
+            }
+
+            _idToWin.Clear();
+            _winToId.Clear();
+        });
     }
     
     internal bool IsWindowAlive(WindowHandle* win)
@@ -300,17 +261,7 @@ public sealed unsafe class SharedGlfwHost : IDisposable
         }
     }
     
-    public readonly record struct MonitorInfo(
-        nint GlfwHandle,
-        string Name,
-        int WorkX, int WorkY,
-        int WorkWidth, int WorkHeight,
-        float ContentScaleX,
-        float ContentScaleY,
-        int RefreshRate
-    );
 
-    public static SharedGlfwHost Instance { get; } = new();
 
     public WindowHandle* ShareRoot { get; private set; } = null;
 
@@ -348,7 +299,10 @@ public sealed unsafe class SharedGlfwHost : IDisposable
     private static long NowTicks() => Stopwatch.GetTimestamp();
     private static double TicksToMs(long dt) => dt * 1000.0 / Stopwatch.Frequency;
 
-    private SharedGlfwHost() { }
+    internal SharedGlfwHost()
+    {
+        Input = new HostInputHub(this);
+    }
     
     private void OnNativeWindowCreated()
     {
@@ -390,6 +344,7 @@ public sealed unsafe class SharedGlfwHost : IDisposable
             // If we woke up but stability not met, wait a bit WITHOUT spinning hard:
             Thread.Sleep(Math.Min(5, stableMs));
         }
+        
     }
     
     public void Start()
@@ -421,7 +376,7 @@ public sealed unsafe class SharedGlfwHost : IDisposable
         _work.Set();
     }
 
-    private void InvokeHostSync(Action action)
+    internal void InvokeHostSync(Action action)
     {
         if (!_running) throw new InvalidOperationException("Host is not running.");
 

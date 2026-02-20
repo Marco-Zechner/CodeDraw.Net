@@ -8,26 +8,20 @@ namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.PrototypeTest;
 
 public sealed class Prototype7
 {
-    private readonly List<CodeDrawWindow> _windows = [];
-
     [ConstructorPrototype(7)]
     public Prototype7()
     {
-        var host = SharedGlfwHost.Instance;
-        host.Start();
+        using var app = CodeDrawHost.Started();
         
-        var win = new CodeDrawWindow(host, 1100, 720, 50, 50, "Prototype7 - Text Render Showcase");
-        _windows.Add(win);
+        var win = new CodeDrawWindow(1100, 720, 50, 50, "Prototype7 - Text Render Showcase");
 
         win.ResizeMode = WindowResizeMode.Aspect;
         win.TransparentAlpha = false;
 
         // --- State toggles ---
         var showDebug = false;
-        var showBg = true;
         var snap = true;
 
-        var t = 0f;
         var ups = 0f;
         var updates = 0;
         var upsAccum = 0f;
@@ -126,7 +120,6 @@ public sealed class Prototype7
                     TextBackgroundMode.None => TextBackgroundMode.PerCell,
                     TextBackgroundMode.PerCell => TextBackgroundMode.PerLine,
                     TextBackgroundMode.PerLine => TextBackgroundMode.PerGlyphBox,
-                    TextBackgroundMode.PerGlyphBox => TextBackgroundMode.None,
                     _ => TextBackgroundMode.None,
                 };
             }
@@ -208,10 +201,6 @@ public sealed class Prototype7
             layer.Render();
         };
         
-        host.WaitUntilAllWindowsClosed();
-        foreach (var w in _windows) w.Dispose();
-        
-        host.Stop();
-        host.Dispose();
+        app.WaitForClose();
     }
 }

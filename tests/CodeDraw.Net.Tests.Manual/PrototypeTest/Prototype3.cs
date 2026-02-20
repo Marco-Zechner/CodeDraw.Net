@@ -3,33 +3,27 @@ using MarcoZechner.CodeDrawDotNet.Shaders;
 using MarcoZechner.CodeDrawDotNet.Window;
 using MarcoZechner.MathDotNet;
 using Silk.NET.GLFW;
-using Silk.NET.Input;
-
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.PrototypeTest;
 
 public class Prototype3
 {
-    private readonly CodeDrawWindow _win;
-    private readonly CodeDrawWindow _win1;
-    private readonly CodeDrawWindow _win2;
 
 
     [ConstructorPrototype(3)]
     public Prototype3()
     {
-        var host = SharedGlfwHost.Instance;
-        host.Start();
+        using var app = CodeDrawHost.Started();
         
-        _win = new CodeDrawWindow(host, 400, 400 , "Prototype3");
+        var win1 = new CodeDrawWindow(400, 400 , "Prototype3");
         var orbitShader = CodeDrawShader.CsProject("orbitDots", "PrototypeTest/shaders");
         
-        _win1 = new CodeDrawWindow(host, 400, 400 , "Prototype3 - Copy");
+        var win2 = new CodeDrawWindow(400, 400 , "Prototype3 - Copy");
         var colorShiftShader = CodeDrawShader.CsProject("colorShift", "PrototypeTest/shaders");
         
-        _win2 = new CodeDrawWindow(host, 400, 400 , "Prototype3 - Other");
-        var colorShiftPPShader = CodeDrawShader.CsProject("colorShiftPP", "PrototypeTest/shaders/ppShader");
+        var win3 = new CodeDrawWindow(400, 400 , "Prototype3 - Other");
+        var colorShiftPpShader = CodeDrawShader.CsProject("colorShiftPP", "PrototypeTest/shaders/ppShader");
 
-        _win.OnUpdate += context =>
+        win1.OnUpdate += context =>
         {
             var win = context.Win;
             
@@ -86,16 +80,16 @@ public class Prototype3
                     case Keys.X: win.Size = new Vector2<int>(1920, 1080);
                         break;
                     case Keys.Number1:
-                        if (_win1.IsOpen)
-                            _win1.Close();
+                        if (win2.IsOpen)
+                            win2.Close();
                         else
-                            _win1.Open();
+                            win2.Open();
                         break;
                     case Keys.Number2:
-                        if (_win2.IsOpen)
-                            _win2.Close();
+                        if (win3.IsOpen)
+                            win3.Close();
                         else
-                            _win2.Open();
+                            win3.Open();
                         break;
                 }
             }
@@ -110,14 +104,14 @@ public class Prototype3
             layer.Render();
         };
 
-        _win1.Settings = _win1.Settings with
+        win2.Settings = win2.Settings with
         {
             MinSize = new Vector2<int>(200, 200),
             MaxSize = new Vector2<int>(600, 600),
             AspectRatio = new Vector2<int>(1, 1),
         };
 
-        _win1.OnUpdate += context =>
+        win2.OnUpdate += context =>
         {
             var win = context.Win;
             var layer = win.Layer;
@@ -128,41 +122,35 @@ public class Prototype3
                 0,0, layer.Width, layer.Height,
                 shader: colorShiftShader,
                 uniforms: Uniforms.Of(
-                    UniformValue.Tex2D("uTexCopy", _win.Layer),
+                    UniformValue.Tex2D("uTexCopy", win1.Layer),
                     UniformValue.Float("uTime", layer.LayerAliveForSeconds())
                 )
             );
             layer.Render();
         };
 
-        _win2.OnUpdate += context =>
+        win3.OnUpdate += context =>
         {
             var win = context.Win;
             var layer = win.Layer;
 
             layer.Clear();
             layer.SetBlendMode(BlendMode.NONE);
-            layer.DrawLayer(_win.Layer);
-            layer.PostProcess(colorShiftPPShader, 
+            layer.DrawLayer(win1.Layer);
+            layer.PostProcess(colorShiftPpShader, 
                 UniformValue.Float("uTime", layer.LayerAliveForSeconds())
                 );
             layer.Render();
         };
-
-        host.WaitUntilAllWindowsClosed();
-
-        _win.Dispose();
-        _win1.Dispose();
-        _win2.Dispose();
         
-        host.Stop();
+        app.WaitForClose();
     }
 
     private void DrawOrbitingDots(CodeDrawLayer layer, int centerX, int centerY, int radiusDot, int radiusOrbit,
         float period,
         float timeOffset,
         Rgba color,
-        CodeDrawShader? orbitShader
+        CodeDrawShader orbitShader
     )
     {
         var size = radiusOrbit * 2 + radiusDot * 2;

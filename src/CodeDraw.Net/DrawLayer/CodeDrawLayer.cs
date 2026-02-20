@@ -21,6 +21,14 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
     private static void Uniform4F(GL gl, int loc, float x, float y, float z, float w)
         => gl.Uniform4(loc, x, y, z, w);
 
+    private static int _nextLayerId;
+    public int LayerId { get; } = Interlocked.Increment(ref _nextLayerId);
+
+    internal sealed class LayerIdBox(CodeDrawLayer layer)
+    {
+        public CodeDrawLayer Layer { get; } = layer;
+    }
+    
     // --- time base for uTime ---
     private readonly long _timeStartTicks = Stopwatch.GetTimestamp();
 
@@ -213,20 +221,19 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
 
     public string DebugName { get; }
 
-    public CodeDrawLayer(SharedGlfwHost host, int w = 800, int h = 600, string label = "Unknown Layer")
+    public CodeDrawLayer(int w = 800, int h = 600, string label = "Unknown Layer")
     {
         DebugName = $"[Layer:{label}]";
-        _host = host;
+        _host = CodeDrawHost.RequireRunningHost();
 
-        // Create hidden context window on host thread (as you do)
-        _ctxWin = host.CreateHiddenLayerWindow(1, 1, "layer-ctx");
+        CodeDrawHost.RequireRunningApp().OwnLayer(this);
+        
+        _ctxWin = _host.CreateHiddenLayerWindow(1, 1, "layer-ctx");
 
-        // Start dedicated render thread
         _renderThread = new Thread(RenderThreadMain)
-        { IsBackground = true, Name = $"LayerRenderer:{label}" };
+            { IsBackground = true, Name = $"LayerRenderer:{label}" };
         _renderThread.Start();
 
-        // Do init+resize on render thread (don’t touch GL here)
         RequestLayerSize(w, h);
     }
 
@@ -234,7 +241,7 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
     public void OpenDebugWindow()
     {
         if (_debugWindow != null) return;
-        _debugWindow = new (_host, _w, _h, 100, 100, DebugName + " Debug");
+        _debugWindow = new CodeDrawWindow(_w, _h, 100, 100, DebugName + " Debug");
         _debugWindow.SetPresentedLayer(this);
     }
 
@@ -274,6 +281,8 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
             return;
 
         Console.WriteLine("Layer " + DebugName + " Disposing...");
+        
+        try { CodeDrawHost.RequireRunningApp().DisownLayer(LayerId); } catch { /* ignored */ }
         
         _published.Set();
 

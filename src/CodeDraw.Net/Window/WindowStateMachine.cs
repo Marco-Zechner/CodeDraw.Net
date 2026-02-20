@@ -29,7 +29,7 @@ internal sealed unsafe partial class WindowStateMachine
         int windowId,
         WindowSettingsSnapshot desired,
         WindowDirty dirty,
-        IReadOnlyList<SharedGlfwHost.MonitorInfo> monitors
+        IReadOnlyList<MonitorInfo> monitors
     )
     {
         if (win == null) return;
@@ -89,7 +89,7 @@ internal sealed unsafe partial class WindowStateMachine
         WindowHandle* win,
         int windowId,
         WindowSettingsSnapshot desired,
-        IReadOnlyList<SharedGlfwHost.MonitorInfo> monitors
+        IReadOnlyList<MonitorInfo> monitors
     )
     {
         switch (desired.State)
@@ -122,7 +122,7 @@ internal sealed unsafe partial class WindowStateMachine
     private void EnterBorderlessMaximized(
         WindowHandle* win,
         int windowId,
-        IReadOnlyList<SharedGlfwHost.MonitorInfo> monitors
+        IReadOnlyList<MonitorInfo> monitors
     )
     {
         CaptureManualRestoreIfMissing(win, windowId);
@@ -141,7 +141,7 @@ internal sealed unsafe partial class WindowStateMachine
     private void EnterBorderlessFullscreen(
         WindowHandle* win,
         int windowId,
-        IReadOnlyList<SharedGlfwHost.MonitorInfo> monitors
+        IReadOnlyList<MonitorInfo> monitors
     )
     {
         CaptureManualRestoreIfMissing(win, windowId);
@@ -260,7 +260,7 @@ internal sealed unsafe partial class WindowStateMachine
     /// Picks the monitor that contains the window center (by workarea), otherwise best overlap with workareas.
     /// Assumes you pass in monitors from GetMonitorsInternal_HostThreadUnsafe().
     /// </summary>
-    private static int FindBestMonitorIndexForWindow(WindowHandle* win, IReadOnlyList<SharedGlfwHost.MonitorInfo> mons)
+    private static int FindBestMonitorIndexForWindow(WindowHandle* win, IReadOnlyList<MonitorInfo> mons)
     {
         if (mons.Count == 0) return 0;
 

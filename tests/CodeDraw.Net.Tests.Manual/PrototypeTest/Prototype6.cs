@@ -10,24 +10,20 @@ namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.PrototypeTest;
 
 public class Prototype6
 {
-    private readonly List<CodeDrawWindow> _windows = [];
     
     [ConstructorPrototype(6)]
     public Prototype6()
     {
-        var host = SharedGlfwHost.Instance;
-        host.Start();
+        using var app = CodeDrawHost.Started();
         
-        var window = new CodeDrawWindow(host, 1920, 1080, 50, 50, "Prototype6 - Grid Test");
-        var textLayer = new CodeDrawLayer(host, window.Width, window.Height);
+        var window = new CodeDrawWindow(1920, 1080, 50, 50, "Prototype6 - Grid Test");
+        var textLayer = new CodeDrawLayer(window.Width, window.Height);
         var glowShader = CodeDrawShader.CsProject("glowShader", "PrototypeTest/shaders");
         var circleCopyShader = CodeDrawShader.CsProject("circleCopy", "PrototypeTest/shaders");
-        _windows.Add(window);
-        
         
         const int FONT_PX = 24;
         var padding = (X: 12, Y: 12);
-        var background = 0.3f;
+        const float BACKGROUND = 0.3f;
         
         var style = new TextStyle
         {
@@ -38,7 +34,7 @@ public class Prototype6
             Align = TextAlign.Left,
             VAlign = TextVAlign.Top,
 
-            Color = new(background,background,background,1),
+            Color = new(BACKGROUND,BACKGROUND,BACKGROUND,1),
 
             ExtraAbovePx = 0,
             ExtraBelowPx = 0,
@@ -57,10 +53,8 @@ public class Prototype6
         };
 
         var wall = new StringBuilder();
-        float lastReset = -999;
-        var resetAfter = 0.2f;
-        
-        var mouseMoved = false;
+
+        bool mouseMoved;
         var lastMousePos = Vector2<double>.Zero;
 
         StringBuilder displayTitle = new();
@@ -306,12 +300,7 @@ public class Prototype6
             window.Layer.Render();
         };
         
-        host.WaitUntilAllWindowsClosed();
-
-        foreach (var w in _windows) w.Dispose();
-        
-        host.Stop();
-        host.Dispose();
+        app.WaitForClose();
     }
 
     private static readonly Random _random = new();

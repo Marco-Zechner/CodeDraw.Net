@@ -36,16 +36,24 @@ public static class MathG
         return (value - a) / denom;
     }
 
-    /// <summary>Maps value from [inMin,inMax] to [outMin,outMax] (no clamp).</summary>
+    /// <summary>
+    /// Maps value from [inMin,inMax] to [outMin,outMax] (no clamp).
+    /// Throws if inMin == inMax.
+    /// </summary>
     public static T Map<T>(T value, T inMin, T inMax, T outMin, T outMax) where T : INumber<T>
     {
+        if (inMax - inMin == T.Zero) throw new DivideByZeroException("Map requires inMin!=inMax.");
         var t = InverseLerp(inMin, inMax, value);
         return Lerp(outMin, outMax, t);
     }
 
-    /// <summary>Maps value from [inMin,inMax] to [outMin,outMax], clamping to [outMin,outMax].</summary>
+    /// <summary>
+    /// Maps value from [inMin,inMax] to [outMin,outMax], clamping to [outMin,outMax].
+    /// Throws if inMin == inMax.
+    /// </summary>
     public static T MapClamped<T>(T value, T inMin, T inMax, T outMin, T outMax) where T : INumber<T>
     {
+        if (inMax - inMin == T.Zero) throw new DivideByZeroException("MapClamped requires inMin!=inMax.");
         var t = Clamp(InverseLerp(inMin, inMax, value), T.Zero, T.One);
         return Lerp(outMin, outMax, t);
     }

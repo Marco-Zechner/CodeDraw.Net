@@ -6,23 +6,8 @@ using CodeDrawLayer = MarcoZechner.CodeDrawDotNet.DrawLayer.CodeDrawLayer;
 
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.PrototypeTest;
 
-[Prototype(2)]
-public sealed class Prototype2 : IDisposable
+public sealed class Prototype2
 {
-    [StaticPrototype]
-    public static void RunTest()
-    {
-        var host = SharedGlfwHost.Instance;
-        host.Start();
-
-        using (new Prototype2(host))
-        {
-            host.WaitUntilAllWindowsClosed();
-        }
-
-        host.Stop();
-    }
-
     private readonly CodeDrawWindow _winSrc;
     private readonly CodeDrawWindow _winDst;
     private readonly CodeDrawWindow _winFull;
@@ -63,8 +48,12 @@ public sealed class Prototype2 : IDisposable
         return HoverRegion.NONE;
     }
 
-    public Prototype2(SharedGlfwHost host)
+    [ConstructorPrototype(2)]
+    public Prototype2()
     {
+        var host = SharedGlfwHost.Instance;
+        host.Start();
+        
         _winSrc = new CodeDrawWindow(host, 800, 500, 50, 120, "2B: Source (Pattern Atlas)");
         _winDst = new CodeDrawWindow(host, 800, 500, 850, 120, "2B: Dest (Crop/Place Tests)");
         _winFull = new CodeDrawWindow(host, 800, 500, 1650, 120, "2B: Full (Copy Src fully, mostly desaturated)");
@@ -291,13 +280,14 @@ public sealed class Prototype2 : IDisposable
 
             dst.Render();
         };
-    }
-
-    public void Dispose()
-    {
+        
+        host.WaitUntilAllWindowsClosed();
+        
         _winSrc.Dispose();
         _winDst.Dispose();
         _winFull.Dispose();
+        
+        host.Stop();
     }
 
     private static void DrawOutline(CodeDrawLayer l, RectF r, Rgba c, float t = 2f)

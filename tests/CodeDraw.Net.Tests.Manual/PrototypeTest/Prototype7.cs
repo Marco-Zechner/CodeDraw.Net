@@ -6,36 +6,17 @@ using Silk.NET.GLFW;
 
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.PrototypeTest;
 
-[Prototype(7)]
-public sealed class Prototype7 : IDisposable
+public sealed class Prototype7
 {
-    private static SharedGlfwHost _host = null!;
-
-    [StaticPrototype]
-    public static void RunTest()
-    {
-        _host = SharedGlfwHost.Instance;
-        _host.Start();
-
-        using (new Prototype7())
-        {
-            _host.WaitUntilAllWindowsClosed();
-        }
-
-        _host.Stop();
-        _host.Dispose();
-    }
-
     private readonly List<CodeDrawWindow> _windows = [];
 
-    public void Dispose()
-    {
-        foreach (var w in _windows) w.Dispose();
-    }
-
+    [ConstructorPrototype(7)]
     public Prototype7()
     {
-        var win = new CodeDrawWindow(_host, 1100, 720, 50, 50, "Prototype7 - Text Render Showcase");
+        var host = SharedGlfwHost.Instance;
+        host.Start();
+        
+        var win = new CodeDrawWindow(host, 1100, 720, 50, 50, "Prototype7 - Text Render Showcase");
         _windows.Add(win);
 
         win.ResizeMode = WindowResizeMode.Aspect;
@@ -226,5 +207,11 @@ public sealed class Prototype7 : IDisposable
 
             layer.Render();
         };
+        
+        host.WaitUntilAllWindowsClosed();
+        foreach (var w in _windows) w.Dispose();
+        
+        host.Stop();
+        host.Dispose();
     }
 }

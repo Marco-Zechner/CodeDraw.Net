@@ -4,23 +4,8 @@ using Silk.NET.GLFW;
 
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.PrototypeTest;
 
-[Prototype(1)]
-public sealed class Prototype1 : IDisposable
+public sealed class Prototype1
 {
-    [StaticPrototype]
-    public static void RunTest()
-    {
-        var host = SharedGlfwHost.Instance;
-        host.Start();
-
-        using (new Prototype1(host))
-        {
-            host.WaitUntilAllWindowsClosed();
-        }
-
-        host.Stop();
-    }
-
     private readonly CodeDrawWindow _winLayerA;
     private readonly CodeDrawWindow _winLayerB;
     private readonly CodeDrawWindow _winCombined;
@@ -29,8 +14,12 @@ public sealed class Prototype1 : IDisposable
     private float _tA;
     private float _tOverlay;
 
-    public Prototype1(SharedGlfwHost host)
+    [ConstructorPrototype(1)]
+    public Prototype1()
     {
+        var host = SharedGlfwHost.Instance;
+        host.Start();
+        
         _winCombined = new CodeDrawWindow(host, 800, 500, "Combined");
         _winLayerA = new CodeDrawWindow(host, 800, 500, "LayerA");
         _winLayerB = new CodeDrawWindow(host, 800, 500, "LayerB");
@@ -112,12 +101,14 @@ public sealed class Prototype1 : IDisposable
 
             layer.Render();
         };
-    }
 
-    public void Dispose()
-    {
+        
+        host.WaitUntilAllWindowsClosed();
+        
         _winLayerA.Dispose();
         _winLayerB.Dispose();
         _winCombined.Dispose();
+        
+        host.Stop();
     }
 }

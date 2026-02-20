@@ -9,46 +9,22 @@ using MouseButton = Silk.NET.GLFW.MouseButton;
 
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.PrototypeTest;
 
-[Prototype(4)]
-public class Prototype4 : IDisposable
+public class Prototype4
 {
     private static SharedGlfwHost _host = null!;
     
-    [StaticPrototype]
-    public static void RunTest()
-    {
-        _host = SharedGlfwHost.Instance;
-        _host.Start();
-
-        using (new Prototype4())
-        {
-            _host.WaitUntilAllWindowsClosed();
-        }
-
-        _host.Stop();
-        _host.Dispose();
-    }
-    
-    public void Dispose()
-    {
-        foreach (var w in _windows)
-        {
-            w.Dispose();
-        }
-        
-        _fullMonitorLayer.Dispose();
-        _trailLayer.Dispose();
-    }
-    
     private readonly List<CodeDrawWindow> _windows = [];
     private readonly CodeDrawLayer _fullMonitorLayer;
-    private readonly CodeDrawLayer _trailLayer;
 
     private readonly Vector2<int> _worldOrigin; // monitor work-area top-left
     private readonly Vector2<int> _worldSize;   // monitor work-area size
     
-    private Prototype4()
+    [ConstructorPrototype(4)]
+    public Prototype4()
     {
+        _host = SharedGlfwHost.Instance;
+        _host.Start();
+        
         var worldMonitor = _host.GetMonitors().First();
         _worldOrigin = new Vector2<int>(worldMonitor.WorkX, worldMonitor.WorkY);
         _worldSize   = new Vector2<int>(worldMonitor.WorkWidth, worldMonitor.WorkHeight);
@@ -57,7 +33,7 @@ public class Prototype4 : IDisposable
         var orbitShader = CodeDrawShader.CsProject("orbitDots", "PrototypeTest/shaders");
         var postProcessingBloom = CodeDrawShader.CsProject("bloom" , "PrototypeTest/shaders/ppShader");
         
-        _trailLayer = new CodeDrawLayer(_host, 468, 468, "TrailLayer");
+        var trailLayer = new CodeDrawLayer(_host, 468, 468, "TrailLayer");
 
         _host.Input.OnKeyDown += (window, key, mod) =>
         {
@@ -200,11 +176,11 @@ public class Prototype4 : IDisposable
 
             // --- Orbiting dots around world center (simple, no shader) ---
 
-            _trailLayer.DrawRect(0,0, _trailLayer.Width, _trailLayer.Height, 0f,0f,0f, 0.005f); // fade old frames
-            DrawOrbitDots(_trailLayer, orbitShader, _trailLayer.Width/2, _trailLayer.Height/2, 14, 220, 6f, 0, new Rgba(1.00f, 0.45f, 0.10f, 1.00f));
-            _trailLayer.Render();
+            trailLayer.DrawRect(0,0, trailLayer.Width, trailLayer.Height, 0f,0f,0f, 0.005f); // fade old frames
+            DrawOrbitDots(trailLayer, orbitShader, trailLayer.Width/2, trailLayer.Height/2, 14, 220, 6f, 0, new Rgba(1.00f, 0.45f, 0.10f, 1.00f));
+            trailLayer.Render();
             layer.SetBlendMode(BlendMode.ADD);
-            layer.DrawLayer(_trailLayer, dstRect: new RectF(cx-_trailLayer.Width/2f, cy-_trailLayer.Height/2f, _trailLayer.Width, _trailLayer.Height));
+            layer.DrawLayer(trailLayer, dstRect: new RectF(cx-trailLayer.Width/2f, cy-trailLayer.Height/2f, trailLayer.Width, trailLayer.Height));
             layer.SetBlendMode(BlendMode.SOURCE_OVER_ALPHA);
             
             DrawOrbitDots(layer, orbitShader, (int)cx, (int)cy, 10,360, -4f, 0, new Rgba(0.10f, 0.80f, 1.00f, 1.00f));
@@ -225,6 +201,19 @@ public class Prototype4 : IDisposable
             // Keep CPU sane (present threads run independently)
             Thread.Sleep(16);
         }
+        
+        _host.WaitUntilAllWindowsClosed();
+        
+        foreach (var w in _windows)
+        {
+            w.Dispose();
+        }
+        
+        _fullMonitorLayer.Dispose();
+        trailLayer.Dispose();
+        
+        _host.Stop();
+        _host.Dispose();
     }
 
     private static void DrawOrbitDots(CodeDrawLayer layer, CodeDrawShader orbitShader, int centerX, int centerY, int radiusDot, int radiusOrbit, float period, float timeOffset, Rgba color)

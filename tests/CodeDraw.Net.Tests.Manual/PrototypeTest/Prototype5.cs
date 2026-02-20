@@ -4,32 +4,16 @@ using MarcoZechner.CodeDrawDotNet.Window;
 
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.PrototypeTest;
 
-[Prototype(5)]
-public class Prototype5 : IDisposable
+public class Prototype5
 {
-    [StaticPrototype]
-    public static void RunTest()
+    private readonly List<CodeDrawWindow> _windows = [];
+
+    [ConstructorPrototype(5)]
+    public Prototype5()
     {
         var host = SharedGlfwHost.Instance;
         host.Start();
-
-        using (new Prototype5(host))
-        {
-            host.WaitUntilAllWindowsClosed();
-        }
-
-        host.Stop();
-    }
-
-    public void Dispose()
-    {
-        foreach (var w in _windows) w.Dispose();
-    }
-
-    private readonly List<CodeDrawWindow> _windows = [];
-
-    public Prototype5(SharedGlfwHost host)
-    {
+        
         var win = new CodeDrawWindow(host, 720, 420, 50, 50, "Prototype5 - Text Debug");
         _windows.Add(win);
 
@@ -73,5 +57,9 @@ public class Prototype5 : IDisposable
             
             layer.Render();
         };
+        
+        host.WaitUntilAllWindowsClosed();
+        foreach (var w in _windows) w.Dispose();
+        host.Stop();
     }
 }

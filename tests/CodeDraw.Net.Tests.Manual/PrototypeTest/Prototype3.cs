@@ -7,30 +7,19 @@ using Silk.NET.Input;
 
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.PrototypeTest;
 
-[Prototype(3)]
-public class Prototype3 : IDisposable
+public class Prototype3
 {
-    [StaticPrototype]
-    public static void RunTest()
-    {
-        var host = SharedGlfwHost.Instance;
-        host.Start();
-
-        using (new Prototype3(host))
-        {
-            host.WaitUntilAllWindowsClosed();
-        }
-
-        host.Stop();
-    }
-
     private readonly CodeDrawWindow _win;
     private readonly CodeDrawWindow _win1;
     private readonly CodeDrawWindow _win2;
 
 
-    public Prototype3(SharedGlfwHost host)
+    [ConstructorPrototype(3)]
+    public Prototype3()
     {
+        var host = SharedGlfwHost.Instance;
+        host.Start();
+        
         _win = new CodeDrawWindow(host, 400, 400 , "Prototype3");
         var orbitShader = CodeDrawShader.CsProject("orbitDots", "PrototypeTest/shaders");
         
@@ -114,9 +103,9 @@ public class Prototype3 : IDisposable
             var layer = win.Layer;
 
             layer.Clear(1,1,1, 0.5f);
-            DrawOrbitingDots(layer, 200, 200, 10, 50, 2, 0, new Rgba(0.5f, 0, 0, 1f));
-            DrawOrbitingDots(layer, 200, 200, 10, 80, 2*80/50f, 0, new Rgba(0.0f, 1, 1, 1f));
-            DrawOrbitingDots(layer, 350, 350, 4, 35, -2*80/50f, 0, new Rgba(0.0f, 1, 1, 1f));
+            DrawOrbitingDots(layer, 200, 200, 10, 50, 2, 0, new Rgba(0.5f, 0, 0, 1f), orbitShader);
+            DrawOrbitingDots(layer, 200, 200, 10, 80, 2*80/50f, 0, new Rgba(0.0f, 1, 1, 1f), orbitShader);
+            DrawOrbitingDots(layer, 350, 350, 4, 35, -2*80/50f, 0, new Rgba(0.0f, 1, 1, 1f), orbitShader);
             layer.DrawRect(100,100,100,100, 1,0,0,0.5f);
             layer.Render();
         };
@@ -160,32 +149,35 @@ public class Prototype3 : IDisposable
             layer.Render();
         };
 
-        return;
+        host.WaitUntilAllWindowsClosed();
 
-        void DrawOrbitingDots(CodeDrawLayer layer, int centerX, int centerY, int radiusDot, int radiusOrbit, float period, float timeOffset, Rgba color)
-        {
-            var size = radiusOrbit * 2 + radiusDot * 2;
-            
-            layer.CustomDrawRect(
-                centerX-size/2, centerY-size/2, size, size,
-                shader: orbitShader,
-                uniforms: Uniforms.Of(
-                    UniformValue.Float("uTime", layer.LayerAliveForSeconds()),
-                    UniformValue.Float4("uColor", color.R, color.G, color.B, color.A),
-                    UniformValue.Float("uRadius1", radiusDot),
-                    UniformValue.Float("uRadius2", radiusOrbit),
-                    UniformValue.Float("uPeriod",  period),
-                    UniformValue.Float("uOffset",  timeOffset)
-                )
-            );
-        }
-    }
-
-
-    public void Dispose()
-    {
         _win.Dispose();
         _win1.Dispose();
         _win2.Dispose();
+        
+        host.Stop();
+    }
+
+    private void DrawOrbitingDots(CodeDrawLayer layer, int centerX, int centerY, int radiusDot, int radiusOrbit,
+        float period,
+        float timeOffset,
+        Rgba color,
+        CodeDrawShader? orbitShader
+    )
+    {
+        var size = radiusOrbit * 2 + radiusDot * 2;
+            
+        layer.CustomDrawRect(
+            centerX-size/2, centerY-size/2, size, size,
+            shader: orbitShader,
+            uniforms: Uniforms.Of(
+                UniformValue.Float("uTime", layer.LayerAliveForSeconds()),
+                UniformValue.Float4("uColor", color.R, color.G, color.B, color.A),
+                UniformValue.Float("uRadius1", radiusDot),
+                UniformValue.Float("uRadius2", radiusOrbit),
+                UniformValue.Float("uPeriod",  period),
+                UniformValue.Float("uOffset",  timeOffset)
+            )
+        );
     }
 }

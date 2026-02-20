@@ -1,76 +1,82 @@
+using System.Diagnostics;
 using System.Reflection;
-using System.Text;
 
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual;
 
-// ---------------------------------------------------------
-// Common contracts
-// ---------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
+// Prototype Runner
+// - Put [Prototype("uniqueName")] on ANY *instance* method (0 params).
+// - Put [StaticPrototype("uniqueName")] on ANY *static* method (0 params).
+// - Put [ConstructorPrototype("uniqueName")] directly on a *constructor* (public, instance, 0 params).
+// - Names must be unique across ALL three attributes. Duplicates => throw at discovery.
+// - CLI: exactly one argument: <uniqueName>
+// - If no args: prints available names.
+// - Result: exception => FAIL (exit code 1), no exception => PASS (exit code 0).
+// -------------------------------------------------------------------------------------------------
 
-public interface ITestable
-{
-    /// <summary>
-    /// Execute the test. Throw to indicate an error.
-    /// If it returns without throwing, the runner will ask the user
-    /// to mark pass/fail unless -s was provided.
-    /// </summary>
-    void RunTest();
-}
-
-[AttributeUsage(AttributeTargets.Class, Inherited = false)]
-public sealed class OrderAttribute : Attribute
-{
-    public int Id { get; }
-    public OrderAttribute(int id)
-    {
-        if (id <= 0)
-            throw new ArgumentOutOfRangeException(nameof(id), "Order id must be a positive integer.");
-        Id = id;
-    }
-}
-
-[AttributeUsage(AttributeTargets.Class, Inherited = false)]
+[AttributeUsage(AttributeTargets.Method, Inherited = false, AllowMultiple = false)]
 public sealed class PrototypeAttribute : Attribute
 {
-    public int Id { get; }
-    public PrototypeAttribute(int id)
+    public string UniqueName { get; }
+
+    public PrototypeAttribute(string uniqueName)
     {
-        if (id <= 0)
-            throw new ArgumentOutOfRangeException(nameof(id), "Prototype id must be a positive integer.");
-        Id = id;
+        if (string.IsNullOrWhiteSpace(uniqueName))
+            throw new ArgumentException("Prototype uniqueName must be non-empty.", nameof(uniqueName));
+        UniqueName = uniqueName.Trim();
     }
+
+    public PrototypeAttribute(int uniqueName) : this(uniqueName.ToString()) { }
 }
 
-/// <summary>
-/// Marks a public static prototype runner method.
-/// Expected signature: public static void RunTest()
-/// </summary>
-[AttributeUsage(AttributeTargets.Method, Inherited = false)]
-public sealed class StaticPrototypeAttribute : Attribute { }
-
-public enum TestOutcome
+[AttributeUsage(AttributeTargets.Method, Inherited = false, AllowMultiple = false)]
+public sealed class StaticPrototypeAttribute : Attribute
 {
-    PASSED,
-    FAILED,
-    UNKNOWN
+    public string UniqueName { get; }
+
+    public StaticPrototypeAttribute(string uniqueName)
+    {
+        if (string.IsNullOrWhiteSpace(uniqueName))
+            throw new ArgumentException("StaticPrototype uniqueName must be non-empty.", nameof(uniqueName));
+        UniqueName = uniqueName.Trim();
+    }
+
+    public StaticPrototypeAttribute(int uniqueName) : this(uniqueName.ToString()) { }
 }
 
-public sealed class TestResult
+[AttributeUsage(AttributeTargets.Constructor, Inherited = false, AllowMultiple = false)]
+public sealed class ConstructorPrototypeAttribute : Attribute
 {
-    public required int Id { get; init; }
-    public required string Name { get; init; }
-    public required string TypeName { get; init; }
-    public TestOutcome Outcome { get; set; }
-    public string? Error { get; set; }
-    public string? Note { get; set; }
-    public TimeSpan Duration { get; set; }
+    public string UniqueName { get; }
+
+    public ConstructorPrototypeAttribute(string uniqueName)
+    {
+        if (string.IsNullOrWhiteSpace(uniqueName))
+            throw new ArgumentException("ConstructorPrototype uniqueName must be non-empty.", nameof(uniqueName));
+        UniqueName = uniqueName.Trim();
+    }
+
+    public ConstructorPrototypeAttribute(int uniqueName) : this(uniqueName.ToString()) { }
 }
 
 public static class Program
 {
-    private sealed record Options(bool SkipPrompt, IReadOnlyList<int> Selected);
+    private enum EntryKind
+    {
+        StaticMethod,
+        InstanceMethod,
+        Constructor
+    }
 
-    public static void Main(string[] args)
+    private sealed record Entry(
+        string Name,
+        EntryKind Kind,
+        Type DeclaringType,
+        MethodInfo? Method,
+        ConstructorInfo? Ctor
+    );
+
+    public static int Main(string[] args)
     {
         AppDomain.CurrentDomain.UnhandledException += (_, e) =>
         {
@@ -85,455 +91,299 @@ public static class Program
             e.SetObserved();
         };
 
-        // ---------------------------------------------
-        // Prototype mode (-p): run a single prototype
-        // Now supports:
-        //  1) ITestable instance with RunTest()
-        //  2) [StaticPrototype] public static void RunTest()
-        // ---------------------------------------------
-        if (args.Any(s => s.Equals("-p", StringComparison.OrdinalIgnoreCase)))
+        var entries = DiscoverOrThrow(Assembly.GetExecutingAssembly());
+
+        if (args.Length == 0)
         {
-            var allPrototypes = DiscoverPrototypes();
-            if (allPrototypes.Count == 0)
-            {
-                Console.WriteLine("No prototypes found. Add [Prototype(id)] to a class that either implements ITestable, or has a [StaticPrototype] public static void RunTest().");
-                return;
-            }
-
-            var selectedId = args.Where(s => int.TryParse(s, out _))
-                .Select(int.Parse)
-                .FirstOrDefault(-1);
-
-            if (selectedId == -1)
-            {
-                Console.WriteLine("No prototype id specified after -p. Please enter an id from the list below:");
-                foreach (var p in allPrototypes)                {
-                    Console.WriteLine($"  [{p.Id}] {p.Type.Name})");
-                }
-                Console.Write("Enter prototype id to run: ");
-                var line = Console.ReadLine();
-                if (line is null || !int.TryParse(line.Trim(), out selectedId))
-                {
-                    Console.WriteLine("Invalid input. Exiting.");
-                    return;
-                }
-                Console.Clear();
-            }
-
-            var target = selectedId != 0
-                ? allPrototypes.FirstOrDefault(t => t.Id == selectedId)
-                : allPrototypes.First();
-
-            if (target.Type is null)
-            {
-                Console.WriteLine("No prototype found with id " + selectedId);
-                return;
-            }
-
-            try
-            {
-                RunPrototype(target);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine("Prototype execution FAILED due to exception:");
-                Console.WriteLine(FlattenException(ex));
-            }
-            return;
+            PrintUsage(entries);
+            return 1;
         }
 
-        // ---------------------------------------------
-        // Test runner mode: unchanged (ITestable only)
-        // ---------------------------------------------
-        var allTests = DiscoverTests();
-        if (allTests.Count == 0)
+        if (args.Length != 1)
         {
-            Console.WriteLine("No tests found. Create classes that implement ITestable with a public parameterless constructor.");
-            return;
+            Console.WriteLine("Error: expected exactly 1 argument: <uniqueName>.");
+            PrintUsage(entries);
+            return 1;
         }
 
-        var options = ParseArgs(args);
-        var runList = FilterSelection(allTests, options.Selected);
-
-        PrintHeader(allTests.Count, runList.Count, options);
-
-        var results = new List<TestResult>(capacity: runList.Count);
-
-        foreach (var (id, type) in runList)
+        var name = args[0].Trim();
+        if (!entries.TryGetValue(name, out var entry))
         {
-            var consoleTopBefore = Console.CursorTop;
-
-            var name = PrettyName(type);
-            Console.WriteLine($"\n[{id}] {name}");
-            Console.WriteLine(new string('-', (int)MathF.Min(80, name.Length + 6)));
-
-            var result = new TestResult
-            {
-                Id = id,
-                Name = name,
-                TypeName = type.FullName ?? type.Name,
-                Outcome = TestOutcome.UNKNOWN
-            };
-
-            var sw = System.Diagnostics.Stopwatch.StartNew();
-            try
-            {
-                var instance = (ITestable?)Activator.CreateInstance(type);
-                if (instance is null)
-                    throw new InvalidOperationException("Failed to construct test (null instance).");
-
-                instance.RunTest();
-                sw.Stop();
-
-                result.Duration = sw.Elapsed;
-
-                if (options.SkipPrompt)
-                {
-                    result.Outcome = TestOutcome.UNKNOWN;
-                    result.Note = "Skipped user review (-s).";
-                    Console.WriteLine("Result: no exception -> outcome set to 'Unknown' (due to -s).");
-                }
-                else
-                {
-                    var passed = PromptYesNo("Mark test as PASSED? [y/n]: ");
-                    if (passed)
-                    {
-                        result.Outcome = TestOutcome.PASSED;
-                    }
-                    else
-                    {
-                        result.Outcome = TestOutcome.FAILED;
-                        Console.Write("Reason for failure: ");
-                        result.Note = Console.ReadLine();
-                        if (string.IsNullOrWhiteSpace(result.Note))
-                            result.Note = "(no reason provided)";
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                sw.Stop();
-                result.Duration = sw.Elapsed;
-                result.Outcome = TestOutcome.FAILED;
-                result.Error = FlattenException(ex);
-                Console.WriteLine("Result: FAILED due to exception.");
-            }
-
-            var consoleTopAfter = Console.CursorTop;
-            Console.SetCursorPosition(0, consoleTopBefore);
-            for (var i = 0; i < consoleTopAfter - consoleTopBefore; i++)
-            {
-                Console.WriteLine(new string(' ', Console.WindowWidth - 1));
-            }
-            Console.SetCursorPosition(0, consoleTopBefore);
-
-            results.Add(result);
+            Console.WriteLine($"Error: no prototype found with name '{name}'.");
+            PrintUsage(entries);
+            return 1;
         }
 
-        PrintSummary(results);
-        PrintExitHint();
-    }
+        Console.WriteLine($"Running: {entry.Name}");
+        Console.WriteLine($"  {FormatSignature(entry)}");
 
-    // ---------------------------------------------------------
-    // Prototype execution
-    // ---------------------------------------------------------
-
-    private readonly struct PrototypeInfo(int id, Type type, MethodInfo? staticRun)
-    {
-        public readonly int Id = id;
-        public readonly Type Type = type;
-        public readonly MethodInfo? StaticRun = staticRun;
-    }
-
-    private static void RunPrototype(PrototypeInfo p)
-    {
-        // Prefer static runner if available
-        if (p.StaticRun is not null)
+        var sw = Stopwatch.StartNew();
+        try
         {
-            p.StaticRun.Invoke(null, null);
-            return;
+            Invoke(entry);
+            sw.Stop();
+            Console.WriteLine($"PASS ({sw.Elapsed.TotalMilliseconds:F0} ms)");
+            return 0;
         }
-
-        // Fallback: ITestable instance runner
-        var instance = (ITestable?)Activator.CreateInstance(p.Type);
-        if (instance is null)
-            throw new InvalidOperationException("Failed to construct prototype (null instance).");
-
-        instance.RunTest();
-    }
-
-    // --- Discovery & selection ----------------------------------------------------------
-
-    private static List<(int id, Type type)> DiscoverTests()
-    {
-        var asm = Assembly.GetExecutingAssembly();
-
-        var candidates = asm
-            .GetTypes()
-            .Where(t =>
-                t is { IsAbstract: false, IsInterface: false } &&
-                typeof(ITestable).IsAssignableFrom(t) &&
-                t.GetConstructor(Type.EmptyTypes) is not null)
-            .ToList();
-
-        var withAttr = new List<(int id, Type type)>();
-        var withoutAttr = new List<Type>();
-
-        foreach (var t in candidates)
+        catch (Exception ex)
         {
-            var attr = t.GetCustomAttribute<OrderAttribute>();
-            if (attr is not null) withAttr.Add((attr.Id, t));
-            else withoutAttr.Add(t);
-        }
-
-        var used = new HashSet<int>();
-        var fixedWithAttr = new List<(int id, Type type)>(withAttr.Count);
-
-        foreach (var (id, type) in withAttr.OrderBy(x => x.id).ThenBy(x => x.type.Name))
-        {
-            var assigned = id <= 0 ? 1 : id;
-            while (!used.Add(assigned)) assigned++;
-
-            if (assigned != id)
-                Console.WriteLine($"[warning] Duplicate [Order({id})] detected. '{type.Name}' reassigned to id {assigned}.");
-
-            fixedWithAttr.Add((assigned, type));
-        }
-
-        var next = used.Count == 0 ? 1 : (used.Max() + 1);
-        foreach (var t in withoutAttr.OrderBy(t => t.Name))
-        {
-            while (!used.Add(next)) next++;
-            fixedWithAttr.Add((next, t));
-            next++;
-        }
-
-        return fixedWithAttr.OrderBy(x => x.id).ToList();
-    }
-
-    private static List<PrototypeInfo> DiscoverPrototypes()
-    {
-        var asm = Assembly.GetExecutingAssembly();
-
-        // Only classes explicitly marked as prototypes
-        var protoTypes = asm
-            .GetTypes()
-            .Where(t => t is { IsAbstract: false, IsInterface: false } &&
-                        t.GetCustomAttribute<PrototypeAttribute>() is not null)
-            .ToList();
-
-        var withAttr = new List<(int id, PrototypeInfo info)>();
-
-        foreach (var t in protoTypes)
-        {
-            var attr = t.GetCustomAttribute<PrototypeAttribute>()!;
-            var staticRun = FindStaticPrototypeRunner(t);
-
-            // Validation: must have either static runner OR ITestable+ctor
-            var hasInstanceRunner = typeof(ITestable).IsAssignableFrom(t) && t.GetConstructor(Type.EmptyTypes) is not null;
-            if (staticRun is null && !hasInstanceRunner)
-            {
-                Console.WriteLine($"[warning] [Prototype({attr.Id})] on '{t.Name}' ignored: needs either [StaticPrototype] public static void RunTest(), or implement ITestable with public parameterless ctor.");
-                continue;
-            }
-
-            withAttr.Add((attr.Id, new PrototypeInfo(attr.Id, t, staticRun)));
-        }
-
-        // Resolve ID collisions: bump to next free id
-        var used = new HashSet<int>();
-        var fixedList = new List<PrototypeInfo>(withAttr.Count);
-
-        foreach (var (id, info) in withAttr.OrderBy(x => x.id).ThenBy(x => x.info.Type.Name))
-        {
-            var assigned = id <= 0 ? 1 : id;
-            while (!used.Add(assigned)) assigned++;
-
-            if (assigned != id)
-                Console.WriteLine($"[warning] Duplicate [Prototype({id})] detected. '{info.Type.Name}' reassigned to id {assigned}.");
-
-            fixedList.Add(new PrototypeInfo(assigned, info.Type, info.StaticRun));
-        }
-
-        return fixedList.OrderBy(x => x.Id).ToList();
-    }
-
-    private static MethodInfo? FindStaticPrototypeRunner(Type t)
-    {
-        // Find exactly one: public static void RunTest() with [StaticPrototype]
-        var methods = t.GetMethods(BindingFlags.Public | BindingFlags.Static);
-
-        var candidates = methods
-            .Where(m =>
-                m.GetCustomAttribute<StaticPrototypeAttribute>() is not null &&
-                m.Name == "RunTest" &&
-                m.ReturnType == typeof(void) &&
-                m.GetParameters().Length == 0)
-            .ToList();
-
-        if (candidates.Count == 0) return null;
-
-        if (candidates.Count > 1)
-        {
-            Console.WriteLine($"[warning] '{t.Name}' has multiple [StaticPrototype] RunTest methods. Using the first one.");
-        }
-
-        return candidates[0];
-    }
-
-    private static List<(int id, Type type)> FilterSelection(
-        List<(int id, Type type)> all, IReadOnlyList<int> selected)
-    {
-        if (selected.Count == 0)
-            return all;
-
-        var wanted = new HashSet<int>(selected);
-        return all.Where(x => wanted.Contains(x.id)).ToList();
-    }
-
-    private static string PrettyName(Type t) => t.Name;
-
-    // --- Args & prompts ----------------------------------------------------------------
-
-    private static Options ParseArgs(string[] args)
-    {
-        var skip = false;
-        var nums = new List<int>();
-
-        foreach (var a in args)
-        {
-            if (a.Equals("-s", StringComparison.OrdinalIgnoreCase))
-            {
-                skip = true;
-                continue;
-            }
-
-            if (int.TryParse(a, out var n) && n > 0)
-            {
-                nums.Add(n);
-                continue;
-            }
-
-            if (!string.IsNullOrWhiteSpace(a))
-            {
-                PrintUsageAndExit($"Unrecognized argument: {a}");
-            }
-        }
-
-        nums = nums.Distinct().OrderBy(n => n).ToList();
-        return new Options(skip, nums);
-    }
-
-    private static void PrintUsageAndExit(string? reason = null)
-    {
-        if (!string.IsNullOrWhiteSpace(reason))
-            Console.WriteLine(reason);
-
-        Console.WriteLine(
-            "\nUsage:\n" +
-            "  EngineTests [-s] [ids]\n" +
-            "  EngineTests -p [id]\n\n" +
-            "Arguments:\n" +
-            "  -p          Prototype mode: run one [Prototype(id)] (supports static or instance runner).\n" +
-            "  -s          Skip user prompts; mark tests with no exception as 'Unknown'.\n" +
-            "  ids         Space-separated test IDs to run (from [Order(id)] or auto-assigned).\n" +
-            "              If omitted, all tests run.\n" +
-            "\nExamples:\n" +
-            "  EngineTests              # run all tests, ask y/n per test\n" +
-            "  EngineTests -s           # run all tests, skip user prompts\n" +
-            "  EngineTests 1 3 5        # run test IDs 1,3,5 and ask y/n per test\n" +
-            "  EngineTests -s 2 4       # run IDs 2 and 4, skip prompts\n" +
-            "  EngineTests -p           # run first prototype\n" +
-            "  EngineTests -p 1         # run prototype id 1\n"
-        );
-        Environment.Exit(1);
-    }
-
-    private static bool PromptYesNo(string prompt)
-    {
-        while (true)
-        {
-            Console.Write(prompt);
-            var line = Console.ReadLine();
-            if (line is null) return false;
-            line = line.Trim().ToLowerInvariant();
-            if (line is "y" or "yes") return true;
-            if (line is "n" or "no") return false;
-            Console.WriteLine("Please type 'y' or 'n'.");
+            sw.Stop();
+            Console.WriteLine($"FAIL ({sw.Elapsed.TotalMilliseconds:F0} ms)");
+            Console.WriteLine(FlattenException(UnwrapInvoke(ex)));
+            return 1;
         }
     }
 
-    // --- Output formatting --------------------------------------------------------------
-
-    private static void PrintHeader(int totalCount, int runCount, Options opt)
+    private static Dictionary<string, Entry> DiscoverOrThrow(Assembly asm)
     {
-        Console.WriteLine($"Discovered {totalCount} test(s). Will run: {runCount}.");
-        Console.WriteLine($"User prompts: {(opt.SkipPrompt ? "skipped (-s)" : "enabled")}");
+        var dict = new Dictionary<string, Entry>(StringComparer.Ordinal);
+
+        foreach (var t in asm.GetTypes().Where(t => t is { IsAbstract: false, IsGenericTypeDefinition: false }))
+        {
+            const BindingFlags METHOD_FLAGS =
+                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly;
+
+            // -------- methods (static + instance) --------
+            foreach (var m in t.GetMethods(METHOD_FLAGS))
+            {
+                if (m.IsSpecialName) continue; // property/event operators etc.
+
+                var p = m.GetCustomAttribute<PrototypeAttribute>(inherit: false);
+                var s = m.GetCustomAttribute<StaticPrototypeAttribute>(inherit: false);
+
+                if (p is null && s is null) continue;
+                if (p is not null && s is not null)
+                    throw new InvalidOperationException(
+                        $"Method '{t.FullName}.{m.Name}' cannot have BOTH [Prototype] and [StaticPrototype]. Pick one.");
+
+                var isStatic = s is not null;
+                var name = (p?.UniqueName ?? s!.UniqueName);
+
+                ValidateMethodSignatureOrThrow(t, m, isStatic, name);
+
+                var entry = new Entry(
+                    Name: name,
+                    Kind: isStatic ? EntryKind.StaticMethod : EntryKind.InstanceMethod,
+                    DeclaringType: t,
+                    Method: m,
+                    Ctor: null
+                );
+
+                AddOrThrowCollision(dict, entry);
+            }
+
+            // -------- constructors --------
+            // You want the attribute above the ctor, so we scan ctors.
+            const BindingFlags CTOR_FLAGS =
+                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly;
+
+            foreach (var c in t.GetConstructors(CTOR_FLAGS))
+            {
+                var cp = c.GetCustomAttribute<ConstructorPrototypeAttribute>(inherit: false);
+                if (cp is null) continue;
+
+                var name = cp.UniqueName;
+                ValidateConstructorSignatureOrThrow(t, c, name);
+
+                var entry = new Entry(
+                    Name: name,
+                    Kind: EntryKind.Constructor,
+                    DeclaringType: t,
+                    Method: null,
+                    Ctor: c
+                );
+
+                AddOrThrowCollision(dict, entry);
+            }
+        }
+
+        return dict;
     }
 
-    private static void PrintSummary(List<TestResult> results)
+    private static void AddOrThrowCollision(Dictionary<string, Entry> dict, Entry entry)
     {
-        Console.WriteLine("\n======================== SUMMARY ========================");
-        var nameWidth = (int)MathF.Max(10, results.Max(r => r.Name.Length));
-        var outcomeWidth = 7;
-
-        string Header(string title, int width) =>
-            title + new string(' ', (int)MathF.Max(1, width - title.Length));
-
-        Console.WriteLine(
-            Header("ID", 5) +
-            Header("Name", nameWidth + 2) +
-            Header("Outcome", outcomeWidth + 2) +
-            Header("Duration", 12) +
-            "Note/Error"
-        );
-
-        Console.WriteLine(new string('-', 5 + nameWidth + 2 + outcomeWidth + 2 + 12 + 10));
-
-        foreach (var r in results.OrderBy(r => r.Id))
+        if (dict.TryGetValue(entry.Name, out var existing))
         {
-            var outcome = r.Outcome.ToString();
-            var duration = $"{r.Duration.TotalMilliseconds:F0} ms";
-            var note = r.Error ?? r.Note ?? "";
-
-            Console.WriteLine(
-                Header(r.Id.ToString(), 5) +
-                Header(r.Name, nameWidth + 2) +
-                Header(outcome, outcomeWidth + 2) +
-                Header(duration, 12) +
-                note
+            throw new InvalidOperationException(
+                "Duplicate prototype name detected: '" + entry.Name + "'.\n" +
+                "  Existing: " + FormatSignature(existing) + "\n" +
+                "  New     : " + FormatSignature(entry)
             );
         }
 
-        var passed = results.Count(r => r.Outcome == TestOutcome.PASSED);
-        var failed = results.Count(r => r.Outcome == TestOutcome.FAILED);
-        var unknown = results.Count(r => r.Outcome == TestOutcome.UNKNOWN);
-
-        Console.WriteLine("\nTotals:");
-        Console.WriteLine($"  Passed : {passed}");
-        Console.WriteLine($"  Failed : {failed}");
-        Console.WriteLine($"  Unknown: {unknown}");
-        Console.WriteLine("=========================================================");
+        dict.Add(entry.Name, entry);
     }
 
-    private static void PrintExitHint()
+    private static void ValidateMethodSignatureOrThrow(Type declaringType, MethodInfo m, bool shouldBeStatic, string uniqueName)
     {
-        Console.WriteLine("\nDone.");
+        if (m.GetParameters().Length != 0)
+            throw new InvalidOperationException(
+                $"Prototype '{uniqueName}' invalid: '{declaringType.FullName}.{m.Name}' must have 0 parameters.");
+
+        if (m.IsStatic != shouldBeStatic)
+        {
+            var expected = shouldBeStatic ? "static" : "instance";
+            throw new InvalidOperationException(
+                $"Prototype '{uniqueName}' invalid: '{declaringType.FullName}.{m.Name}' is not {expected}, but attribute requires it.");
+        }
+
+        // Allow void, Task, ValueTask
+        var rt = m.ReturnType;
+        var ok = rt == typeof(void) || rt == typeof(Task) || rt == typeof(ValueTask);
+        if (!ok)
+            throw new InvalidOperationException(
+                $"Prototype '{uniqueName}' invalid: '{declaringType.FullName}.{m.Name}' must return void, Task, or ValueTask (got '{rt.FullName}').");
+
+        // For instance methods we will construct the type => needs public parameterless ctor.
+        if (!shouldBeStatic)
+        {
+            if (declaringType.GetConstructor(Type.EmptyTypes) is null)
+                throw new InvalidOperationException(
+                    $"Prototype '{uniqueName}' invalid: '{declaringType.FullName}' must have a public parameterless constructor for instance prototypes.");
+        }
     }
 
-    // --- Helpers -----------------------------------------------------------------------
+    private static void ValidateConstructorSignatureOrThrow(Type declaringType, ConstructorInfo c, string uniqueName)
+    {
+        if (c.IsStatic)
+            throw new InvalidOperationException(
+                $"ConstructorPrototype '{uniqueName}' invalid: '{declaringType.FullName}..cctor' is static. Use an instance ctor.");
+
+        if (!c.IsPublic)
+            throw new InvalidOperationException(
+                $"ConstructorPrototype '{uniqueName}' invalid: '{declaringType.FullName}..ctor' must be public.");
+
+        if (c.GetParameters().Length != 0)
+            throw new InvalidOperationException(
+                $"ConstructorPrototype '{uniqueName}' invalid: '{declaringType.FullName}..ctor' must have 0 parameters.");
+    }
+
+    private static void Invoke(Entry e)
+    {
+        switch (e.Kind)
+        {
+            case EntryKind.StaticMethod:
+                InvokeMethod(method: e.Method!, instance: null);
+                return;
+
+            case EntryKind.InstanceMethod:
+            {
+                object? instance = Activator.CreateInstance(e.DeclaringType);
+                if (instance is null)
+                    throw new InvalidOperationException($"Failed to create instance of '{e.DeclaringType.FullName}'.");
+                InvokeMethod(method: e.Method!, instance: instance);
+                return;
+            }
+
+            case EntryKind.Constructor:
+            {
+                // Invoke ctor, then immediately dispose if possible.
+                // If your ctor opens windows and blocks until closed, this is perfect.
+                // If not, it's still fine: the ctor is the "entry point" you asked for.
+                object? instance = null;
+                try
+                {
+                    instance = e.Ctor!.Invoke(parameters: null);
+                    if (instance is null)
+                        throw new InvalidOperationException($"Constructor returned null for '{e.DeclaringType.FullName}'. (This should never happen.)");
+                }
+                finally
+                {
+                    if (instance is IAsyncDisposable ad)
+                    {
+                        // Keep it simple: sync wait.
+                        ad.DisposeAsync().AsTask().GetAwaiter().GetResult();
+                    }
+                    else if (instance is IDisposable d)
+                    {
+                        d.Dispose();
+                    }
+                }
+
+                return;
+            }
+
+            default:
+                throw new ArgumentOutOfRangeException(nameof(e.Kind), e.Kind, "Unknown entry kind.");
+        }
+    }
+
+    private static void InvokeMethod(MethodInfo method, object? instance)
+    {
+        var result = method.Invoke(instance, parameters: null);
+
+        // Support async-ish prototypes without adding a new runner mode.
+        if (result is Task task)
+            task.GetAwaiter().GetResult();
+        else if (result is ValueTask vt)
+            vt.GetAwaiter().GetResult();
+    }
+
+    private static void PrintUsage(Dictionary<string, Entry> entries)
+    {
+        Console.WriteLine();
+        Console.WriteLine("Usage:");
+        Console.WriteLine("  EngineTests <uniqueName>");
+        Console.WriteLine();
+        Console.WriteLine("Available prototypes:");
+
+        if (entries.Count == 0)
+        {
+            Console.WriteLine("  (none found)");
+            Console.WriteLine();
+            Console.WriteLine("Add [Prototype(\"name\")] to an instance method, [StaticPrototype(\"name\")] to a static method,");
+            Console.WriteLine("or [ConstructorPrototype(\"name\")] to a public parameterless constructor.");
+            return;
+        }
+
+        foreach (var e in entries.Values.OrderBy(e => e.Name, StringComparer.Ordinal))
+            Console.WriteLine("  " + e.Name + "   ->   " + FormatSignature(e));
+
+        Console.WriteLine();
+    }
+
+    private static string FormatSignature(Entry e)
+    {
+        return e.Kind switch
+        {
+            EntryKind.StaticMethod =>
+                $"{Access(e.Method!)} static {Ret(e.Method!)} {e.DeclaringType.FullName}.{e.Method!.Name}()",
+
+            EntryKind.InstanceMethod =>
+                $"{Access(e.Method!)} instance {Ret(e.Method!)} {e.DeclaringType.FullName}.{e.Method!.Name}()",
+
+            EntryKind.Constructor =>
+                $"public ctor {e.DeclaringType.FullName}..ctor()",
+
+            _ => $"{e.DeclaringType.FullName} (unknown)"
+        };
+
+        static string Access(MethodInfo m) => m.IsPublic ? "public" : "non-public";
+        static string Ret(MethodInfo m) => m.ReturnType == typeof(void) ? "void" : m.ReturnType.Name;
+    }
+
+    private static Exception UnwrapInvoke(Exception ex)
+    {
+        // MethodInfo.Invoke wraps thrown exceptions in TargetInvocationException.
+        if (ex is TargetInvocationException tie && tie.InnerException is not null)
+            return tie.InnerException;
+        return ex;
+    }
 
     private static string FlattenException(Exception ex)
     {
-        var sb = new StringBuilder();
+        var lines = new List<string>();
         var depth = 0;
+
         for (var e = ex; e is not null; e = e.InnerException)
         {
-            if (depth++ > 0) sb.AppendLine("\n----- Inner Exception -----");
-            sb.AppendLine(e.GetType().FullName);
-            sb.AppendLine(e.Message);
-            sb.AppendLine(e.StackTrace);
+            if (depth++ > 0) lines.Add("----- Inner Exception -----");
+            lines.Add(e.GetType().FullName ?? e.GetType().Name);
+            lines.Add(e.Message);
+            if (!string.IsNullOrWhiteSpace(e.StackTrace))
+                lines.Add(e.StackTrace);
         }
-        return sb.ToString();
+
+        return string.Join(Environment.NewLine, lines);
     }
 }

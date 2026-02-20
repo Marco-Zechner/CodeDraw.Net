@@ -8,37 +8,18 @@ using Silk.NET.GLFW;
 
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.PrototypeTest;
 
-[Prototype(6)]
-public class Prototype6 : IDisposable
+public class Prototype6
 {
-    private static SharedGlfwHost _host = null!;
-
-    [StaticPrototype]
-    public static void RunTest()
-    {
-        _host = SharedGlfwHost.Instance;
-        _host.Start();
-
-        using (new Prototype6())
-        {
-            _host.WaitUntilAllWindowsClosed();
-        }
-
-        _host.Stop();
-        _host.Dispose();
-    }
-
-    public void Dispose()
-    {
-        foreach (var w in _windows) w.Dispose();
-    }
-
     private readonly List<CodeDrawWindow> _windows = [];
-
+    
+    [ConstructorPrototype(6)]
     public Prototype6()
     {
-        var window = new CodeDrawWindow(_host, 1920, 1080, 50, 50, "Prototype6 - Grid Test");
-        var textLayer = new CodeDrawLayer(_host, window.Width, window.Height);
+        var host = SharedGlfwHost.Instance;
+        host.Start();
+        
+        var window = new CodeDrawWindow(host, 1920, 1080, 50, 50, "Prototype6 - Grid Test");
+        var textLayer = new CodeDrawLayer(host, window.Width, window.Height);
         var glowShader = CodeDrawShader.CsProject("glowShader", "PrototypeTest/shaders");
         var circleCopyShader = CodeDrawShader.CsProject("circleCopy", "PrototypeTest/shaders");
         _windows.Add(window);
@@ -324,6 +305,13 @@ public class Prototype6 : IDisposable
             
             window.Layer.Render();
         };
+        
+        host.WaitUntilAllWindowsClosed();
+
+        foreach (var w in _windows) w.Dispose();
+        
+        host.Stop();
+        host.Dispose();
     }
 
     private static readonly Random _random = new();

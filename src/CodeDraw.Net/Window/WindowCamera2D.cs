@@ -52,8 +52,8 @@ public sealed class WindowCamera2D
             {
                 // Keep sx=viewX/windowW constant => viewX scales with windowW.
                 // Only if ViewSizeLayer is not "auto"; if it's auto, it naturally follows newW/newH anyway.
-                if (ViewSizeLayer.X > 0) ViewSizeLayer = ViewSizeLayer.WithX(ViewSizeLayer.X * (newW / oldW));
-                if (ViewSizeLayer.Y > 0) ViewSizeLayer = ViewSizeLayer.WithY(ViewSizeLayer.Y * (newH / oldH));
+                if (ViewSizeLayer.X > 0) ViewSizeLayer = ViewSizeLayer with { X = ViewSizeLayer.X * (newW / oldW)};
+                if (ViewSizeLayer.Y > 0) ViewSizeLayer = ViewSizeLayer with { X = ViewSizeLayer.Y * (newH / oldH)};
                 break;
             }
 
@@ -73,8 +73,8 @@ public sealed class WindowCamera2D
             throw new ArgumentOutOfRangeException(nameof(windowW), "Window size must be positive.");
 
         var view = ViewSizeLayer;
-        if (view.X <= 0) view = view.WithX(windowW);
-        if (view.Y <= 0) view = view.WithY(windowH);
+        if (view.X <= 0) view = view with { X = windowW };
+        if (view.Y <= 0) view = view with { Y = windowH };
 
         var pivotWin = new Vector2(windowW * 0.5f, windowH * 0.5f);
 

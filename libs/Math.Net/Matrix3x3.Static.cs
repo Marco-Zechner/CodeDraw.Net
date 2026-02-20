@@ -158,19 +158,19 @@ public readonly partial record struct Matrix3x3
         where TA : unmanaged, INumber<TA>
     {
         var ok = Matrix3x3<float>.TryInvertF(m, out var i);
-        inv = new Matrix3x3(i);
+        inv = i;
         return ok;
     }
 
     public static bool TryInvert<TOut, TA>(Matrix3x3<TA> m, out Matrix3x3<TOut> inv)
         where TOut : unmanaged, INumber<TOut>
         where TA : unmanaged, INumber<TA>
-        => Matrix3x3<float>.TryInvert<TOut, TA>(m, out inv);
+        => Matrix3x3<float>.TryInvert(m, out inv);
 
     public static bool TryInvertF(Matrix3x3<double> m, out Matrix3x3 inv)
     {
         var ok = Matrix3x3<float>.TryInvertF(m, out var i);
-        inv = new Matrix3x3(i);
+        inv = i;
         return ok;
     }
 
@@ -180,7 +180,7 @@ public readonly partial record struct Matrix3x3
     
     public static Matrix3x3 InvertF<TA>(Matrix3x3<TA> m)
         where TA : unmanaged, INumber<TA>
-        => new(Matrix3x3<float>.InvertF(m));
+        => Matrix3x3<float>.InvertF(m);
 
     public static Matrix3x3<TOut> Invert<TOut, TA>(Matrix3x3<TA> m)
         where TOut : unmanaged, INumber<TOut>
@@ -188,7 +188,7 @@ public readonly partial record struct Matrix3x3
         => Matrix3x3<float>.Invert<TOut, TA>(m);
 
     public static Matrix3x3 InvertF(Matrix3x3<double> m)
-        => new(Matrix3x3<float>.InvertF(m));
+        => Matrix3x3<float>.InvertF(m);
 
     public static Matrix3x3<TOut> Invert<TOut>(Matrix3x3<double> m)
         where TOut : unmanaged, INumber<TOut>

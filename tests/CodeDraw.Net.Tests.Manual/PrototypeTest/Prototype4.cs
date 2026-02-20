@@ -275,7 +275,7 @@ public class Prototype4 : IDisposable
 
             topLeftWorld = ClampTopLeftToWorld(topLeftWorld, winClient, _worldSize);
 
-            w.Camera.WindowToLayer = Matrix3X3.CreateTranslation(topLeftWorld.X, topLeftWorld.Y);
+            w.Camera.WindowToLayer = Matrix3x3.CreateTranslationF(topLeftWorld.X, topLeftWorld.Y);
         };
     }
     

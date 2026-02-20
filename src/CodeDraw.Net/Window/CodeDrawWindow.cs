@@ -203,7 +203,7 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
     
     private readonly float[] _tmpMat3 = new float[9];
 
-    private void UploadMat3_RowMajor(GL gl, int loc, in Matrix3X3 m)
+    private void UploadMat3_RowMajor(GL gl, int loc, in Matrix3x3 m)
     {
         // row-major layout
         _tmpMat3[0] = m.M11; _tmpMat3[1] = m.M12; _tmpMat3[2] = m.M13;

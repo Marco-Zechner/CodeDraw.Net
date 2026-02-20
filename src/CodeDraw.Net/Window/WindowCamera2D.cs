@@ -12,7 +12,7 @@ public enum CameraResizePolicy
 public sealed class WindowCamera2D
 {
     // Canonical mapping: window px -> layer px
-    public Matrix3X3 WindowToLayer
+    public Matrix3x3 WindowToLayer
     {
         get => _w2l;
         set
@@ -23,7 +23,7 @@ public sealed class WindowCamera2D
         }
     }
 
-    public Matrix3X3 LayerToWindow { get { EnsureInverse(); return _l2w; } }
+    public Matrix3x3 LayerToWindow { get { EnsureInverse(); return _l2w; } }
 
     // Param mode knobs (optional)
     public Vector2 PositionGlobal { get; set; } = new(0, 0);
@@ -83,29 +83,29 @@ public sealed class WindowCamera2D
 
         float rotCCW = -RotationDegCw;
 
-        var TnegPivot = Matrix3X3.CreateTranslation(-pivotWin.X, -pivotWin.Y);
-        var S         = Matrix3X3.CreateScale(sx, sy);
-        var Tlocal    = Matrix3X3.CreateTranslation(PositionLocal.X, PositionLocal.Y);
-        var R         = Matrix3X3.CreateRotation(rotCCW);
-        var Tglobal   = Matrix3X3.CreateTranslation(PositionGlobal.X, PositionGlobal.Y);
+        var TnegPivot = Matrix3x3.CreateTranslationF(-pivotWin.X, -pivotWin.Y);
+        var S         = Matrix3x3.CreateScaleF(sx, sy);
+        var Tlocal    = Matrix3x3.CreateTranslationF(PositionLocal.X, PositionLocal.Y);
+        var R         = Matrix3x3.CreateRotationF(rotCCW);
+        var Tglobal   = Matrix3x3.CreateTranslationF(PositionGlobal.X, PositionGlobal.Y);
 
         _w2l = Tglobal * R * Tlocal * S * TnegPivot;
         _invDirty = true;
         _matrixLocked = false; // we’re in param-land now
     }
 
-    public Vector2 WindowToLayerPoint(Vector2 windowPx) => Matrix3X3.TransformAffine(_w2l, windowPx);
-    public Vector2 LayerToWindowPoint(Vector2 layerPx) { EnsureInverse(); return Matrix3X3.TransformAffine(_l2w, layerPx); }
+    public Vector2 WindowToLayerPoint(Vector2 windowPx) => Matrix3x3.TransformAffineF(_w2l, windowPx);
+    public Vector2 LayerToWindowPoint(Vector2 layerPx) { EnsureInverse(); return Matrix3x3.TransformAffineF(_l2w, layerPx); }
 
-    private Matrix3X3 _w2l = Matrix3X3.Identity;
-    private Matrix3X3 _l2w = Matrix3X3.Identity;
+    private Matrix3x3 _w2l = Matrix3x3.Identity;
+    private Matrix3x3 _l2w = Matrix3x3.Identity;
     private bool _invDirty = true;
     private bool _matrixLocked = false;
 
     private void EnsureInverse()
     {
         if (!_invDirty) return;
-        if (!Matrix3X3.TryInvert(_w2l, out _l2w))
+        if (!Matrix3x3.TryInvertF(_w2l, out _l2w))
             throw new InvalidOperationException("Camera matrix is not invertible.");
         _invDirty = false;
     }

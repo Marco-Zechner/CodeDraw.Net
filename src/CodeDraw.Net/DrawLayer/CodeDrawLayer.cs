@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using MarcoZechner.CodeDrawDotNet.Shaders;
+using MarcoZechner.CodeDrawDotNet.Window;
 using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
 using Monitor = System.Threading.Monitor;
@@ -229,6 +230,20 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
         RequestLayerSize(w, h);
     }
 
+    private CodeDrawWindow? _debugWindow;
+    public void OpenDebugWindow()
+    {
+        if (_debugWindow != null) return;
+        _debugWindow = new (_host, _w, _h, 100, 100, DebugName + " Debug");
+        _debugWindow.SetPresentedLayer(this);
+    }
+
+    public void CloseDebugWindow()
+    {
+        _debugWindow?.Dispose();
+        _debugWindow = null;
+    }
+
     private void EnsureInit()
     {
         if (_initComplete) return;
@@ -253,6 +268,8 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
 
     public void Dispose()
     {
+        CloseDebugWindow();
+        
         if (Interlocked.Exchange(ref _disposed, true))
             return;
 

@@ -1,4 +1,6 @@
-﻿namespace MarcoZechner.CodeDrawDotNet.DrawLayer;
+﻿using MarcoZechner.MathDotNet;
+
+namespace MarcoZechner.CodeDrawDotNet.DrawLayer;
 
 public sealed unsafe partial class CodeDrawLayer
 {
@@ -16,6 +18,8 @@ public sealed unsafe partial class CodeDrawLayer
 
     public int Width  => _w;
     public int Height => _h;
+    
+    public Vector2<int> Size => new(_w, _h);
 
     public RectF FullRect => new(0, 0, _w, _h);
 

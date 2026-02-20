@@ -1,6 +1,6 @@
 ﻿namespace MarcoZechner.CodeDrawDotNet.DrawLayer.Text;
 
-public sealed class TextStyle
+public sealed record TextStyle
 {
     public FontRef Font { get; set; }
     public float SizePx { get; set; } = 16;

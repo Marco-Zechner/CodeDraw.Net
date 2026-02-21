@@ -20,6 +20,55 @@ public readonly partial record struct Vector2<T>(T X, T Y) where T : unmanaged, 
     public static explicit operator Vector2<int>(Vector2<T> v) => new(int.CreateChecked(v.X), int.CreateChecked(v.Y));
     
 #endregion 
+    
+#region ValueTuple support
+    
+    public static explicit operator Vector2<T>((double x, double y) t) => new(MathG.FromDouble<T>(t.x), MathG.FromDouble<T>(t.y));
+    public static implicit operator (double x, double y)(Vector2<T> v) => (MathG.ToDouble(v.X), MathG.ToDouble(v.Y));
+    
+    public static explicit operator Vector2<T>((float x, float y) t) => new(MathG.FromFloat<T>(t.x), MathG.FromFloat<T>(t.y));
+    public static explicit operator (float x, float y)(Vector2<T> v) => (MathG.ToFloat(v.X), MathG.ToFloat(v.Y));
+    
+    public static implicit operator Vector2<T>((int x, int y) t) => new(T.CreateChecked(t.x), T.CreateChecked(t.y));
+    public static explicit operator (int x, int y)(Vector2<T> v) => (int.CreateChecked(v.X), int.CreateChecked(v.Y));
+    
+#endregion
+
+#region Tuple support
+    
+    public static explicit operator Vector2<T>(Tuple<double, double> t) => new(MathG.FromDouble<T>(t.Item1), MathG.FromDouble<T>(t.Item2));
+    public static implicit operator Tuple<double, double>(Vector2<T> v) => new(MathG.ToDouble(v.X), MathG.ToDouble(v.Y));
+    
+    public static explicit operator Vector2<T>(Tuple<float, float> t) => new(MathG.FromFloat<T>(t.Item1), MathG.FromFloat<T>(t.Item2));
+    public static explicit operator Tuple<float, float>(Vector2<T> v) => new(MathG.ToFloat(v.X), MathG.ToFloat(v.Y));
+    
+    public static explicit operator Vector2<T>(Tuple<int, int> t) => new(T.CreateChecked(t.Item1), T.CreateChecked(t.Item2));
+    public static explicit operator Tuple<int, int>(Vector2<T> v) => new(int.CreateChecked(v.X), int.CreateChecked(v.Y));
+
+#endregion
+
+#region IndexAccess
+    
+    public T this[int i]
+    {
+        get => i switch
+        {
+            0 => X,
+            1 => Y,
+            _ => throw new IndexOutOfRangeException("Vector2 only has indices 0 and 1.")
+        };
+        init
+        {
+            switch (i)
+            {
+                case 0: X = value; break;
+                case 1: Y = value; break;
+                default: throw new IndexOutOfRangeException("Vector2 only has indices 0 and 1.");
+            }
+        }
+    }
+
+#endregion
 
 #region Constants
     
@@ -47,7 +96,7 @@ public readonly partial record struct Vector2<T>(T X, T Y) where T : unmanaged, 
         {
             var len = LengthF;
             if (len == 0f) return Vector2<float>.Zero;
-            return new(MathG.ToFloat(X) / len, MathG.ToFloat(Y) / len);
+            return new Vector2<float>(MathG.ToFloat(X) / len, MathG.ToFloat(Y) / len);
         }
     }
 
@@ -58,7 +107,7 @@ public readonly partial record struct Vector2<T>(T X, T Y) where T : unmanaged, 
 
         var dx = MathG.ToDouble(X) / len;
         var dy = MathG.ToDouble(Y) / len;
-        return new(MathG.FromDouble<TOut>(dx), MathG.FromDouble<TOut>(dy));
+        return new Vector2<TOut>(MathG.FromDouble<TOut>(dx), MathG.FromDouble<TOut>(dy));
     }
 
 #endregion
@@ -78,7 +127,7 @@ public readonly partial record struct Vector2<T>(T X, T Y) where T : unmanaged, 
     {
         if (b.X == T.Zero || b.Y == T.Zero)
             throw new DivideByZeroException("Cannot divide by zero in Vector2 component division.");
-        return new(a.X / b.X, a.Y / b.Y);
+        return new Vector2<T>(a.X / b.X, a.Y / b.Y);
     }
 
 #endregion
@@ -91,25 +140,25 @@ public readonly partial record struct Vector2<T>(T X, T Y) where T : unmanaged, 
     public static Vector2<T> operator /(Vector2<T> a, T scalar)
     {
         if (scalar == T.Zero) throw new DivideByZeroException("Cannot divide by zero in Vector2 scalar division.");
-        return new(a.X / scalar, a.Y / scalar);
+        return new Vector2<T>(a.X / scalar, a.Y / scalar);
     }
     public static Vector2<T> operator /(T scalar, Vector2<T> a)
     {
         if (a.X == T.Zero || a.Y == T.Zero)
             throw new DivideByZeroException("Cannot divide by zero in scalar/vector division.");
-        return new(scalar / a.X, scalar / a.Y);
+        return new Vector2<T>(scalar / a.X, scalar / a.Y);
     }
 
     public static Vector2<T> operator %(Vector2<T> a, T scalar)
     {
         if (scalar == T.Zero) throw new DivideByZeroException("Cannot modulo by zero in Vector2 scalar modulo.");
-        return new(a.X % scalar, a.Y % scalar);
+        return new Vector2<T>(a.X % scalar, a.Y % scalar);
     }
     public static Vector2<T> operator %(T scalar, Vector2<T> a)
     {
         if (a.X == T.Zero || a.Y == T.Zero)
             throw new DivideByZeroException("Cannot modulo by zero in scalar/vector modulo.");
-        return new(scalar % a.X, scalar % a.Y);
+        return new Vector2<T>(scalar % a.X, scalar % a.Y);
     }
 
 #endregion
@@ -132,7 +181,7 @@ public readonly partial record struct Vector2<T>(T X, T Y) where T : unmanaged, 
     {
         var sx = MathG.ToDouble(X) * MathG.ToDouble(s);
         var sy = MathG.ToDouble(Y) * MathG.ToDouble(s);
-        return new(MathG.FromDouble<TOut>(sx), MathG.FromDouble<TOut>(sy));
+        return new Vector2<TOut>(MathG.FromDouble<TOut>(sx), MathG.FromDouble<TOut>(sy));
     }
 
     /// <summary>Convenience: output type only, scalar inferred.</summary>
@@ -151,7 +200,7 @@ public readonly partial record struct Vector2<T>(T X, T Y) where T : unmanaged, 
         if (ds == 0.0) throw new DivideByZeroException("Cannot divide by zero.");
         var dx = MathG.ToDouble(X) / ds;
         var dy = MathG.ToDouble(Y) / ds;
-        return new(MathG.FromDouble<TOut>(dx), MathG.FromDouble<TOut>(dy));
+        return new Vector2<TOut>(MathG.FromDouble<TOut>(dx), MathG.FromDouble<TOut>(dy));
     }
 
     public Vector2<TOut> Divide<TOut>(double s)

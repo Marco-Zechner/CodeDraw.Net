@@ -17,15 +17,66 @@ public readonly partial record struct Vector2(float X, float Y)
 #endregion
 
 #region Conversions
-
-    public static implicit operator Vector2<double>(Vector2 v) => new(v.X, v.Y);
+    
     public static explicit operator Vector2(Vector2<double> v) => new((float)v.X, (float)v.Y);
+    public static implicit operator Vector2<double>(Vector2 v) => new(v.X, v.Y);
 
-    public static implicit operator Vector2<float>(Vector2 v) => new(v.X, v.Y);
     public static implicit operator Vector2(Vector2<float> v) => new(v.X, v.Y);
+    public static implicit operator Vector2<float>(Vector2 v) => new(v.X, v.Y);
 
-    public static implicit operator Vector2<int>(Vector2 v) => new((int)v.X, (int)v.Y);
-    public static explicit operator Vector2(Vector2<int> v) => new(v.X, v.Y);
+    public static implicit operator Vector2(Vector2<int> v) => new(v.X, v.Y);
+    public static explicit operator Vector2<int>(Vector2 v) => new((int)v.X, (int)v.Y);
+
+#endregion
+
+#region ValueTuple support
+    
+    public static explicit operator Vector2((double x, double y) t) => new((float)t.x, (float)t.y);
+    public static implicit operator (double x, double y)(Vector2 v) => (v.X, v.Y);
+    
+    public static implicit operator Vector2((float x, float y) t) => new(t.x, t.y);
+    public static implicit operator (float x, float y)(Vector2 v) => (v.X, v.Y);
+
+    public static implicit operator Vector2((int x, int y) t) => new(t.x, t.y);
+    public static explicit operator (int x, int y)(Vector2 v) => ((int)v.X, (int)v.Y);
+    
+    public static (int x, int y) ToIntValueTuple(Vector2 v) => ((int)v.X, (int)v.Y);
+
+#endregion
+
+#region Tuple support
+    
+    public static explicit operator Vector2(Tuple<double, double> t) => new((float)t.Item1, (float)t.Item2);
+    public static implicit operator Tuple<double, double>(Vector2 v) => new(v.X, v.Y);
+    
+    public static implicit operator Vector2(Tuple<float, float> t) => new(t.Item1, t.Item2);
+    public static implicit operator Tuple<float, float>(Vector2 v) => new(v.X, v.Y);
+
+    public static implicit operator Vector2(Tuple<int, int> t) => new(t.Item1, t.Item2);
+    public static explicit operator Tuple<int, int>(Vector2 v) => new((int)v.X, (int)v.Y);
+
+#endregion
+
+#region IndexAccess
+    
+    public float this[int i]
+    {
+        get => i switch
+        {
+            0 => X,
+            1 => Y,
+            _ => throw new IndexOutOfRangeException("Vector2 only has indices 0 and 1.")
+        };
+        init
+        {
+            switch (i)
+            {
+                case 0: X = value; break;
+                case 1: Y = value; break;
+                default: throw new IndexOutOfRangeException("Vector2 only has indices 0 and 1.");
+            }
+        }
+    }
 
 #endregion
 

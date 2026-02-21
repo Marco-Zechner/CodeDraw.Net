@@ -203,6 +203,14 @@ public static class MathG
         return T.CreateChecked(v);
     }
     
+    internal static T FromFloat<T>(float v) where T : INumber<T>
+    {
+        if (IsIntegralType<T>())
+            v = float.Round(v, MidpointRounding.AwayFromZero);
+
+        return T.CreateChecked(v);
+    }
+    
     internal static double ToDouble<TAny>(TAny v) where TAny : INumber<TAny> => double.CreateChecked(v);
     internal static float ToFloat<TAny>(TAny v) where TAny : INumber<TAny> => float.CreateChecked(v);
 }

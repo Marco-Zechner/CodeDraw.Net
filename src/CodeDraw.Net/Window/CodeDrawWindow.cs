@@ -288,7 +288,7 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
             TransparentAlpha: false,
             StealFocusOnOpen: stealFocusOnOpen,
             PresentMode: WindowPresentMode.FitStretch,
-            BackgroundColor: Color.Transparent
+            BackgroundColor: Color.TRANSPARENT
         ).Normalize();
 
         WindowId = _host.ReserveWindowId();
@@ -717,7 +717,7 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
                     {
                         var bg = snap.BackgroundColor;
                         gl.Disable(GLEnum.ScissorTest);
-                        gl.ClearColor(bg.R, bg.G, bg.B, opaque ? 1f : bg.A);
+                        gl.ClearColor(bg.Rf, bg.Gf, bg.Bf, opaque ? 1f : bg.Af);
                         gl.Clear((uint)ClearBufferMask.ColorBufferBit);
                     }
 

@@ -1,9 +1,10 @@
 ﻿using MarcoZechner.CodeDrawDotNet.DrawLayer;
 using MarcoZechner.CodeDrawDotNet.Shaders;
 using MarcoZechner.CodeDrawDotNet.Window;
-using MarcoZechner.ColorDotNet;
+using MarcoZechner.ColorDotNet.RGB;
 using MarcoZechner.MathDotNet;
 using Silk.NET.GLFW;
+
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.PrototypeTest;
 
 public class Prototype3

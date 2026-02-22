@@ -1,4 +1,4 @@
-﻿using MarcoZechner.ColorDotNet;
+﻿using MarcoZechner.ColorDotNet.RGB;
 
 namespace MarcoZechner.CodeDrawDotNet.DrawLayer.Text;
 

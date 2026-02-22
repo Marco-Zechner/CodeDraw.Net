@@ -5,6 +5,7 @@ using MarcoZechner.CodeDrawDotNet.Window;
 using MarcoZechner.ColorDotNet;
 using MarcoZechner.MathDotNet;
 using Silk.NET.GLFW;
+using MarcoZechner.ColorDotNet.RGB;
 using MouseButton = Silk.NET.GLFW.MouseButton;
 
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.PrototypeTest;

@@ -1,7 +1,7 @@
 ﻿using MarcoZechner.CodeDrawDotNet.DrawLayer;
 using MarcoZechner.CodeDrawDotNet.Shaders;
 using MarcoZechner.CodeDrawDotNet.Window;
-using MarcoZechner.ColorDotNet;
+using MarcoZechner.ColorDotNet.RGB;
 using MarcoZechner.MathDotNet;
 using Silk.NET.GLFW;
 using CodeDrawLayer = MarcoZechner.CodeDrawDotNet.DrawLayer.CodeDrawLayer;

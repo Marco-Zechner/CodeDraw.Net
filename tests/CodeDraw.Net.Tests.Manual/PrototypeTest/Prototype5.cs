@@ -1,7 +1,6 @@
-﻿using MarcoZechner.CodeDrawDotNet.DrawLayer;
-using MarcoZechner.CodeDrawDotNet.DrawLayer.Text;
+﻿using MarcoZechner.CodeDrawDotNet.DrawLayer.Text;
 using MarcoZechner.CodeDrawDotNet.Window;
-using MarcoZechner.ColorDotNet;
+using MarcoZechner.ColorDotNet.RGB;
 
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.PrototypeTest;
 

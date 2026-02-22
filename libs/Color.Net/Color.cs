@@ -1,7 +1,11 @@
 ﻿namespace MarcoZechner.ColorDotNet;
 
-public abstract record Color
+/// <summary>
+/// Shared "home" for color constants
+/// </summary>
+public static class Color
 {
+    // Canonical packed layout: 0xRRGGBBAA
     public const uint TRANSPARENT = 0x00000000u;
     public const uint ALICE_BLUE = 0xF0F8FFFFu;
     public const uint ANTIQUE_WHITE = 0xFAEBD7FFu;

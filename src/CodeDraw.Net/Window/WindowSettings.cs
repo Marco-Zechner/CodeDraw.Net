@@ -1,4 +1,4 @@
-﻿using MarcoZechner.ColorDotNet;
+﻿using MarcoZechner.ColorDotNet.RGB;
 using MarcoZechner.MathDotNet;
 using Silk.NET.GLFW;
 

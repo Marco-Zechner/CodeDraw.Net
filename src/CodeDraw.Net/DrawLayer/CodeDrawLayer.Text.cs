@@ -1,9 +1,7 @@
-﻿// File: tests/CodeDraw.Net.Tests.Manual/Prototypes/DrawLayer/CodeDrawLayer.Text.cs
-
-using System.Numerics;
+﻿using System.Numerics;
 using MarcoZechner.CodeDrawDotNet.DrawLayer.Text;
 using MarcoZechner.CodeDrawDotNet.Shaders;
-using MarcoZechner.ColorDotNet;
+using MarcoZechner.ColorDotNet.RGB;
 using Silk.NET.OpenGL;
 
 namespace MarcoZechner.CodeDrawDotNet.DrawLayer;

@@ -12,8 +12,7 @@ public readonly struct GlyphKey(string fontPath, int sizePx, uint glyphIndex)
         GlyphIndex == other.GlyphIndex &&
         string.Equals(FontPath, other.FontPath, StringComparison.OrdinalIgnoreCase);
 
-    public override bool Equals(object? obj) =>
-        obj is GlyphKey g && Equals(g);
+    public override bool Equals(object? obj) => obj is GlyphKey g && Equals(g);
 
     public override int GetHashCode()
     {
@@ -26,13 +25,7 @@ public readonly struct GlyphKey(string fontPath, int sizePx, uint glyphIndex)
         }
     }
 
-    public static bool operator ==(GlyphKey left, GlyphKey right)
-    {
-        return left.Equals(right);
-    }
+    public static bool operator ==(GlyphKey left, GlyphKey right) => left.Equals(right);
 
-    public static bool operator !=(GlyphKey left, GlyphKey right)
-    {
-        return !(left == right);
-    }
+    public static bool operator !=(GlyphKey left, GlyphKey right) => !(left == right);
 }

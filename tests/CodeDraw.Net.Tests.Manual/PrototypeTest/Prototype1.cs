@@ -28,6 +28,9 @@ public sealed class Prototype1
         winLayerB.OnClose = w => Console.WriteLine($"B closed (id={w.WindowId})");
         winCombined.OnClose = w => Console.WriteLine($"Combined closed (id={w.WindowId})");
 
+        winLayerA.TransparentAlpha = true;
+        winLayerB.TransparentAlpha = true;
+        
         app.Input.OnKeyDown += ((win, key, _) =>
         {
             switch (key)

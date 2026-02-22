@@ -1,16 +1,9 @@
 ﻿namespace MarcoZechner.CodeDrawDotNet.DrawLayer.Text;
 
-public sealed class FontMetricsProvider : IDisposable
+public sealed class FontMetricsProvider(GlyphCache glyphs) : IDisposable
 {
     private readonly FontLibrary _lib = new();
     private readonly Dictionary<(string path, int sizePx), FontMetrics> _cache = new();
-
-    private readonly GlyphCache _glyphs;
-
-    public FontMetricsProvider(GlyphCache glyphs)
-    {
-        _glyphs = glyphs;
-    }
 
     public void Dispose()
     {
@@ -33,7 +26,7 @@ public sealed class FontMetricsProvider : IDisposable
         float asc = 0, desc = 0, line = 0;
         if (f.UnitsPerEM > 0)
         {
-            float scale = sizePx / (float)f.UnitsPerEM;
+            var scale = sizePx / (float)f.UnitsPerEM;
             asc = f.Ascender * scale;
             desc = -f.Descender * scale;
             line = f.Height * scale;
@@ -48,12 +41,12 @@ public sealed class FontMetricsProvider : IDisposable
         float capHeight = 0;
         float xHeight = 0;
 
-        foreach (char c in SampleSet())
+        foreach (var c in SampleSet())
         {
-            var g = _glyphs.GetGlyph(font, sizePx, c);
+            var g = glyphs.GetGlyph(font, sizePx, c);
 
-            float above = g.BearingY;
-            float below = g.BitmapH - g.BearingY;
+            var above = g.BearingY;
+            var below = g.BitmapH - g.BearingY;
 
             if (above > maxAbove) maxAbove = above;
             if (below > maxBelow) maxBelow = below;
@@ -61,16 +54,21 @@ public sealed class FontMetricsProvider : IDisposable
             // Required cell advance to avoid overlap:
             // - include negative left bearing overhang (minX)
             // - ensure >= advance
-            float left = g.BearingX;
-            float right = g.BearingX + g.BitmapW;
-            float minX = Math.Min(0f, left);
-            float span = right - minX;
+            var left = g.BearingX;
+            var right = g.BearingX + g.BitmapW;
+            var minX = Math.Min(0f, left);
+            var span = right - minX;
 
-            float needed = Math.Max(g.AdvanceX, span);
+            var needed = Math.Max(g.AdvanceX, span);
             if (needed > monoAdv) monoAdv = needed;
 
-            if (c == 'H') capHeight = Math.Max(capHeight, above); // rough, but stable
-            if (c == 'x') xHeight = Math.Max(xHeight, above);     // rough, but stable
+            switch (c)
+            {
+                case 'H': capHeight = Math.Max(capHeight, above); // rough, but stable
+                    break;
+                case 'x': xHeight = Math.Max(xHeight, above);     // rough, but stable
+                    break;
+            }
         }
 
         // Fallbacks if those weren’t present in the font.
@@ -100,7 +98,7 @@ public sealed class FontMetricsProvider : IDisposable
 
     private static IEnumerable<char> SampleSet()
     {
-        for (int i = 32; i <= 126; i++)
+        for (var i = 32; i <= 126; i++)
             yield return (char)i;
 
         // German + block

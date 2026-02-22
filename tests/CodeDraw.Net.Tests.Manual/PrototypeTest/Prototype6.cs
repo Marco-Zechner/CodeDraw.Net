@@ -49,7 +49,7 @@ public class Prototype6
         {
             Font = style.Font.WithVariant(FontVariant.Bold),
             SizePx = FONT_PX,
-            Color = new Color(0.9f, 0.9f, 0.9f, 1f),
+            Color = new ColorF(0.9f, 0.9f, 0.9f, 1f),
             MonospaceSnapLineAlignToCells = true
         };
 

@@ -1,25 +1,19 @@
 ﻿using System.Buffers;
+using System.Numerics;
 using SharpFont;
 
 namespace MarcoZechner.CodeDrawDotNet.DrawLayer.Text;
 
-public sealed class GlyphCache : IDisposable
+public sealed class GlyphCache(IGlyphAtlasBackend? backend) : IDisposable
 {
     private readonly FontLibrary _lib = new();
 
     private readonly Dictionary<(string path, int sizePx), FontFace> _faces = new();
     private readonly Dictionary<GlyphKey, GlyphInfo> _glyphs = new();
 
-    private readonly IGlyphAtlasBackend? _backend;
-    private readonly GlyphAtlas? _atlas;
+    private readonly GlyphAtlas? _atlas = backend != null ? new GlyphAtlas(backend) : null;
 
     private const int PAD = 1;
-
-    public GlyphCache(IGlyphAtlasBackend? backend)
-    {
-        _backend = backend;
-        _atlas = backend != null ? new GlyphAtlas(backend) : null;
-    }
 
     public void Dispose()
     {
@@ -47,7 +41,7 @@ public sealed class GlyphCache : IDisposable
     {
         var face = GetFace(font, sizePx);
 
-        uint glyphIndex = face.Face.GetCharIndex(c);
+        var glyphIndex = face.Face.GetCharIndex(c);
         var key = new GlyphKey(face.Path, sizePx, glyphIndex);
 
         if (_glyphs.TryGetValue(key, out var cached))
@@ -58,10 +52,10 @@ public sealed class GlyphCache : IDisposable
         var slot = face.Face.Glyph;
         var bmp = slot.Bitmap;
 
-        int gw = bmp.Width;
-        int gh = bmp.Rows;
+        var gw = bmp.Width;
+        var gh = bmp.Rows;
 
-        float advance = slot.Advance.X.ToSingle();
+        var advance = slot.Advance.X.ToSingle();
         if (advance < 0.01f)
             advance = slot.Metrics.HorizontalAdvance.ToSingle() / 64f;
 
@@ -76,7 +70,7 @@ public sealed class GlyphCache : IDisposable
         };
 
         // CPU-only mode: skip atlas upload entirely
-        if (_backend == null || _atlas == null)
+        if (backend == null || _atlas == null)
         {
             _glyphs[key] = info;
             return info;
@@ -85,30 +79,30 @@ public sealed class GlyphCache : IDisposable
         // GPU mode: upload into atlas
         if (gw > 0 && gh > 0)
         {
-            int allocW = gw + PAD * 2;
-            int allocH = gh + PAD * 2;
+            var allocW = gw + PAD * 2;
+            var allocH = gh + PAD * 2;
 
-            _atlas.Allocate(allocW, allocH, out int page, out int x, out int y);
+            _atlas.Allocate(allocW, allocH, out var page, out var x, out var y);
 
-            byte[] tmp = ArrayPool<byte>.Shared.Rent(gw * gh);
+            var tmp = ArrayPool<byte>.Shared.Rent(gw * gh);
 
             try
             {
                 unsafe
                 {
                     var src = (byte*)bmp.Buffer;
-                    int pitch = bmp.Pitch;
+                    var pitch = bmp.Pitch;
 
-                    for (int r = 0; r < gh; r++)
+                    for (var r = 0; r < gh; r++)
                     {
                         var srcRow = src + r * pitch;
-                        int dst = r * gw;
-                        for (int c2 = 0; c2 < gw; c2++)
+                        var dst = r * gw;
+                        for (var c2 = 0; c2 < gw; c2++)
                             tmp[dst + c2] = srcRow[c2];
                     }
                 }
 
-                _backend.UploadAlpha8(page, x + PAD, y + PAD, gw, gh, tmp.AsSpan(0, gw * gh));
+                backend.UploadAlpha8(page, x + PAD, y + PAD, gw, gh, tmp.AsSpan(0, gw * gh));
             }
             finally
             {
@@ -121,8 +115,8 @@ public sealed class GlyphCache : IDisposable
             info.W = gw;
             info.H = gh;
 
-            var pageSize = _backend.GetPageSize(page);
-            info.Uv = new(
+            var pageSize = backend.GetPageSize(page);
+            info.Uv = new Vector4(
                 info.X / pageSize.X,
                 info.Y / pageSize.Y,
                 (info.X + info.W) / pageSize.X,

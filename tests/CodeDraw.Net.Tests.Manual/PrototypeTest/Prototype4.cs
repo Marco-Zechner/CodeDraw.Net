@@ -174,15 +174,15 @@ public class Prototype4
             // --- Orbiting dots around world center (simple, no shader) ---
 
             trailLayer.DrawRect(0,0, trailLayer.Width, trailLayer.Height, 0f,0f,0f, 0.005f); // fade old frames
-            DrawOrbitDots(trailLayer, orbitShader, trailLayer.Width/2, trailLayer.Height/2, 14, 220, 6f, 0, new Color(1.00f, 0.45f, 0.10f, 1.00f));
+            DrawOrbitDots(trailLayer, orbitShader, trailLayer.Width/2, trailLayer.Height/2, 14, 220, 6f, 0, new ColorF(1.00f, 0.45f, 0.10f, 1.00f));
             trailLayer.Render();
             layer.SetBlendMode(BlendMode.ADD);
             layer.DrawLayer(trailLayer, dstRect: new Rect(cx-trailLayer.Width/2f, cy-trailLayer.Height/2f, trailLayer.Width, trailLayer.Height));
             layer.SetBlendMode(BlendMode.SOURCE_OVER_ALPHA);
             
-            DrawOrbitDots(layer, orbitShader, (int)cx, (int)cy, 10,360, -4f, 0, new Color(0.10f, 0.80f, 1.00f, 1.00f));
-            DrawOrbitDots(layer, orbitShader, (int)cx, (int)cy, 10,360, -4f, 1, new Color(0.10f, 0.80f, 1.00f, 1.00f));
-            DrawOrbitDots(layer, orbitShader, (int)cx, (int)cy, 8, 520, 25f, 0, new Color(0.80f, 0.20f, 1.00f, 1.00f));
+            DrawOrbitDots(layer, orbitShader, (int)cx, (int)cy, 10,360, -4f, 0, new ColorF(0.10f, 0.80f, 1.00f, 1.00f));
+            DrawOrbitDots(layer, orbitShader, (int)cx, (int)cy, 10,360, -4f, 1, new ColorF(0.10f, 0.80f, 1.00f, 1.00f));
+            DrawOrbitDots(layer, orbitShader, (int)cx, (int)cy, 8, 520, 25f, 0, new ColorF(0.80f, 0.20f, 1.00f, 1.00f));
 
             var glow = 25 + 25 * MathF.Sin(t * 5f);
             

@@ -10,25 +10,25 @@ public sealed record TextStyle
     public TextAlign Align { get; set; } = TextAlign.Left;
     public TextVAlign VAlign { get; set; } = TextVAlign.Top;
 
-    public Color Color { get; set; } = new(1, 1, 1, 1);
-    public Color Background { get; set; } = new(0, 0, 0, 0.5f);
+    public ColorF Color { get; set; } = new(1, 1, 1);
+    public ColorF Background { get; set; } = new(0, 0, 0, 0.5f);
     
     public BlendMode FontBlendMode { get; set; } = BlendMode.SOURCE_OVER_ALPHA;
     public BlendMode BackgroundBlendMode { get; set; } = BlendMode.SOURCE_OVER_ALPHA;
 
     public TextBackgroundMode BackgroundMode { get; set; } = TextBackgroundMode.None;
-    public bool BackgroundIncludeSpaces { get; set; } = false;
-    public float BackgroundPaddingPx { get; set; } = 0f;
+    public bool BackgroundIncludeSpaces { get; set; }
+    public float BackgroundPaddingPx { get; set; }
 
     // --- Monospace layout control ---
 
-    public float ExtraAbovePx { get; set; } = 0;
-    public float ExtraBelowPx { get; set; } = 0;
-    public float ExtraLineGapPx { get; set; } = 0;
-    public float ExtraCellGapPx { get; set; } = 0;
+    public float ExtraAbovePx { get; set; }
+    public float ExtraBelowPx { get; set; }
+    public float ExtraLineGapPx { get; set; }
+    public float ExtraCellGapPx { get; set; }
 
-    public float? OverrideCellWidthPx { get; set; } = null;
-    public float? OverrideLineHeightPx { get; set; } = null;
+    public float? OverrideCellWidthPx { get; set; }
+    public float? OverrideLineHeightPx { get; set; }
 
     /// <summary>
     /// If true and Align is Center/Right, each line is aligned individually,

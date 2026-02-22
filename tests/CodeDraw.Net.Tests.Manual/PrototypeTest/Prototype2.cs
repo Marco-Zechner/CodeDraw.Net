@@ -65,6 +65,10 @@ public sealed class Prototype2
         winDst.OnClose = w => Console.WriteLine($"2B Dst closed (id={w.WindowId})");
         winFull.OnClose = w => Console.WriteLine($"2B Full closed (id={w.WindowId})");
 
+        winSrc.TransparentAlpha = true;
+        winDst.TransparentAlpha = true;
+        winFull.TransparentAlpha = true;
+        
         app.Input.OnKeyDown += (win, key, _) =>
         {
             switch (key)
@@ -130,7 +134,7 @@ public sealed class Prototype2
             layer.DrawRect(CX - 40, CY - 60, 80, TH*2, 1f, 1f, 1f, 1f);
 
             // --- 4) Border outline (detect UV flip / off-by-one / scaling) ---
-            DrawOutline(layer, new Rect(0, 0, W, H), new Color(1f, 1f, 1f, 1f), 3);
+            DrawOutline(layer, new Rect(0, 0, W, H), new ColorF(1f, 1f, 1f, 1f), 3);
 
             // --- 5) Moving marker (helps confirm "latest frame" + no caching bugs) ---
             var mx = 400 + 140 * MathF.Sin(_t * 0.9f) + 230 * MathF.Cos(_t * 1.6f);
@@ -151,12 +155,12 @@ public sealed class Prototype2
                 )
             );
 
-            DrawOrbitingDots(layer, 400, 250, 20, 200, 20, 5f, new Color(1f, 0.5f, 0f, MathF.Sin(_t * 1.6f) * 0.5f + 0.5f));
+            DrawOrbitingDots(layer, 400, 250, 20, 200, 20, 5f, new ColorF(1f, 0.5f, 0f, MathF.Sin(_t * 1.6f) * 0.5f + 0.5f));
 
             layer.Render();
         };
 
-        void DrawOrbitingDots(CodeDrawLayer layer, int centerX, int centerY, int radiusDot, int radiusOrbit, float period, float timeOffset, Color color)
+        void DrawOrbitingDots(CodeDrawLayer layer, int centerX, int centerY, int radiusDot, int radiusOrbit, float period, float timeOffset, ColorF color)
         {
             var size = radiusOrbit * 2 + radiusDot * 2;
             
@@ -195,7 +199,7 @@ public sealed class Prototype2
             // Console.WriteLine($"Dst mouse win=({ctx.Input.MouseX:0.0},{ctx.Input.MouseY:0.0}) canvas=({mxCanvas:0.0},{myCanvas:0.0}) winSize=({ctx.Win.Width},{ctx.Win.Height})");
 
             dst.SetBlendMode(BlendMode.NONE);
-            DrawGrid(dst, W, H, 40, new Color(0.15f, 0.15f, 0.15f, 1f));
+            DrawGrid(dst, W, H, 40, new ColorF(0.15f, 0.15f, 0.15f, 1f));
             dst.SetBlendMode(BlendMode.SOURCE_OVER_ALPHA);
 
             dst.SetBlendMode(BlendMode.NONE);
@@ -205,27 +209,27 @@ public sealed class Prototype2
 
             var regionB = new Rect(30, 30, 220, 140);
             dst.DrawLayer(src, regionB);
-            DrawOutline(dst, regionB, new Color(1f, 1f, 1f, 1f));
+            DrawOutline(dst, regionB, new ColorF(1f, 1f, 1f, 1f));
 
             var cropTl = new Rect(0, 0, 400, 250);
             var dstC = new Rect(300, 30, 220, 140);
             dst.DrawLayer(src, cropTl, dstC);
-            DrawOutline(dst, dstC, new Color(1f, 0.5f, 0.5f, 1f));
+            DrawOutline(dst, dstC, new ColorF(1f, 0.5f, 0.5f, 1f));
 
             var cropBand = new Rect(0, 0, 800, 120);
             var dstD = new Rect(30, 210, 490, 70);
             dst.DrawLayer(src, cropBand, dstD);
-            DrawOutline(dst, dstD, new Color(0.6f, 1f, 0.6f, 1f));
+            DrawOutline(dst, dstD, new ColorF(0.6f, 1f, 0.6f, 1f));
 
             var cropCenter = new Rect(300, 150, 200, 200);
             var dstE = new Rect(560, 30, 210, 210);
             dst.DrawLayer(src, cropCenter, dstE);
-            DrawOutline(dst, dstE, new Color(0.6f, 0.8f, 1f, 1f));
+            DrawOutline(dst, dstE, new ColorF(0.6f, 0.8f, 1f, 1f));
 
             var cropBr = new Rect(400, 250, 400, 250);
             var dstF = new Rect(560, 270, 210, 190);
             dst.DrawLayer(src, cropBr, dstF);
-            DrawOutline(dst, dstF, new Color(1f, 1f, 0.6f, 1f));
+            DrawOutline(dst, dstF, new ColorF(1f, 1f, 0.6f, 1f));
 
             dst.SetBlendMode(BlendMode.NONE);
             dst.DrawRect(30, 470, 20, 20, 1f, 1f, 1f, 1f);
@@ -265,17 +269,17 @@ public sealed class Prototype2
             const int BASE_T = 3;
             const int HOT_T = 20; // thicker when hovered
 
-            DrawOutline(dst, regionB, new Color(1f, 1f, 1f, 1f), hover == HoverRegion.B_FULL ? HOT_T : BASE_T);
-            DrawOutline(dst, srcC,    new Color(1f, 0.5f, 0.5f, 1f), hover == HoverRegion.C_TL_QUADRANT ? HOT_T : BASE_T);
-            DrawOutline(dst, srcD,    new Color(0.6f, 1f, 0.6f, 1f), hover == HoverRegion.D_BAND ? HOT_T : BASE_T);
-            DrawOutline(dst, srcE,    new Color(0.6f, 0.8f, 1f, 1f), hover == HoverRegion.E_CENTER ? HOT_T : BASE_T);
-            DrawOutline(dst, srcF,    new Color(1f, 1f, 0.6f, 1f), hover == HoverRegion.F_BR_QUADRANT ? HOT_T : BASE_T);
+            DrawOutline(dst, regionB, new ColorF(1f, 1f, 1f, 1f), hover == HoverRegion.B_FULL ? HOT_T : BASE_T);
+            DrawOutline(dst, srcC,    new ColorF(1f, 0.5f, 0.5f, 1f), hover == HoverRegion.C_TL_QUADRANT ? HOT_T : BASE_T);
+            DrawOutline(dst, srcD,    new ColorF(0.6f, 1f, 0.6f, 1f), hover == HoverRegion.D_BAND ? HOT_T : BASE_T);
+            DrawOutline(dst, srcE,    new ColorF(0.6f, 0.8f, 1f, 1f), hover == HoverRegion.E_CENTER ? HOT_T : BASE_T);
+            DrawOutline(dst, srcF,    new ColorF(1f, 1f, 0.6f, 1f), hover == HoverRegion.F_BR_QUADRANT ? HOT_T : BASE_T);
 
-            MarkCorner(dst, regionB, new Color(1f, 1f, 1f, 1f));
-            MarkCorner(dst, srcC,    new Color(1f, 0.5f, 0.5f, 1f));
-            MarkCorner(dst, srcD,    new Color(0.6f, 1f, 0.6f, 1f));
-            MarkCorner(dst, srcE,    new Color(0.6f, 0.8f, 1f, 1f));
-            MarkCorner(dst, srcF,    new Color(1f, 1f, 0.6f, 1f));
+            MarkCorner(dst, regionB, new ColorF(1f, 1f, 1f, 1f));
+            MarkCorner(dst, srcC,    new ColorF(1f, 0.5f, 0.5f, 1f));
+            MarkCorner(dst, srcD,    new ColorF(0.6f, 1f, 0.6f, 1f));
+            MarkCorner(dst, srcE,    new ColorF(0.6f, 0.8f, 1f, 1f));
+            MarkCorner(dst, srcF,    new ColorF(1f, 1f, 0.6f, 1f));
 
             dst.Render();
         };
@@ -283,7 +287,7 @@ public sealed class Prototype2
         app.WaitForClose();
     }
 
-    private static void DrawOutline(CodeDrawLayer l, Rect r, Color c, float t = 2f)
+    private static void DrawOutline(CodeDrawLayer l, Rect r, ColorF c, float t = 2f)
     {
         l.SetBlendMode(BlendMode.SOURCE_OVER_ALPHA);
         l.DrawRect(r.Left, r.Top, r.Width, t, c.R, c.G, c.B, c.A);
@@ -292,13 +296,13 @@ public sealed class Prototype2
         l.DrawRect(r.Left + r.Width - t, r.Top, t, r.Height, c.R, c.G, c.B, c.A);
     }
 
-    private static void DrawGrid(CodeDrawLayer l, int w, int h, int step, Color c)
+    private static void DrawGrid(CodeDrawLayer l, int w, int h, int step, ColorF c)
     {
         for (var x = 0; x < w; x += step) l.DrawRect(x, 0, 1, h, c.R, c.G, c.B, c.A);
         for (var y = 0; y < h; y += step) l.DrawRect(0, y, w, 1, c.R, c.G, c.B, c.A);
     }
 
-    private static void MarkCorner(CodeDrawLayer l, Rect r, Color c)
+    private static void MarkCorner(CodeDrawLayer l, Rect r, ColorF c)
     {
         // top-left "L" marker
         l.SetBlendMode(BlendMode.SOURCE_OVER_ALPHA);

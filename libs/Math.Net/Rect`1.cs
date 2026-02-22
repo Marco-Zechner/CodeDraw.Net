@@ -16,37 +16,37 @@ public readonly record struct Rect<T>(Vector2<T> Position, Vector2<T> Size, Orig
 
     public Rect(T x, T y, T width, T height, OriginLocating origin = OriginLocating.TopLeft)
         : this(new Vector2<T>(x, y), new Vector2<T>(width, height), origin.ToOrigin()) { }
-    
+
     public Rect(T x, T y, T width, T height, Origin? origin)
         : this(new Vector2<T>(x, y), new Vector2<T>(width, height), origin ?? OriginLocating.TopLeft.ToOrigin()) { }
-   
-#region Implicit/Explicit Conversions
-    
+
+    #region Conversions
+
     public static implicit operator Rect<double>(Rect<T> v) => new(v.Position, v.Size, v.LocalOrigin);
 
     public static explicit operator Rect<float>(Rect<T> v) => new((Vector2<float>)v.Position, (Vector2<float>)v.Size, v.LocalOrigin);
-    
+
     public static explicit operator Rect<int>(Rect<T> v) => new((Vector2<int>)v.Position, (Vector2<int>)v.Size, v.LocalOrigin);
-    
-#endregion 
-    
+
+    #endregion
+
     /// <summary>Create a rect from min/max corners, without checking for min &lt;= max.</summary>
-    public static Rect<T> FromMinMaxUnchecked(Vector2<T> min, Vector2<T> max, OriginLocating origin = OriginLocating.TopLeft)
+    public static Rect<T> FromMinMaxUnchecked(Vector2<T> min, Vector2<T> max)
     {
         var size = max - min;
-        return new Rect<T>(min, size, origin.ToOrigin());
+        return new Rect<T>(min, size, OriginLocating.TopLeft.ToOrigin());
     }
 
     // -----------------------------
     // Core geometry (origin-aware)
     // -----------------------------
 
+    /// <summary>Top-left corner in world space (origin-aware).</summary>
     public Vector2<T> TopLeft
     {
         get
         {
             // TopLeft = Position - Size * LocalOrigin
-            // LocalOrigin is float, so do in float then convert to T (away-from-zero for integral).
             var px = MathG.ToFloat(Position.X);
             var py = MathG.ToFloat(Position.Y);
             var sx = MathG.ToFloat(Size.X);
@@ -59,6 +59,7 @@ public readonly record struct Rect<T>(Vector2<T> Position, Vector2<T> Size, Orig
         }
     }
 
+    /// <summary>Bottom-right corner in world space (origin-aware).</summary>
     public Vector2<T> BottomRight => TopLeft + Size;
 
     public T Left   => MathG.Min(TopLeft.X, BottomRight.X);
@@ -69,18 +70,59 @@ public readonly record struct Rect<T>(Vector2<T> Position, Vector2<T> Size, Orig
     public T Width  => Right - Left;
     public T Height => Bottom - Top;
 
+    public Vector2<T> Center
+        => new(
+            MathG.FromFloat<T>((MathG.ToFloat(Left) + MathG.ToFloat(Right)) * 0.5f),
+            MathG.FromFloat<T>((MathG.ToFloat(Top) + MathG.ToFloat(Bottom)) * 0.5f)
+        );
+
     public Vector2<T> Min => new(Left, Top);
     public Vector2<T> Max => new(Right, Bottom);
 
+    public T Area => Width * Height;
+
+    public bool IsEmpty => MathG.IsZero(Width) || MathG.IsZero(Height);
+    public bool IsDegenerate => Width <= T.Zero || Height <= T.Zero;
+
+    /// <summary>Returns a rect with positive size and TopLeft origin, same covered area.</summary>
     public Rect<T> NormalizedTopLeft()
         => FromMinMaxUnchecked(new Vector2<T>(Left, Top), new Vector2<T>(Right, Bottom));
+
+    // -----------------------------
+    // Corner + edge anchor points
+    // -----------------------------
+
+    public Vector2<T> TopCenter
+        => new(MathG.FromFloat<T>((MathG.ToFloat(Left) + MathG.ToFloat(Right)) * 0.5f), Top);
+
+    public Vector2<T> BottomCenter
+        => new(MathG.FromFloat<T>((MathG.ToFloat(Left) + MathG.ToFloat(Right)) * 0.5f), Bottom);
+
+    public Vector2<T> CenterLeft
+        => new(Left, MathG.FromFloat<T>((MathG.ToFloat(Top) + MathG.ToFloat(Bottom)) * 0.5f));
+
+    public Vector2<T> CenterRight
+        => new(Right, MathG.FromFloat<T>((MathG.ToFloat(Top) + MathG.ToFloat(Bottom)) * 0.5f));
 
     public (Vector2<T> TL, Vector2<T> TR, Vector2<T> BR, Vector2<T> BL) Corners
         => (new Vector2<T>(Left, Top),
             new Vector2<T>(Right, Top),
             new Vector2<T>(Right, Bottom),
             new Vector2<T>(Left, Bottom));
-    
+
+    /// <summary>Get the point inside the rect at normalized coords (0..1, 0..1) using the rect's bounds.</summary>
+    public Vector2<T> PointAt(Vector2<T> uv)
+    {
+        // Left + Width*uv.X, Top + Height*uv.Y in float-space, then back to T
+        var x = MathG.ToFloat(Left) + MathG.ToFloat(Width) * MathG.ToFloat(uv.X);
+        var y = MathG.ToFloat(Top) + MathG.ToFloat(Height) * MathG.ToFloat(uv.Y);
+        return new Vector2<T>(MathG.FromFloat<T>(x), MathG.FromFloat<T>(y));
+    }
+
+    // -----------------------------
+    // Containment / intersection
+    // -----------------------------
+
     public bool Contains(Vector2<T> p, ContainsMode mode = ContainsMode.InclusiveMin)
     {
         var left   = (mode & ContainsMode.InclusiveLeft)   != 0 ? p.X >= Left   : p.X > Left;
@@ -100,7 +142,7 @@ public readonly record struct Rect<T>(Vector2<T> Position, Vector2<T> Size, Orig
 
         return left && right && top && bottom;
     }
-    
+
     public bool Intersects(Rect<T> other)
         => !(other.Right < Left || other.Left > Right || other.Bottom < Top || other.Top > Bottom);
 
@@ -111,8 +153,9 @@ public readonly record struct Rect<T>(Vector2<T> Position, Vector2<T> Size, Orig
         var r = MathG.Min(Right, other.Right);
         var b = MathG.Min(Bottom, other.Bottom);
 
-        // If inverted/empty, return a zero-size-ish rect at (l,t) with TopLeft origin.
-        if (r < l || b < t) return new Rect<T>(new Vector2<T>(l, t), new Vector2<T>(T.Zero, T.Zero), OriginLocating.TopLeft);
+        if (r < l || b < t)
+            return new Rect<T>(new Vector2<T>(l, t), new Vector2<T>(T.Zero, T.Zero), OriginLocating.TopLeft);
+
         return FromMinMaxUnchecked(new Vector2<T>(l, t), new Vector2<T>(r, b));
     }
 
@@ -125,11 +168,16 @@ public readonly record struct Rect<T>(Vector2<T> Position, Vector2<T> Size, Orig
         return FromMinMaxUnchecked(new Vector2<T>(l, t), new Vector2<T>(r, b));
     }
 
-    // -----------------------------
-    // Manipulation (typed)
-    // -----------------------------
+    /// <summary>Clamp a point into the rect bounds.</summary>
+    public Vector2<T> ClampPoint(Vector2<T> p)
+        => new(
+            MathG.Clamp(p.X, Left, Right),
+            MathG.Clamp(p.Y, Top, Bottom)
+        );
 
-    public Rect<T> Translated(Vector2<T> delta) => new(Position + delta, Size, LocalOrigin);
+    // -----------------------------
+    // Manipulation
+    // -----------------------------
 
     public Rect<T> ResizedFrom(Vector2<T> newSize, OriginLocating newOrigin) => ResizedFrom(newSize, newOrigin.ToOrigin());
 
@@ -150,6 +198,113 @@ public readonly record struct Rect<T>(Vector2<T> Position, Vector2<T> Size, Orig
 
         var newPos = new Vector2<T>(MathG.FromFloat<T>(px), MathG.FromFloat<T>(py));
         return new Rect<T>(newPos, newSize, usedOrigin);
+    }
+
+    public Rect<T> OffsetEdges(T leftDelta, T topDelta, T rightDelta, T bottomDelta)
+    {
+        var newLeft = Left + leftDelta;
+        var newTop = Top + topDelta;
+        var newRight = Right + rightDelta;
+        var newBottom = Bottom + bottomDelta;
+        return FromMinMaxUnchecked(new Vector2<T>(newLeft, newTop), new Vector2<T>(newRight, newBottom));
+    }
+
+    public Rect<T> Expand(T delta)
+        => OffsetEdges(-delta, -delta, delta, delta);
+
+    public Rect<T> Translated(Vector2<T> delta) => new(Position + delta, Size, LocalOrigin);
+
+    public Rect<T> ScaledFrom(Vector2<T> scale, OriginLocating newOrigin = OriginLocating.TopLeft)
+        => ScaledFrom(scale, newOrigin.ToOrigin());
+
+    public Rect<T> ScaledFrom(Vector2<T> scale, Origin? newOrigin = null)
+    {
+        var usedOrigin = newOrigin ?? LocalOrigin;
+
+        var newSize = new Vector2<T>(
+            Size.X * scale.X,
+            Size.Y * scale.Y
+        );
+
+        // adjust position so the chosen origin remains fixed in world space
+        var oldSx = MathG.ToFloat(Size.X);
+        var oldSy = MathG.ToFloat(Size.Y);
+        var newSx = MathG.ToFloat(newSize.X);
+        var newSy = MathG.ToFloat(newSize.Y);
+
+        var dx = newSx * usedOrigin.X - oldSx * LocalOrigin.X;
+        var dy = newSy * usedOrigin.Y - oldSy * LocalOrigin.Y;
+
+        var px = MathG.ToFloat(Position.X) + dx;
+        var py = MathG.ToFloat(Position.Y) + dy;
+
+        var newPos = new Vector2<T>(MathG.FromFloat<T>(px), MathG.FromFloat<T>(py));
+        return new Rect<T>(newPos, newSize, usedOrigin);
+    }
+
+    public Rect<T> LeftTo(T newLeft)
+    {
+        // Position.X = newLeft + Size.X * LocalOrigin.X
+        var x = MathG.ToFloat(newLeft) + MathG.ToFloat(Size.X) * LocalOrigin.X;
+        return new Rect<T>(new Vector2<T>(MathG.FromFloat<T>(x), Position.Y), Size, LocalOrigin);
+    }
+
+    public Rect<T> TopTo(T newTop)
+    {
+        var y = MathG.ToFloat(newTop) + MathG.ToFloat(Size.Y) * LocalOrigin.Y;
+        return new Rect<T>(new Vector2<T>(Position.X, MathG.FromFloat<T>(y)), Size, LocalOrigin);
+    }
+
+    public Rect<T> RightTo(T newRight)
+    {
+        // right = position + size*(1-origin)
+        var x = MathG.ToFloat(newRight) - MathG.ToFloat(Size.X) * (1f - LocalOrigin.X);
+        return new Rect<T>(new Vector2<T>(MathG.FromFloat<T>(x), Position.Y), Size, LocalOrigin);
+    }
+
+    public Rect<T> BottomTo(T newBottom)
+    {
+        var y = MathG.ToFloat(newBottom) - MathG.ToFloat(Size.Y) * (1f - LocalOrigin.Y);
+        return new Rect<T>(new Vector2<T>(Position.X, MathG.FromFloat<T>(y)), Size, LocalOrigin);
+    }
+
+    // -----------------------------
+    // Fit / aspect helpers (UI/game-cam friendly)
+    // (Generic version returns Rect<float> because aspect math is inherently float)
+    // -----------------------------
+
+    public Rect<float> FitInside(Rect<float> container, bool preserveAspect = true)
+    {
+        var srcW = MathG.ToFloat(Width);
+        var srcH = MathG.ToFloat(Height);
+        var dstW = container.Width;
+        var dstH = container.Height;
+
+        if (srcW <= 0f || srcH <= 0f || dstW <= 0f || dstH <= 0f)
+            return new Rect<float>(container.Center, new Vector2<float>(0f, 0f), OriginLocating.Center);
+
+        float scale = preserveAspect ? MathF.Min(dstW / srcW, dstH / srcH) : 1f;
+
+        var newSize = new Vector2<float>(srcW * scale, srcH * scale);
+        var tl = container.Center - newSize * 0.5f;
+        return Rect<float>.FromMinMaxUnchecked((Vector2<float>)tl, (Vector2<float>)(tl + newSize));
+    }
+
+    public Rect<float> FitOutside(Rect<float> container, bool preserveAspect = true)
+    {
+        var srcW = MathG.ToFloat(Width);
+        var srcH = MathG.ToFloat(Height);
+        var dstW = container.Width;
+        var dstH = container.Height;
+
+        if (srcW <= 0f || srcH <= 0f || dstW <= 0f || dstH <= 0f)
+            return new Rect<float>(container.Center, new Vector2<float>(0f, 0f), OriginLocating.Center);
+
+        float scale = preserveAspect ? MathF.Max(dstW / srcW, dstH / srcH) : 1f;
+
+        var newSize = new Vector2<float>(srcW * scale, srcH * scale);
+        var tl = container.Center - newSize * 0.5f;
+        return Rect<float>.FromMinMaxUnchecked((Vector2<float>)tl, (Vector2<float>)(tl + newSize));
     }
 
     // -----------------------------
@@ -422,10 +577,10 @@ public readonly record struct Rect<T>(Vector2<T> Position, Vector2<T> Size, Orig
     {
         var q = ToQuad();
 
-        var p0 = Matrix3x3.TransformAffine<T,T,T>(m, q.P0);
-        var p1 = Matrix3x3.TransformAffine<T,T,T>(m, q.P1);
-        var p2 = Matrix3x3.TransformAffine<T,T,T>(m, q.P2);
-        var p3 = Matrix3x3.TransformAffine<T,T,T>(m, q.P3);
+        var p0 = Matrix3x3.TransformAffine<T, T, T>(m, q.P0);
+        var p1 = Matrix3x3.TransformAffine<T, T, T>(m, q.P1);
+        var p2 = Matrix3x3.TransformAffine<T, T, T>(m, q.P2);
+        var p3 = Matrix3x3.TransformAffine<T, T, T>(m, q.P3);
 
         return new Quad2<T>(p0, p1, p2, p3);
     }
@@ -434,10 +589,10 @@ public readonly record struct Rect<T>(Vector2<T> Position, Vector2<T> Size, Orig
     {
         var q = ToQuad();
 
-        var p0 = Matrix3x3.TransformProjective<T,T,T>(m, q.P0);
-        var p1 = Matrix3x3.TransformProjective<T,T,T>(m, q.P1);
-        var p2 = Matrix3x3.TransformProjective<T,T,T>(m, q.P2);
-        var p3 = Matrix3x3.TransformProjective<T,T,T>(m, q.P3);
+        var p0 = Matrix3x3.TransformProjective<T, T, T>(m, q.P0);
+        var p1 = Matrix3x3.TransformProjective<T, T, T>(m, q.P1);
+        var p2 = Matrix3x3.TransformProjective<T, T, T>(m, q.P2);
+        var p3 = Matrix3x3.TransformProjective<T, T, T>(m, q.P3);
 
         return new Quad2<T>(p0, p1, p2, p3);
     }

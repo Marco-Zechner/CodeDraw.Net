@@ -194,6 +194,8 @@ public readonly record struct Rect(Vector2 Position, Vector2 Size, Origin LocalO
     public Rect RightTo(float newRight) => new(new Vector2(newRight - Size.X * (1f - LocalOrigin.X), Position.Y), Size, LocalOrigin);
     public Rect BottomTo(float newBottom) => new(new Vector2(Position.X, newBottom - Size.Y * (1f - LocalOrigin.Y)), Size, LocalOrigin);
     
+    public Rect Expand(float delta) => OffsetEdges(-delta, -delta, delta, delta);
+    
     // -----------------------------
     // Fit / aspect helpers (UI/game-cam friendly)
     // -----------------------------

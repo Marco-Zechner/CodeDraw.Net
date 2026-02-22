@@ -82,24 +82,24 @@ public readonly partial record struct Vector2<T>(T X, T Y) where T : unmanaged, 
 
     public T SquaredLength => X * X + Y * Y;
 
-    public float Length() => MathG.Sqrt(SquaredLength);
+    public float Length => MathG.Sqrt(SquaredLength);
 
-    public TOut Length<TOut>() where TOut : unmanaged, INumber<TOut>
+    public TOut LengthT<TOut>() where TOut : unmanaged, INumber<TOut>
         => MathG.FromDouble<TOut>(Math.Sqrt(MathG.ToDouble(SquaredLength)));
 
-    public Vector2<float> NormalizedF
+    public Vector2<float> Normalized
     {
         get
         {
-            var len = Length();
+            var len = Length;
             if (len == 0f) return Vector2<float>.Zero;
             return new Vector2<float>(MathG.ToFloat(X) / len, MathG.ToFloat(Y) / len);
         }
     }
 
-    public Vector2<TOut> Normalized<TOut>() where TOut : unmanaged, INumber<TOut>
+    public Vector2<TOut> NormalizedT<TOut>() where TOut : unmanaged, INumber<TOut>
     {
-        var len = Length<double>();
+        var len = LengthT<double>();
         if (len == 0.0) return Vector2<TOut>.Zero;
 
         var dx = MathG.ToDouble(X) / len;

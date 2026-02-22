@@ -146,9 +146,9 @@ public class Prototype6
             var titleGlyphCount = title.Count(t => t != '\n' && t != '\r');
 
             // Distance -> how many title characters are “revealed”
-            var distanceToCenter = (mousePos - textLayer.Size / 2).Length<double>();
-            var maxDistance = (textLayer.Size / 2).Length<double>() / 2f;
-            var minDistance = (textLayer.Size / 2).Length<double>() / 15;
+            var distanceToCenter = (mousePos - textLayer.Size / 2).LengthT<double>();
+            var maxDistance = (textLayer.Size / 2).LengthT<double>() / 2f;
+            var minDistance = (textLayer.Size / 2).LengthT<double>() / 15;
 
             var desiredVisible = (int)MathG.MapClamped(
                 distanceToCenter,

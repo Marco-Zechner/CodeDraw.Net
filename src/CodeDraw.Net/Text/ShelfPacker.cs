@@ -1,4 +1,4 @@
-﻿namespace MarcoZechner.CodeDrawDotNet.DrawLayer.Text;
+﻿namespace MarcoZechner.CodeDrawDotNet.Text;
 
 internal sealed class ShelfPacker(int w, int h)
 {

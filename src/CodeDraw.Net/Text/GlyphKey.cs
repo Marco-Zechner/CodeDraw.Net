@@ -1,4 +1,4 @@
-﻿namespace MarcoZechner.CodeDrawDotNet.DrawLayer.Text;
+﻿namespace MarcoZechner.CodeDrawDotNet.Text;
 
 public readonly struct GlyphKey(string fontPath, int sizePx, uint glyphIndex)
     : IEquatable<GlyphKey>

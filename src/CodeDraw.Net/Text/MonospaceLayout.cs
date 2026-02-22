@@ -1,7 +1,7 @@
 ﻿using System.Numerics;
 using MarcoZechner.ColorDotNet.RGB;
 
-namespace MarcoZechner.CodeDrawDotNet.DrawLayer.Text;
+namespace MarcoZechner.CodeDrawDotNet.Text;
 
 public sealed class MonospaceLayout(GlyphCache glyphs, FontMetricsProvider metrics)
 {

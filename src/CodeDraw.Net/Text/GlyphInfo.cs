@@ -1,6 +1,6 @@
 ﻿using System.Numerics;
 
-namespace MarcoZechner.CodeDrawDotNet.DrawLayer.Text;
+namespace MarcoZechner.CodeDrawDotNet.Text;
 
 public sealed class GlyphInfo
 {

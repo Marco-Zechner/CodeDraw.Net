@@ -1,6 +1,6 @@
 ﻿using System.Numerics;
-using MarcoZechner.CodeDrawDotNet.DrawLayer.Text;
 using MarcoZechner.CodeDrawDotNet.Shaders;
+using MarcoZechner.CodeDrawDotNet.Text;
 using MarcoZechner.ColorDotNet.RGB;
 using Silk.NET.OpenGL;
 

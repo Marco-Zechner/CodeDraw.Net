@@ -1,4 +1,4 @@
-﻿namespace MarcoZechner.CodeDrawDotNet.DrawLayer.Text;
+﻿namespace MarcoZechner.CodeDrawDotNet.Text;
 
 public sealed class FontMetricsProvider(GlyphCache glyphs) : IDisposable
 {

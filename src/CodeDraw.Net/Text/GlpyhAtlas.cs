@@ -1,4 +1,4 @@
-﻿namespace MarcoZechner.CodeDrawDotNet.DrawLayer.Text;
+﻿namespace MarcoZechner.CodeDrawDotNet.Text;
 
 public sealed class GlyphAtlas(IGlyphAtlasBackend backend, int pageW = 1024, int pageH = 1024)
 {

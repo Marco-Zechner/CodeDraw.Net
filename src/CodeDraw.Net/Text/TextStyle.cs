@@ -1,6 +1,7 @@
-﻿using MarcoZechner.ColorDotNet.RGB;
+﻿using MarcoZechner.CodeDrawDotNet.DrawLayer;
+using MarcoZechner.ColorDotNet.RGB;
 
-namespace MarcoZechner.CodeDrawDotNet.DrawLayer.Text;
+namespace MarcoZechner.CodeDrawDotNet.Text;
 
 public sealed record TextStyle
 {

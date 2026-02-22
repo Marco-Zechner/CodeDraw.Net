@@ -1,6 +1,6 @@
 ﻿using SharpFont;
 
-namespace MarcoZechner.CodeDrawDotNet.DrawLayer.Text;
+namespace MarcoZechner.CodeDrawDotNet.Text;
 
 public sealed class FontFace : IDisposable
 {

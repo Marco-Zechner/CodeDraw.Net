@@ -1,4 +1,4 @@
-﻿namespace MarcoZechner.CodeDrawDotNet.DrawLayer.Text;
+﻿namespace MarcoZechner.CodeDrawDotNet.Text;
 
 public enum TextAlign { Left, Center, Right }
 public enum TextVAlign { Top, Middle, Bottom }

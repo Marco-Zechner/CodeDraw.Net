@@ -2,7 +2,7 @@
 using System.Numerics;
 using SharpFont;
 
-namespace MarcoZechner.CodeDrawDotNet.DrawLayer.Text;
+namespace MarcoZechner.CodeDrawDotNet.Text;
 
 public sealed class GlyphCache(IGlyphAtlasBackend? backend) : IDisposable
 {

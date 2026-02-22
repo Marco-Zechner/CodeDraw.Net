@@ -41,7 +41,7 @@ public readonly partial record struct Matrix3x3
 
 #region Returns Matrix3X3<TOut>
 
-    public static Matrix3x3 CreateRotationF<TAng>(TAng angle, AngleUnit unit = AngleUnit.Degrees)
+    public static Matrix3x3<float> CreateRotationF<TAng>(TAng angle, AngleUnit unit = AngleUnit.Degrees)
         where TAng : INumber<TAng>
         => Matrix3x3<float>.CreateRotationF(angle, unit);
 
@@ -50,7 +50,7 @@ public readonly partial record struct Matrix3x3
         where TAng : INumber<TAng>
         => Matrix3x3<float>.CreateRotation<TOut, TAng>(angle, unit);
 
-    public static Matrix3x3 CreateRotationF(double angle, AngleUnit unit = AngleUnit.Degrees)
+    public static Matrix3x3<float> CreateRotationF(double angle, AngleUnit unit = AngleUnit.Degrees)
         => Matrix3x3<float>.CreateRotationF(angle, unit);
 
     public static Matrix3x3<TOut> CreateRotation<TOut>(double angle, AngleUnit unit = AngleUnit.Degrees)
@@ -58,7 +58,7 @@ public readonly partial record struct Matrix3x3
         => Matrix3x3<double>.CreateRotation<TOut>(angle, unit);
 
     
-    public static Matrix3x3 CreateTranslationF<TTx, TTy>(TTx tx, TTy ty)
+    public static Matrix3x3<float> CreateTranslationF<TTx, TTy>(TTx tx, TTy ty)
         where TTx : INumber<TTx>
         where TTy : INumber<TTy>
         => Matrix3x3<float>.CreateTranslationF(tx, ty);
@@ -69,7 +69,7 @@ public readonly partial record struct Matrix3x3
         where TTy : INumber<TTy>
         => Matrix3x3<float>.CreateTranslation<TOut, TTx, TTy>(tx, ty);
 
-    public static Matrix3x3 CreateTranslationF(double tx, double ty)
+    public static Matrix3x3<float> CreateTranslationF(double tx, double ty)
         => Matrix3x3<float>.CreateTranslationF(tx, ty);
 
     public static Matrix3x3<TOut> CreateTranslation<TOut>(double tx, double ty)
@@ -77,7 +77,7 @@ public readonly partial record struct Matrix3x3
         => Matrix3x3<double>.CreateTranslation<TOut>(tx, ty);
 
 
-    public static Matrix3x3 CreateScaleF<TSx, TSy>(TSx sx, TSy sy)
+    public static Matrix3x3<float> CreateScaleF<TSx, TSy>(TSx sx, TSy sy)
         where TSx : INumber<TSx>
         where TSy : INumber<TSy>
         => Matrix3x3<float>.CreateScaleF(sx, sy);
@@ -88,7 +88,7 @@ public readonly partial record struct Matrix3x3
         where TSy : INumber<TSy>
         => Matrix3x3<float>.CreateScale<TOut, TSx, TSy>(sx, sy);
 
-    public static Matrix3x3 CreateScaleF(double sx, double sy)
+    public static Matrix3x3<float> CreateScaleF(double sx, double sy)
         => Matrix3x3<float>.CreateScaleF(sx, sy);
 
     public static Matrix3x3<TOut> CreateScale<TOut>(double sx, double sy)
@@ -96,7 +96,7 @@ public readonly partial record struct Matrix3x3
         => Matrix3x3<double>.CreateScale<TOut>(sx, sy);
     
 
-    public static Matrix3x3 CreateBasisF<TX, TY, TT>(Vector2<TX> xAxis, Vector2<TY> yAxis, Vector2<TT> translation)
+    public static Matrix3x3<float> CreateBasisF<TX, TY, TT>(Vector2<TX> xAxis, Vector2<TY> yAxis, Vector2<TT> translation)
         where TX : unmanaged, INumber<TX>
         where TY : unmanaged, INumber<TY>
         where TT : unmanaged, INumber<TT>
@@ -109,14 +109,14 @@ public readonly partial record struct Matrix3x3
         where TT : unmanaged, INumber<TT>
         => Matrix3x3<float>.CreateBasis<TOut, TX, TY, TT>(xAxis, yAxis, translation);
 
-    public static Matrix3x3 CreateBasisF(Vector2<double> xAxis, Vector2<double> yAxis, Vector2<double> translation)
+    public static Matrix3x3<float> CreateBasisF(Vector2<double> xAxis, Vector2<double> yAxis, Vector2<double> translation)
         => Matrix3x3<float>.CreateBasisF(xAxis, yAxis, translation);
 
     public static Matrix3x3<TOut> CreateBasis<TOut>(Vector2<double> xAxis, Vector2<double> yAxis, Vector2<double> translation)
         where TOut : unmanaged, INumber<TOut>
         => Matrix3x3<double>.CreateBasis<TOut>(xAxis, yAxis, translation);
 
-    public static Matrix3x3 CreateShearF<TShx, TShy>(TShx shx, TShy shy)
+    public static Matrix3x3<float> CreateShearF<TShx, TShy>(TShx shx, TShy shy)
         where TShx : INumber<TShx>
         where TShy : INumber<TShy>
         => Matrix3x3<float>.CreateShearF(shx, shy);
@@ -127,14 +127,14 @@ public readonly partial record struct Matrix3x3
         where TShy : INumber<TShy>
         => Matrix3x3<float>.CreateShear<TOut, TShx, TShy>(shx, shy);
     
-    public static Matrix3x3 CreateShearF(double shx, double shy)
+    public static Matrix3x3<float> CreateShearF(double shx, double shy)
         => Matrix3x3<float>.CreateShearF(shx, shy);
     
     public static Matrix3x3<TOut> CreateShear<TOut>(double shx, double shy)
         where TOut : unmanaged, INumber<TOut>
         => Matrix3x3<double>.CreateShear<TOut>(shx, shy);
 
-    public static Matrix3x3 LerpF<TA, TB, TT>(Matrix3x3<TA> a, Matrix3x3<TB> b, TT t)
+    public static Matrix3x3<float> LerpF<TA, TB, TT>(Matrix3x3<TA> a, Matrix3x3<TB> b, TT t)
         where TA : unmanaged, INumber<TA>
         where TB : unmanaged, INumber<TB>
         where TT : INumber<TT>
@@ -147,7 +147,7 @@ public readonly partial record struct Matrix3x3
         where TT : INumber<TT>
         => Matrix3x3<float>.Lerp<TOut, TA, TB, TT>(a, b, t);
 
-    public static Matrix3x3 LerpF(Matrix3x3<double> a, Matrix3x3<double> b, double t)
+    public static Matrix3x3<float> LerpF(Matrix3x3<double> a, Matrix3x3<double> b, double t)
         => Matrix3x3<float>.LerpF(a, b, t);
 
     public static Matrix3x3<TOut> Lerp<TOut>(Matrix3x3<double> a, Matrix3x3<double> b, double t)
@@ -155,7 +155,7 @@ public readonly partial record struct Matrix3x3
         => Matrix3x3<double>.Lerp<TOut>(a, b, t);
 
 
-    public static Matrix3x3 TransposeF<TA>(Matrix3x3<TA> m)
+    public static Matrix3x3<float> TransposeF<TA>(Matrix3x3<TA> m)
         where TA : unmanaged, INumber<TA>
         => Matrix3x3<float>.TransposeF(m);
 
@@ -164,14 +164,14 @@ public readonly partial record struct Matrix3x3
         where TA : unmanaged, INumber<TA>
         => Matrix3x3<float>.Transpose<TOut, TA>(m);
 
-    public static Matrix3x3 TransposeF(Matrix3x3<double> m) => Matrix3x3<float>.TransposeF(m);
+    public static Matrix3x3<float> TransposeF(Matrix3x3<double> m) => Matrix3x3<float>.TransposeF(m);
 
     public static Matrix3x3<TOut> Transpose<TOut>(Matrix3x3<double> m)
         where TOut : unmanaged, INumber<TOut>
         => Matrix3x3<double>.Transpose<TOut>(m);
 
 
-    public static bool TryInvertF<TA>(Matrix3x3<TA> m, out Matrix3x3 inv)
+    public static bool TryInvertF<TA>(Matrix3x3<TA> m, out Matrix3x3<float> inv)
         where TA : unmanaged, INumber<TA>
     {
         var ok = Matrix3x3<float>.TryInvertF(m, out var i);
@@ -184,7 +184,7 @@ public readonly partial record struct Matrix3x3
         where TA : unmanaged, INumber<TA>
         => Matrix3x3<float>.TryInvert(m, out inv);
 
-    public static bool TryInvertF(Matrix3x3<double> m, out Matrix3x3 inv)
+    public static bool TryInvertF(Matrix3x3<double> m, out Matrix3x3<float> inv)
     {
         var ok = Matrix3x3<float>.TryInvertF(m, out var i);
         inv = i;
@@ -195,7 +195,7 @@ public readonly partial record struct Matrix3x3
         where TOut : unmanaged, INumber<TOut>
         => Matrix3x3<double>.TryInvert<TOut, double>(m, out inv);
     
-    public static Matrix3x3 InvertF<TA>(Matrix3x3<TA> m)
+    public static Matrix3x3<float> InvertF<TA>(Matrix3x3<TA> m)
         where TA : unmanaged, INumber<TA>
         => Matrix3x3<float>.InvertF(m);
 
@@ -204,7 +204,7 @@ public readonly partial record struct Matrix3x3
         where TA : unmanaged, INumber<TA>
         => Matrix3x3<float>.Invert<TOut, TA>(m);
 
-    public static Matrix3x3 InvertF(Matrix3x3<double> m)
+    public static Matrix3x3<float> InvertF(Matrix3x3<double> m)
         => Matrix3x3<float>.InvertF(m);
 
     public static Matrix3x3<TOut> Invert<TOut>(Matrix3x3<double> m)

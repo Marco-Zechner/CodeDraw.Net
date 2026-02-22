@@ -138,6 +138,28 @@ public readonly partial record struct Vector2(float X, float Y)
     public static Vector2 operator -(Vector2 a) => new(-a.X, -a.Y);
 
 #endregion
+
+#region Static Methods (returns Vector2)
+
+    public static float DistanceSquared(Vector2 a, Vector2 b) => DistanceSquaredF(a, b);
+    public static float Distance(Vector2 a, Vector2 b) => DistanceF(a, b);
+    public static float Dot(Vector2 a, Vector2 b) => DotF(a, b);
+    public static float CrossZ(Vector2 a, Vector2 b) => CrossZF(a, b);
+    public static float AngleBetween(Vector2 a, Vector2 b, AngleUnit angleUnit = AngleUnit.Degrees) => AngleBetweenF(a, b, angleUnit);
+    public static Vector2 Min(Vector2 a, Vector2 b) => MinF(a, b);
+    public static Vector2 Max(Vector2 a, Vector2 b) => MaxF(a, b);
+    public static Vector2 Clamp(Vector2 v, Vector2 min, Vector2 max) => ClampF(v, min, max);
+    public static Vector2 Lerp(Vector2 a, Vector2 b, float t) => LerpF(a, b, t);
+    public static Vector2 Reflect(Vector2 v, Vector2 normal) => ReflectF(v, normal);
+    public static Vector2 PerpendicularCcw(Vector2 v) => PerpendicularCcwF(v);
+    public static Vector2 PerpendicularCw(Vector2 v) => PerpendicularCwF(v);
+    public static Vector2 Rotate(Vector2 v, float angle, AngleUnit angleUnit = AngleUnit.Degrees) => RotateF(v, angle, angleUnit);
+    public static Vector2 FromPolar(float radius, float angle, AngleUnit angleUnit = AngleUnit.Degrees) => FromPolarF(radius, angle, angleUnit);
+    public static Vector2 Normalize(Vector2 v) => NormalizeF(v);
+    public static Vector2 Abs(Vector2 v) => AbsF(v);
+    public static Vector2 Sign(Vector2 v) => SignF(v);
+    
+#endregion
     
 #region Cross-type scalar ops as instance methods
     
@@ -158,7 +180,6 @@ public readonly partial record struct Vector2(float X, float Y)
     public Vector2<TOut> Divide<TOut>(double s)
         where TOut : unmanaged, INumber<TOut>
         => AsGeneric().Divide<TOut>(s);
-
     
 #endregion
 }

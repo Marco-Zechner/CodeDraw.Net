@@ -64,16 +64,16 @@ public class Prototype3
                         break;
                     case Keys.I: win.ToggleState(WindowState.Minimized);
                         break;
-                    case Keys.L: win.ToggleResizeMode(WindowResizeMode.Limited);
+                    case Keys.L: win.ToggleResizeMode(WindowResizeMode.Limited); //TODO: broken
                         break;
-                    case Keys.M: win.ToggleState(WindowState.BorderlessFullscreen);
+                    case Keys.M: win.ToggleState(WindowState.BorderlessFullscreen); //TODO: worked a few time (but loses focus!) then it crashed on another try.
                         break;
-                    case Keys.R: win.ToggleResizeMode(WindowResizeMode.Aspect);
+                    case Keys.R: win.ToggleResizeMode(WindowResizeMode.Aspect); //TODO: broken
                         break;
-                    case Keys.S when !ctrl: win.ToggleState(WindowState.Maximized);
+                    case Keys.S when !ctrl: win.ToggleState(WindowState.Maximized); //TODO: no focus, and sometimes crash
                         break;
-                    case Keys.S when ctrl: win.ToggleState(WindowState.BorderlessMaximized);
-                        break;
+                    case Keys.S when ctrl: win.ToggleState(WindowState.BorderlessMaximized); //TODO: no focus, and sometimes crash
+                        break;                                                              // to be clear, it should "KEEP" focus if it had it, not just get it always.
                     case Keys.T: win.AlwaysOnTop = !win.AlwaysOnTop;
                         break;
                     case Keys.Escape: win.Close();

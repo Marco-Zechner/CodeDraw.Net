@@ -140,16 +140,16 @@ public sealed unsafe partial class CodeDrawLayer
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static uint PackClearColor(float r, float g, float b, float a)
     {
-        static uint To8(float v)
-        {
-            v = Math.Clamp(v, 0f, 1f);
-            return (uint)(v * 255f + 0.5f);
-        }
-
         var R = To8(r);
         var G = To8(g);
         var B = To8(b);
         var A = To8(a);
         return R | G << 8 | B << 16 | A << 24;
+
+        static uint To8(float v)
+        {
+            v = Math.Clamp(v, 0f, 1f);
+            return (uint)(v * 255f + 0.5f);
+        }
     }
 }

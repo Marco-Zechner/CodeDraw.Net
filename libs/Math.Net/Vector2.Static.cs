@@ -290,5 +290,38 @@ public readonly partial record struct Vector2
     public static Vector2<TOut> Normalize<TOut>(Vector2<double> v)
         where TOut : unmanaged, INumber<TOut>
         => Vector2<double>.Normalize<TOut>(v);
+    
+    public static Vector2<float> AbsF<TA>(Vector2<TA> v)
+        where TA : unmanaged, INumber<TA>
+        => Vector2<float>.AbsF(v);
+    
+    public static Vector2<TOut> Abs<TOut, TA>(Vector2<TA> v)
+        where TOut : unmanaged, INumber<TOut>
+        where TA : unmanaged, INumber<TA>
+        => Vector2<float>.Abs<TOut, TA>(v);
+    
+    public static Vector2<float> AbsF(Vector2<double> v)
+        => Vector2<float>.AbsF(v);
+    
+    public static Vector2<TOut> Abs<TOut>(Vector2<double> v)
+        where TOut : unmanaged, INumber<TOut>
+        => Vector2<double>.Abs<TOut>(v);
+    
+    public static Vector2<float> SignF<TA>(Vector2<TA> v)
+        where TA : unmanaged, INumber<TA>
+        => Vector2<float>.SignF(v);
+    
+    public static Vector2<TOut> Sign<TOut, TA>(Vector2<TA> v)
+        where TOut : unmanaged, INumber<TOut>
+        where TA : unmanaged, INumber<TA>
+        => Vector2<float>.Sign<TOut, TA>(v);
+    
+    public static Vector2<float> SignF(Vector2<double> v)
+        => Vector2<float>.SignF(v);
+    
+    public static Vector2<TOut> Sign<TOut>(Vector2<double> v)
+        where TOut : unmanaged, INumber<TOut>
+        => Vector2<double>.Sign<TOut>(v);
+    
 #endregion
 }

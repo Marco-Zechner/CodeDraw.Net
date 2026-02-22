@@ -97,16 +97,16 @@ public readonly record struct WindowSettingsSnapshot(
         var asp = Dc(d.AspectRatio);
 
         if (max.X != Glfw.DontCare && max.X < min.X)
-            min = min.WithX(max.X);
+            min = min with { X = max.X };
         if (max.Y != Glfw.DontCare && max.Y < min.Y)
-            min = min.WithY(max.Y);
+            min = min with { Y = max.Y };
         if (asp.X == Glfw.DontCare || asp.Y == Glfw.DontCare)
             asp = Vector2<int>.One * Glfw.DontCare;
 
         // ensure sane size (avoid 0/negative)
         var size = d.Size;
-        if (size.X < 1) size = size.WithX(1);
-        if (size.Y < 1) size = size.WithY(1);
+        if (size.X < 1) size = size with { X = 1 };
+        if (size.Y < 1) size = size with { Y = 1 };
 
         if (d is { State: WindowState.Windowed, ResizeMode: WindowResizeMode.Limited })
         {
@@ -129,7 +129,7 @@ public readonly record struct WindowSettingsSnapshot(
                 // y = x * asp.Y / asp.X
                 var y = (int)Math.Round(size.X * (asp.Y / (double)asp.X));
                 if (y < 1) y = 1;
-                size = size.WithY(y);
+                size = size with { Y = y };
             }
         }
         
@@ -137,8 +137,10 @@ public readonly record struct WindowSettingsSnapshot(
         {
             // If user wants "1920", you store physical "1921"
             var physical = size;
-            if (physical.X < 1) physical = physical.WithX(1);
-            physical = physical.WithX(physical.X + ExtraRightPixels);
+            if (physical.X < 1) physical = physical with { X = 1 };
+            physical = physical with {
+                X = physical.X + ExtraRightPixels
+            };
             size = physical;
         }
 

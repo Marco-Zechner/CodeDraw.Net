@@ -51,13 +51,13 @@ public class Prototype4
             
             switch (key)
             {
-                case Keys.Left: delta = delta.WithX(delta.X - 10);
+                case Keys.Left: delta = delta with { X = delta.X - 10 };
                     break;
-                case Keys.Right: delta = delta.WithX(delta.X + 10);
+                case Keys.Right: delta = delta with { X = delta.X + 10 };
                     break;
-                case Keys.Up: delta = delta.WithY(delta.Y - 10);
+                case Keys.Up: delta = delta with { Y = delta.Y - 10 };
                     break;
-                case Keys.Down: delta = delta.WithY(delta.Y + 10);
+                case Keys.Down: delta = delta with { Y = delta.Y + 10 };
                     break;
             }
             

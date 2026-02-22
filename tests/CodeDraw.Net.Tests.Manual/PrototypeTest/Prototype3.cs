@@ -32,13 +32,13 @@ public class Prototype3
             var ctrl = input.GetModifierState(ModifierKeys.CONTROL);
             var delta = Vector2<int>.Zero;
             if (input.GetKeyDown(Keys.Left))
-                delta = delta.WithX(delta.X - 10);
+                delta = delta with { X = delta.X - 10 };
             if (input.GetKeyDown(Keys.Right))
-                delta = delta.WithX(delta.X + 10);
+                delta = delta with { X = delta.X + 10 };
             if (input.GetKeyDown(Keys.Up))
-                delta = delta.WithY(delta.Y - 10);
+                delta = delta with { Y = delta.Y - 10 };
             if (input.GetKeyDown(Keys.Down))
-                delta = delta.WithY(delta.Y + 10);
+                delta = delta with { Y = delta.Y + 10 };
 
             if (ctrl)
                 win.Size += delta;

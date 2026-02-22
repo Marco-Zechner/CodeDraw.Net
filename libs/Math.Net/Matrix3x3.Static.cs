@@ -116,6 +116,23 @@ public readonly partial record struct Matrix3x3
         where TOut : unmanaged, INumber<TOut>
         => Matrix3x3<double>.CreateBasis<TOut>(xAxis, yAxis, translation);
 
+    public static Matrix3x3 CreateShearF<TShx, TShy>(TShx shx, TShy shy)
+        where TShx : INumber<TShx>
+        where TShy : INumber<TShy>
+        => Matrix3x3<float>.CreateShearF(shx, shy);
+    
+    public static Matrix3x3<TOut> CreateShear<TOut, TShx, TShy>(TShx shx, TShy shy)
+        where TOut : unmanaged, INumber<TOut>
+        where TShx : INumber<TShx>
+        where TShy : INumber<TShy>
+        => Matrix3x3<float>.CreateShear<TOut, TShx, TShy>(shx, shy);
+    
+    public static Matrix3x3 CreateShearF(double shx, double shy)
+        => Matrix3x3<float>.CreateShearF(shx, shy);
+    
+    public static Matrix3x3<TOut> CreateShear<TOut>(double shx, double shy)
+        where TOut : unmanaged, INumber<TOut>
+        => Matrix3x3<double>.CreateShear<TOut>(shx, shy);
 
     public static Matrix3x3 LerpF<TA, TB, TT>(Matrix3x3<TA> a, Matrix3x3<TB> b, TT t)
         where TA : unmanaged, INumber<TA>

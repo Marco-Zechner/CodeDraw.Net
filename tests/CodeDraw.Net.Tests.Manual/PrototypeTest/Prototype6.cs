@@ -260,7 +260,7 @@ public class Prototype6
             offsetY = MathF.Max(offsetY, padding.Y);
 
             // Now draw using these offsets:
-            textLayer.DrawText(textWall, offsetX, offsetY, style);
+            textLayer.DrawText(textWall, offsetX, offsetY, style); //TODO: pass in "effect" method that can set stuff for each character individually
             textLayer.DrawText(displayTitleStr, offsetX, offsetY, titleStyle);
             
             textLayer.Render();

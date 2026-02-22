@@ -200,6 +200,35 @@ public readonly partial record struct Matrix3x3<T>
         where TOut : unmanaged, INumber<TOut>
         => CreateBasis<TOut, double, double, double>(xAxis, yAxis, translation);
 
+    // -----------------------------
+    // Shear
+    // -----------------------------
+    
+    public static Matrix3x3<float> CreateShearF<TShx, TShy>(TShx shx, TShy shy)
+        where TShx : INumber<TShx>
+        where TShy : INumber<TShy>
+        => new(
+            1f, MathG.ToFloat(shx), 0f,
+            MathG.ToFloat(shy), 1f, 0f,
+            0f, 0f, 1f
+        );
+    
+    public static Matrix3x3<TOut> CreateShear<TOut, TShx, TShy>(TShx shx, TShy shy)
+        where TOut : unmanaged, INumber<TOut>
+        where TShx : INumber<TShx>
+        where TShy : INumber<TShy>
+        => FromDouble<TOut>(new(
+            1.0, MathG.ToDouble(shx), 0.0,
+            MathG.ToDouble(shy), 1.0, 0.0,
+            0.0, 0.0, 1.0
+        ));
+    
+    public static Matrix3x3<float> CreateShearF(double shx, double shy)
+        => CreateShearF<double, double>(shx, shy);
+    
+    public static Matrix3x3<TOut> CreateShear<TOut>(double shx, double shy)
+        where TOut : unmanaged, INumber<TOut>
+        => CreateShear<TOut, double, double>(shx, shy);
 
     // -----------------------------
     // Lerp

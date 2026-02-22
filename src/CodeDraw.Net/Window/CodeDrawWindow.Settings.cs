@@ -76,13 +76,13 @@ public partial class CodeDrawWindow
     public int Width
     {
         get => Size.X;
-        set => Size = Size.WithX(value);
+        set => Size = Size with { X = value };
     }
 
     public int Height
     {
         get => Size.Y;
-        set => Size = Size.WithY(value);
+        set => Size = Size with { Y = value };
     }
 
     public WindowState State

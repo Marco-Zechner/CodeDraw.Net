@@ -6,9 +6,6 @@ public readonly partial record struct Vector2<T>(T X, T Y) where T : unmanaged, 
 {
     public Vector2(Vector2<T> v) : this(v.X, v.Y) { }
 
-    public Vector2<T> WithX(T x) => new(x, Y);
-    public Vector2<T> WithY(T y) => new(X, y);
-
     public void Deconstruct(out T x, out T y) { x = X; y = Y; }
 
 #region Implicit/Explicit Conversions

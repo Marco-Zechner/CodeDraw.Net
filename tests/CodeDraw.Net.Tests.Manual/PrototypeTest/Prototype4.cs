@@ -230,7 +230,7 @@ public class Prototype4
         win.Settings = win.Settings with
         {
             PresentMode = WindowPresentMode.Camera,
-            BackgroundColor = Color.TRANSPARENT, 
+            BackgroundColor = Colors.TRANSPARENT, 
         };
         
         win.Camera.ResizePolicy = CameraResizePolicy.Manual;

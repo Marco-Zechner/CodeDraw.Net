@@ -11,7 +11,7 @@ public readonly record struct Paint(
     PaintOrder Order = PaintOrder.FillThenStroke
 )
 {
-    public static Paint FillOnly(ColorF fill) => new(fill, new Stroke(Color.TRANSPARENT, 0));
-    public static Paint StrokeOnly(Stroke stroke) => new(Color.TRANSPARENT, stroke);
+    public static Paint FillOnly(ColorF fill) => new(fill, new Stroke(Colors.TRANSPARENT, 0));
+    public static Paint StrokeOnly(Stroke stroke) => new(Colors.TRANSPARENT, stroke);
 }
 

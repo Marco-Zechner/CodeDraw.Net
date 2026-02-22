@@ -3,7 +3,7 @@
 /// <summary>
 /// Shared "home" for color constants
 /// </summary>
-public static class Color
+public static class Colors
 {
     // Canonical packed layout: 0xRRGGBBAA
     public const uint TRANSPARENT = 0x00000000u;

@@ -288,7 +288,7 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
             TransparentAlpha: false,
             StealFocusOnOpen: stealFocusOnOpen,
             PresentMode: WindowPresentMode.FitStretch,
-            BackgroundColor: Color.TRANSPARENT
+            BackgroundColor: Colors.TRANSPARENT
         ).Normalize();
 
         WindowId = _host.ReserveWindowId();

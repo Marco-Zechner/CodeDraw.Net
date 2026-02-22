@@ -46,5 +46,6 @@ check if i want to add more like:
 - CMY (Cyan, Magenta, Yellow)
 - YUV (Luma, Chroma U, Chroma V)
 look into Matrix5x5 for colors? what use do these have.
+look into RGB linear and sRGB conversions
 
 BUG: files are constantly being read

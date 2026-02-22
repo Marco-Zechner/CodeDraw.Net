@@ -1,4 +1,4 @@
-﻿#version 330 core
+﻿#version 450 core
 layout(location=0) in vec2 aPos; // full-screen quad: [-1..1]
 layout(location=1) in vec2 aUv;  // [0..1]
 

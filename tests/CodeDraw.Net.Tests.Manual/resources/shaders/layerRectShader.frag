@@ -1,4 +1,4 @@
-﻿#version 330 core
+﻿#version 450 core
 uniform sampler2D uTex;
 in vec2 vUv;
 out vec4 FragColor;

@@ -640,10 +640,12 @@ internal sealed unsafe class SharedGlfwHost : IDisposable
 
     private static void ApplyCommonHints()
     {
-        LockedGlfw.WindowHint(WindowHintInt.ContextVersionMajor, 3);
-        LockedGlfw.WindowHint(WindowHintInt.ContextVersionMinor, 3);
+        LockedGlfw.WindowHint(WindowHintInt.ContextVersionMajor, 4);
+        LockedGlfw.WindowHint(WindowHintInt.ContextVersionMinor, 5);
         LockedGlfw.WindowHint(WindowHintOpenGlProfile.OpenGlProfile, OpenGlProfile.Core);
 
+        LockedGlfw.WindowHint(WindowHintBool.OpenGLForwardCompat, true);
+        
         LockedGlfw.WindowHint(WindowHintInt.RedBits, 8);
         LockedGlfw.WindowHint(WindowHintInt.GreenBits, 8);
         LockedGlfw.WindowHint(WindowHintInt.BlueBits, 8);

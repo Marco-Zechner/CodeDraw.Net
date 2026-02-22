@@ -294,9 +294,37 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
         _host.DestroyHiddenLayerWindow(_ctxWin);
     }
 
+    private int _renderThreadId; // 0 = unknown/not started yet
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private bool IsRenderThread()
+    {
+        var id = Volatile.Read(ref _renderThreadId);
+        return id != 0 && Environment.CurrentManagedThreadId == id;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void MarkCurrentThreadAsRenderThread()
+    {
+        Volatile.Write(ref _renderThreadId, Environment.CurrentManagedThreadId);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void ClearRenderThreadMark()
+    {
+        Volatile.Write(ref _renderThreadId, 0);
+    }
+
     private void Enqueue(ICmd cmd)
     {
         if (_disposed) return;
+
+        if (IsRenderThread())
+            throw new InvalidOperationException(
+                "BUG: Enqueue() was called from the render/present thread. " +
+                "This can deadlock or break ordering. " +
+                "Queue commands from update/user threads only.");
+
         var seq = Interlocked.Increment(ref _nextCmdSeq);
         _q.Enqueue((seq, cmd));
         Volatile.Write(ref _lastEnqueuedSeq, seq);
@@ -368,6 +396,8 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
     {
         try
         {
+            MarkCurrentThreadAsRenderThread();
+            
             LockedGlfw.MakeContextCurrent(_ctxWin);
             LockedGlfw.SwapInterval(0);
             _gl = GL.GetApi(LockedGlfw.GetProcAddress); 
@@ -407,6 +437,8 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
             if (_ebo != 0) _gl.DeleteBuffer(_ebo);
             
             try { LockedGlfw.MakeContextCurrent(null); } catch { /* ignored */ }
+
+            ClearRenderThreadMark();
         }
     }
     

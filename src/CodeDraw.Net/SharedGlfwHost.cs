@@ -260,8 +260,6 @@ internal sealed unsafe class SharedGlfwHost : IDisposable
                 q.Enqueue(e);
         }
     }
-    
-
 
     public WindowHandle* ShareRoot { get; private set; } = null;
 

@@ -6,10 +6,10 @@ namespace MarcoZechner.CodeDrawDotNet.DrawLayer;
 
 public sealed unsafe partial class CodeDrawLayer
 {
-    internal void ExecBlit(GL gl, CodeDrawLayer self, Rect srcRectPx, Rect dstRectPx, bool hasBlendOverride, BlendMode blendOverride)
+    internal void ExecBlit(GL gl, CodeDrawLayer self, CodeDrawLayer src, Rect srcRectPx, Rect dstRectPx, bool hasBlendOverride, BlendMode blendOverride)
     {
-        if (self._disposed) return;
-        if (!self.TryGetLatest(out var tex, out var sw, out var sh, out _, out _)) return;
+        if (src._disposed) return;
+        if (!src.TryGetLatest(out var tex, out var sw, out var sh, out _, out _)) return;
         if (tex == 0 || sw <= 0 || sh <= 0) return;
 
         if (dstRectPx.IsEmpty || srcRectPx.IsEmpty) return;
@@ -70,7 +70,7 @@ public sealed unsafe partial class CodeDrawLayer
         {
             _dst = dst;
             _src = src;
-            _srcRectPx = new Rect(0, 0, src._w, src._h);
+            _srcRectPx = new RectWh(0, 0, src._w, src._h);
         }
 
         private BlitSrcStage(CodeDrawLayer dst, CodeDrawLayer src, Rect srcRect)

@@ -178,7 +178,7 @@ public class Prototype4
             DrawOrbitDots(trailLayer, orbitShader, trailLayer.Width/2, trailLayer.Height/2, 14, 220, 6f, 0, new ColorF(1.00f, 0.45f, 0.10f, 1.00f));
             trailLayer.Render();
             layer.SetBlendMode(BlendMode.ADD);
-            layer.DrawLayer(trailLayer, dstRect: new Rect(cx-trailLayer.Width/2f, cy-trailLayer.Height/2f, trailLayer.Width, trailLayer.Height));
+            layer.DrawLayer(trailLayer, dstRect: new RectWh(cx-trailLayer.Width/2f, cy-trailLayer.Height/2f, trailLayer.Width, trailLayer.Height));
             layer.SetBlendMode(BlendMode.SOURCE_OVER_ALPHA);
             
             DrawOrbitDots(layer, orbitShader, (int)cx, (int)cy, 10,360, -4f, 0, new ColorF(0.10f, 0.80f, 1.00f, 1.00f));
@@ -207,7 +207,7 @@ public class Prototype4
     {
         var size = radiusOrbit * 2 + radiusDot * 2;
         layer.CustomRect(
-            new Rect<int>(centerX - size / 2, centerY - size / 2, size, size),
+            new RectWh<int>(centerX - size / 2, centerY - size / 2, size, size),
             shader: orbitShader,
             uniforms: Uniforms.Of(
                 UniformValue.Float("uTime", layer.LayerAliveForSeconds()),

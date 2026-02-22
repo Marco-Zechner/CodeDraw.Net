@@ -46,7 +46,7 @@ public class SdfPrototype2
         // build graph once
         for (var i = 0; i < 6; i++)
         {
-            _barRects[i] = new SdfRectNode { Rect = new Rect(0, -10, 80, 10) };
+            _barRects[i] = new SdfRectNode { Rect = new RectBounds(0, -10, 80, 10) };
             _barXf[i] = new SdfTransformNode
             {
                 Child = _barRects[i],

@@ -15,5 +15,5 @@ internal sealed class CmdBlit : ICmd
     public BlendMode BlendOverride;
 
     public void Exec(GL gl, CodeDrawLayer self)
-        => self.ExecBlit(gl, self, SrcRectPx, DstRectPx, HasBlendOverride, BlendOverride);
+        => self.ExecBlit(gl, self, Src, SrcRectPx, DstRectPx, HasBlendOverride, BlendOverride);
 }

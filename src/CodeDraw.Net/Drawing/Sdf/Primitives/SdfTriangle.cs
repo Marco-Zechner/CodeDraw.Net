@@ -23,7 +23,7 @@ public readonly record struct SdfTriangle(Vector2 A, Vector2 B, Vector2 C) : ISd
             var minY = MathG.Min(A.Y, MathG.Min(B.Y, C.Y));
             var maxX = MathG.Max(A.X, MathG.Max(B.X, C.X));
             var maxY = MathG.Max(A.Y, MathG.Max(B.Y, C.Y));
-            return new Rect(minX, minY, maxX, maxY);
+            return new RectBounds(minX, minY, maxX, maxY);
         }
     }
 

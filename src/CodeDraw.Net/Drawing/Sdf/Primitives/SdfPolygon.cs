@@ -21,7 +21,7 @@ public sealed class SdfPolygon : ISdf2
             if (p.X > maxX) maxX = p.X;
             if (p.Y > maxY) maxY = p.Y;
         }
-        _bounds = new Rect(minX, minY, maxX, maxY);
+        _bounds = new RectBounds(minX, minY, maxX, maxY);
     }
 
     public Rect LocalBounds => _bounds;

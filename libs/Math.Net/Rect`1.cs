@@ -2,6 +2,16 @@
 
 namespace MarcoZechner.MathDotNet;
 
+public readonly record struct RectBounds<T>(T Left, T Top, T Right, T Bottom) where T : unmanaged, INumber<T>
+{
+    public static implicit operator Rect<T>(RectBounds<T> b) => new(new Vector2<T>(b.Left, b.Top), new Vector2<T>(b.Right - b.Left, b.Bottom - b.Top));
+}
+
+public readonly record struct RectWh<T>(T X, T Y, T Width, T Height, OriginLocation Origin = OriginLocation.TopLeft) where T : unmanaged, INumber<T>
+{
+    public static implicit operator Rect<T>(RectWh<T> r) => new(new Vector2<T>(r.X, r.Y), new Vector2<T>(r.Width, r.Height), r.Origin);
+}
+
 /// <summary>
 /// Generic rect.
 /// Position/Size are type T (e.g. int, float, double).
@@ -11,16 +21,23 @@ namespace MarcoZechner.MathDotNet;
 public readonly record struct Rect<T>(Vector2<T> Position, Vector2<T> Size, Origin LocalOrigin)
     where T : unmanaged, INumber<T>
 {
-    public Rect(Vector2<T> position, Vector2<T> size, OriginLocating origin = OriginLocating.TopLeft)
+    public Rect(Vector2<T> position, Vector2<T> size, OriginLocation origin = OriginLocation.TopLeft)
         : this(position, size, origin.ToOrigin()) { }
 
-    public Rect(T x, T y, T width, T height, OriginLocating origin)
+    public Rect(T x, T y, T width, T height, OriginLocation origin)
         : this(new Vector2<T>(x, y), new Vector2<T>(width, height), origin.ToOrigin()) { }
 
     public Rect(T x, T y, T width, T height, Origin? origin)
-        : this(new Vector2<T>(x, y), new Vector2<T>(width, height), origin ?? OriginLocating.TopLeft.ToOrigin()) { }
+        : this(new Vector2<T>(x, y), new Vector2<T>(width, height), origin ?? OriginLocation.TopLeft.ToOrigin()) { }
 
-    public Rect(T left, T top, T right, T bottom) : this(new Vector2<T>(left, top), new Vector2<T>(right - left, bottom - top)) { }
+    /// <summary>
+    /// Create a rect from bounds (left, top, right, bottom), without checking for left &lt;= right or top &lt;= bottom.
+    /// </summary>
+    public Rect((T left, T top, T right, T bottom) bounds) : this(new Vector2<T>(bounds.left, bounds.top), new Vector2<T>(bounds.right - bounds.left, bounds.bottom - bounds.top)) { }
+    /// <summary>
+    /// Create a rect from position + size, with optional origin.
+    /// </summary>
+    public Rect((T x, T y) pos, (T width, T height) size, OriginLocation origin = OriginLocation.TopLeft) : this(new Vector2<T>(pos.x, pos.y), new Vector2<T>(size.width, size.height), origin.ToOrigin()) { }
     
     #region Conversions
 
@@ -36,7 +53,7 @@ public readonly record struct Rect<T>(Vector2<T> Position, Vector2<T> Size, Orig
     public static Rect<T> FromMinMaxUnchecked(Vector2<T> min, Vector2<T> max)
     {
         var size = max - min;
-        return new Rect<T>(min, size, OriginLocating.TopLeft.ToOrigin());
+        return new Rect<T>(min, size, OriginLocation.TopLeft.ToOrigin());
     }
 
     // -----------------------------
@@ -156,7 +173,7 @@ public readonly record struct Rect<T>(Vector2<T> Position, Vector2<T> Size, Orig
         var b = MathG.Min(Bottom, other.Bottom);
 
         if (r < l || b < t)
-            return new Rect<T>(new Vector2<T>(l, t), new Vector2<T>(T.Zero, T.Zero), OriginLocating.TopLeft);
+            return new Rect<T>(new Vector2<T>(l, t), new Vector2<T>(T.Zero, T.Zero), OriginLocation.TopLeft);
 
         return FromMinMaxUnchecked(new Vector2<T>(l, t), new Vector2<T>(r, b));
     }
@@ -181,7 +198,7 @@ public readonly record struct Rect<T>(Vector2<T> Position, Vector2<T> Size, Orig
     // Manipulation
     // -----------------------------
 
-    public Rect<T> ResizedFrom(Vector2<T> newSize, OriginLocating newOrigin) => ResizedFrom(newSize, newOrigin.ToOrigin());
+    public Rect<T> ResizedFrom(Vector2<T> newSize, OriginLocation newOrigin) => ResizedFrom(newSize, newOrigin.ToOrigin());
 
     public Rect<T> ResizedFrom(Vector2<T> newSize, Origin? newOrigin = null)
     {
@@ -216,7 +233,7 @@ public readonly record struct Rect<T>(Vector2<T> Position, Vector2<T> Size, Orig
 
     public Rect<T> Translated(Vector2<T> delta) => new(Position + delta, Size, LocalOrigin);
 
-    public Rect<T> ScaledFrom(Vector2<T> scale, OriginLocating newOrigin = OriginLocating.TopLeft)
+    public Rect<T> ScaledFrom(Vector2<T> scale, OriginLocation newOrigin = OriginLocation.TopLeft)
         => ScaledFrom(scale, newOrigin.ToOrigin());
 
     public Rect<T> ScaledFrom(Vector2<T> scale, Origin? newOrigin = null)
@@ -283,7 +300,7 @@ public readonly record struct Rect<T>(Vector2<T> Position, Vector2<T> Size, Orig
         var dstH = container.Height;
 
         if (srcW <= 0f || srcH <= 0f || dstW <= 0f || dstH <= 0f)
-            return new Rect<float>(container.Center, new Vector2<float>(0f, 0f), OriginLocating.Center);
+            return new Rect<float>(container.Center, new Vector2<float>(0f, 0f), OriginLocation.Center);
 
         float scale = preserveAspect ? MathF.Min(dstW / srcW, dstH / srcH) : 1f;
 
@@ -300,7 +317,7 @@ public readonly record struct Rect<T>(Vector2<T> Position, Vector2<T> Size, Orig
         var dstH = container.Height;
 
         if (srcW <= 0f || srcH <= 0f || dstW <= 0f || dstH <= 0f)
-            return new Rect<float>(container.Center, new Vector2<float>(0f, 0f), OriginLocating.Center);
+            return new Rect<float>(container.Center, new Vector2<float>(0f, 0f), OriginLocation.Center);
 
         float scale = preserveAspect ? MathF.Max(dstW / srcW, dstH / srcH) : 1f;
 

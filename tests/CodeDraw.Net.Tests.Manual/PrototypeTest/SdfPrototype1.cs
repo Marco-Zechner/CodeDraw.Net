@@ -174,7 +174,7 @@ public class SdfPrototype1
                 for (var i = 0; i < 6; i++)
                 {
                     // local bar at origin
-                    ISdf2Node bar = new SdfRectNode { Rect = new Rect(0, -10, 80, 10) };
+                    ISdf2Node bar = new SdfRectNode { Rect = new RectBounds(0, -10, 80, 10) };
 
                     // rotate around (0,0) in SDF space
                     var angle = time * 20f + i * 60f;

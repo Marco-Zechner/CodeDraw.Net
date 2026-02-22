@@ -1,6 +1,6 @@
 ﻿namespace MarcoZechner.MathDotNet;
 
-public enum OriginLocating
+public enum OriginLocation
 {
     TopLeft, TopCenter, TopRight, 
     CenterLeft, Center, CenterRight, 
@@ -9,19 +9,19 @@ public enum OriginLocating
 
 public static class OriginLocatingExtensions
 {
-    public static Origin ToOrigin(this OriginLocating origin)
+    public static Origin ToOrigin(this OriginLocation origin)
     {
         return origin switch
         {
-            OriginLocating.TopLeft => new Origin(0, 0),
-            OriginLocating.TopCenter => new Origin(0.5f, 0),
-            OriginLocating.TopRight => new Origin(1, 0),
-            OriginLocating.CenterLeft => new Origin(0, 0.5f),
-            OriginLocating.Center => new Origin(0.5f, 0.5f),
-            OriginLocating.CenterRight => new Origin(1, 0.5f),
-            OriginLocating.BottomLeft => new Origin(0, 1),
-            OriginLocating.BottomCenter => new Origin(0.5f, 1),
-            OriginLocating.BottomRight => new Origin(1, 1),
+            OriginLocation.TopLeft => new Origin(0, 0),
+            OriginLocation.TopCenter => new Origin(0.5f, 0),
+            OriginLocation.TopRight => new Origin(1, 0),
+            OriginLocation.CenterLeft => new Origin(0, 0.5f),
+            OriginLocation.Center => new Origin(0.5f, 0.5f),
+            OriginLocation.CenterRight => new Origin(1, 0.5f),
+            OriginLocation.BottomLeft => new Origin(0, 1),
+            OriginLocation.BottomCenter => new Origin(0.5f, 1),
+            OriginLocation.BottomRight => new Origin(1, 1),
             _ => throw new ArgumentOutOfRangeException(nameof(origin), origin, null)
         };
     }

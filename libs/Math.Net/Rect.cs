@@ -1,5 +1,15 @@
 ﻿namespace MarcoZechner.MathDotNet;
 
+public readonly record struct RectBounds(float Left, float Top, float Right, float Bottom)
+{
+    public static implicit operator Rect(RectBounds b) => new(new Vector2(b.Left, b.Top), new Vector2(b.Right - b.Left, b.Bottom - b.Top));
+}
+
+public readonly record struct RectWh(float X, float Y, float Width, float Height, OriginLocation Origin = OriginLocation.TopLeft)
+{
+    public static implicit operator Rect(RectWh r) => new(new Vector2(r.X, r.Y), new Vector2(r.Width, r.Height), r.Origin);
+}
+
 /// <summary>
 /// 
 /// </summary>
@@ -8,13 +18,21 @@
 /// <param name="LocalOrigin">origin in rect-space, where (0,0)=top-left, (1,1)=bottom-right; values outside allowed</param>
 public readonly record struct Rect(Vector2 Position, Vector2 Size, Origin LocalOrigin)
 {
-    public Rect(Vector2 position, Vector2 size, OriginLocating origin = OriginLocating.TopLeft) : this(position, size, origin.ToOrigin()) {}
+    public Rect(Vector2 position, Vector2 size, OriginLocation origin = OriginLocation.TopLeft) : this(position, size, origin.ToOrigin()) {}
     
-    public Rect(float x, float y, float width, float height, OriginLocating origin) : this(new Vector2(x, y), new Vector2(width, height), origin) {}
+    public Rect(float x, float y, float width, float height, OriginLocation origin) : this(new Vector2(x, y), new Vector2(width, height), origin) {}
     
     public Rect(float x, float y, float width, float height, float originX, float originY) : this(new Vector2(x, y), new Vector2(width, height), new Origin(originX, originY)) {}
 
-    public Rect(float left, float top, float right, float bottom) : this(new Vector2(left, top), new Vector2(right - left, bottom - top)) {}
+    /// <summary>
+    /// Create a rect from bounds (left, top, right, bottom), without checking for left &lt;= right or top &lt;= bottom.
+    /// </summary>
+    public Rect((float left, float top, float right, float bottom) bounds) : this(new Vector2(bounds.left, bounds.top), new Vector2(bounds.right - bounds.left, bounds.bottom - bounds.top)) {}
+    
+    /// <summary>
+    /// Create a rect from position + size, with optional origin.
+    /// </summary>
+    public Rect((float x, float y) pos, (float width, float height) size, OriginLocation origin = OriginLocation.TopLeft) : this(new Vector2(pos.x, pos.y), new Vector2(size.width, size.height), origin) {}
     
 #region Conversions
     
@@ -155,7 +173,7 @@ public readonly record struct Rect(Vector2 Position, Vector2 Size, Origin LocalO
     /// <param name="newSize"></param>
     /// <param name="newOrigin"></param>
     /// <returns></returns>
-    public Rect ResizedFrom(Vector2 newSize, OriginLocating newOrigin) => ResizedFrom(newSize, newOrigin.ToOrigin());
+    public Rect ResizedFrom(Vector2 newSize, OriginLocation newOrigin) => ResizedFrom(newSize, newOrigin.ToOrigin());
     
     /// <summary>
     /// Scale existing rect to a new size, based around a given origin point, so that the new rect's position is adjusted to keep the origin point fixed in world space.
@@ -181,7 +199,7 @@ public readonly record struct Rect(Vector2 Position, Vector2 Size, Origin LocalO
     
     public Rect Translated(Vector2 delta) => new(Position + delta, Size, LocalOrigin);
     
-    public Rect ScaledFrom(Vector2 scale, OriginLocating newOrigin = OriginLocating.TopLeft) => ScaledFrom(scale, newOrigin.ToOrigin());
+    public Rect ScaledFrom(Vector2 scale, OriginLocation newOrigin = OriginLocation.TopLeft) => ScaledFrom(scale, newOrigin.ToOrigin());
     
     public Rect ScaledFrom(Vector2 scale, Origin? newOrigin = null)
     {
@@ -210,7 +228,7 @@ public readonly record struct Rect(Vector2 Position, Vector2 Size, Origin LocalO
         var dstH = container.Height;
 
         if (srcW <= 0f || srcH <= 0f || dstW <= 0f || dstH <= 0f)
-            return new Rect(container.Center, new Vector2(0f, 0f), OriginLocating.Center);
+            return new Rect(container.Center, new Vector2(0f, 0f), OriginLocation.Center);
 
         float scale;
         if (!preserveAspect) scale = 1f;
@@ -229,7 +247,7 @@ public readonly record struct Rect(Vector2 Position, Vector2 Size, Origin LocalO
         var dstH = container.Height;
 
         if (srcW <= 0f || srcH <= 0f || dstW <= 0f || dstH <= 0f)
-            return new Rect(container.Center, new Vector2(0f, 0f), OriginLocating.Center);
+            return new Rect(container.Center, new Vector2(0f, 0f), OriginLocation.Center);
 
         float scale;
         if (!preserveAspect) scale = 1f;

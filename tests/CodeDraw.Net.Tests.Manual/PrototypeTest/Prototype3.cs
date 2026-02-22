@@ -158,7 +158,7 @@ public class Prototype3
         var size = radiusOrbit * 2 + radiusDot * 2;
             
         layer.CustomRect(
-            new Rect<int>(centerX-size/2, centerY-size/2, size, size),
+            new RectWh<int>(centerX-size/2, centerY-size/2, size, size),
             shader: orbitShader,
             uniforms: Uniforms.Of(
                 UniformValue.Float("uTime", layer.LayerAliveForSeconds()),

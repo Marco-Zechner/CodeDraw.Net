@@ -30,11 +30,11 @@ public sealed class Prototype2
     private static HoverRegion ComputeHoverInWinDst(float mx, float my)
     {
         // These MUST match the rectangles in your _winDst.OnUpdate
-        var regionB  = new Rect(30, 30, 220, 140);
-        var dstC     = new Rect(300, 30, 220, 140);
-        var dstD     = new Rect(30, 210, 490, 70);
-        var dstE     = new Rect(560, 30, 210, 210);
-        var dstF     = new Rect(560, 270, 210, 190);
+        var regionB  = new RectWh(30, 30, 220, 140);
+        var dstC     = new RectWh(300, 30, 220, 140);
+        var dstD     = new RectWh(30, 210, 490, 70);
+        var dstE     = new RectWh(560, 30, 210, 210);
+        var dstF     = new RectWh(560, 270, 210, 190);
 
         // Order matters if you ever overlap.
         if (Hit(regionB, mx, my)) return HoverRegion.B_FULL;
@@ -134,7 +134,7 @@ public sealed class Prototype2
             layer.DrawDebugRect(CX - 40, CY - 60, 80, TH*2, 1f, 1f, 1f, 1f);
 
             // --- 4) Border outline (detect UV flip / off-by-one / scaling) ---
-            DrawOutline(layer, new Rect(0, 0, W, H), new ColorF(1f, 1f, 1f, 1f), 3);
+            DrawOutline(layer, new RectWh(0, 0, W, H), new ColorF(1f, 1f, 1f, 1f), 3);
 
             // --- 5) Moving marker (helps confirm "latest frame" + no caching bugs) ---
             var mx = 400 + 140 * MathF.Sin(_t * 0.9f) + 230 * MathF.Cos(_t * 1.6f);
@@ -165,7 +165,7 @@ public sealed class Prototype2
             var size = radiusOrbit * 2 + radiusDot * 2;
             
             layer.CustomRect(
-                new Rect<int>(centerX-size/2, centerY-size/2, size, size),
+                new RectWh<int>(centerX-size/2, centerY-size/2, size, size),
                 shader: orbitShader,
                 uniforms: Uniforms.Of(
                     UniformValue.Float("uTime", layer.LayerAliveForSeconds()),
@@ -207,27 +207,27 @@ public sealed class Prototype2
             dst.DrawDebugRect(0, H - 4, W, 4, 0f, 1f, 0f, 1f);
             dst.SetBlendMode(BlendMode.SOURCE_OVER_ALPHA);
 
-            var regionB = new Rect(30, 30, 220, 140);
+            var regionB = new RectWh(30, 30, 220, 140);
             dst.DrawLayer(src, regionB);
             DrawOutline(dst, regionB, new ColorF(1f, 1f, 1f, 1f));
 
-            var cropTl = new Rect(0, 0, 400, 250);
-            var dstC = new Rect(300, 30, 220, 140);
+            var cropTl = new RectWh(0, 0, 400, 250);
+            var dstC = new RectWh(300, 30, 220, 140);
             dst.DrawLayer(src, cropTl, dstC);
             DrawOutline(dst, dstC, new ColorF(1f, 0.5f, 0.5f, 1f));
 
-            var cropBand = new Rect(0, 0, 800, 120);
-            var dstD = new Rect(30, 210, 490, 70);
+            var cropBand = new RectWh(0, 0, 800, 120);
+            var dstD = new RectWh(30, 210, 490, 70);
             dst.DrawLayer(src, cropBand, dstD);
             DrawOutline(dst, dstD, new ColorF(0.6f, 1f, 0.6f, 1f));
 
-            var cropCenter = new Rect(300, 150, 200, 200);
-            var dstE = new Rect(560, 30, 210, 210);
+            var cropCenter = new RectWh(300, 150, 200, 200);
+            var dstE = new RectWh(560, 30, 210, 210);
             dst.DrawLayer(src, cropCenter, dstE);
             DrawOutline(dst, dstE, new ColorF(0.6f, 0.8f, 1f, 1f));
 
-            var cropBr = new Rect(400, 250, 400, 250);
-            var dstF = new Rect(560, 270, 210, 190);
+            var cropBr = new RectWh(400, 250, 400, 250);
+            var dstF = new RectWh(560, 270, 210, 190);
             dst.DrawLayer(src, cropBr, dstF);
             DrawOutline(dst, dstF, new ColorF(1f, 1f, 0.6f, 1f));
 
@@ -258,11 +258,11 @@ public sealed class Prototype2
             dst.SetBlendMode(BlendMode.SOURCE_OVER_ALPHA);
 
             // These are SOURCE-SPACE rects (as you already did)
-            var regionB = new Rect(0, 0, 800, 500);
-            var srcC    = new Rect(0, 0, 400, 250);
-            var srcD    = new Rect(0, 0, 800, 120);
-            var srcE    = new Rect(300, 150, 200, 200);
-            var srcF    = new Rect(400, 250, 400, 250);
+            var regionB = new RectWh(0, 0, 800, 500);
+            var srcC    = new RectWh(0, 0, 400, 250);
+            var srcD    = new RectWh(0, 0, 800, 120);
+            var srcE    = new RectWh(300, 150, 200, 200);
+            var srcF    = new RectWh(400, 250, 400, 250);
 
             var hover = (HoverRegion)Volatile.Read(ref _hoverRegion);
 

@@ -14,7 +14,7 @@ public readonly record struct SdfEllipse(Vector2 Center, Vector2 Radius) : ISdf2
     }
 
     public Rect LocalBounds
-        => new Rect(
+        => new RectBounds(
             Center.X - Radius.X, Center.Y - Radius.Y,
             Center.X + Radius.X, Center.Y + Radius.Y
         );

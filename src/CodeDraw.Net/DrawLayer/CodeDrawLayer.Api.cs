@@ -60,7 +60,7 @@ public sealed partial class CodeDrawLayer
         => Blit(src).Place(dstRect).Blend(blend).Draw();
 
     public void DrawLayer(CodeDrawLayer src, Rect srcRect, bool fitToTarget)
-        => Blit(src).Crop(srcRect).Place(fitToTarget ? FullRect : new Rect(0, 0, srcRect.Width, srcRect.Height)).Draw();
+        => Blit(src).Crop(srcRect).Place(fitToTarget ? FullRect : new RectWh(0, 0, srcRect.Width, srcRect.Height)).Draw();
 
     public void DrawLayer(CodeDrawLayer src, Rect srcRect, Rect dstRect)
         => Blit(src).Crop(srcRect).Place(dstRect).Draw();
@@ -171,7 +171,7 @@ public sealed partial class CodeDrawLayer
         out float dstX, out float dstY)
     {
         // src full rect
-        var srcRect = new Rect(0, 0, src._w, src._h);
+        var srcRect = new RectWh(0, 0, src._w, src._h);
         return TransformLayerPointFrom(src, srcRect, dstRectPx, srcX, srcY, out dstX, out dstY);
     }
 
@@ -181,7 +181,7 @@ public sealed partial class CodeDrawLayer
         float dstX, float dstY,
         out float srcX, out float srcY)
     {
-        var srcRect = new Rect(0, 0, src._w, src._h);
+        var srcRect = new RectWh(0, 0, src._w, src._h);
         return TransformLayerPointTo(src, srcRect, dstRectPx, dstX, dstY, out srcX, out srcY);
     }
 
@@ -192,7 +192,7 @@ public sealed partial class CodeDrawLayer
         float srcX, float srcY,
         out float dstX, out float dstY)
     {
-        var dstRectPx = fitToTarget ? FullRect : new Rect(0, 0, srcRectPx.Width, srcRectPx.Height);
+        Rect dstRectPx = fitToTarget ? FullRect : new RectWh(0, 0, srcRectPx.Width, srcRectPx.Height);
         return TransformLayerPointFrom(src, srcRectPx, dstRectPx, srcX, srcY, out dstX, out dstY);
     }
 
@@ -203,7 +203,7 @@ public sealed partial class CodeDrawLayer
         float dstX, float dstY,
         out float srcX, out float srcY)
     {
-        var dstRectPx = fitToTarget ? FullRect : new Rect(0, 0, srcRectPx.Width, srcRectPx.Height);
+        Rect dstRectPx = fitToTarget ? FullRect : new RectWh(0, 0, srcRectPx.Width, srcRectPx.Height);
         return TransformLayerPointTo(src, srcRectPx, dstRectPx, dstX, dstY, out srcX, out srcY);
     }
 

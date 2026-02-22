@@ -10,10 +10,12 @@ public readonly record struct Rect(Vector2 Position, Vector2 Size, Origin LocalO
 {
     public Rect(Vector2 position, Vector2 size, OriginLocating origin = OriginLocating.TopLeft) : this(position, size, origin.ToOrigin()) {}
     
-    public Rect(float x, float y, float width, float height, OriginLocating origin = OriginLocating.TopLeft) : this(new Vector2(x, y), new Vector2(width, height), origin) {}
+    public Rect(float x, float y, float width, float height, OriginLocating origin) : this(new Vector2(x, y), new Vector2(width, height), origin) {}
     
     public Rect(float x, float y, float width, float height, float originX, float originY) : this(new Vector2(x, y), new Vector2(width, height), new Origin(originX, originY)) {}
 
+    public Rect(float left, float top, float right, float bottom) : this(new Vector2(left, top), new Vector2(right - left, bottom - top)) {}
+    
 #region Conversions
     
     public static explicit operator Rect(Rect<double> v) => new((Vector2)v.Position, (Vector2)v.Size, v.LocalOrigin);

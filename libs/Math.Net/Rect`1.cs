@@ -14,12 +14,14 @@ public readonly record struct Rect<T>(Vector2<T> Position, Vector2<T> Size, Orig
     public Rect(Vector2<T> position, Vector2<T> size, OriginLocating origin = OriginLocating.TopLeft)
         : this(position, size, origin.ToOrigin()) { }
 
-    public Rect(T x, T y, T width, T height, OriginLocating origin = OriginLocating.TopLeft)
+    public Rect(T x, T y, T width, T height, OriginLocating origin)
         : this(new Vector2<T>(x, y), new Vector2<T>(width, height), origin.ToOrigin()) { }
 
     public Rect(T x, T y, T width, T height, Origin? origin)
         : this(new Vector2<T>(x, y), new Vector2<T>(width, height), origin ?? OriginLocating.TopLeft.ToOrigin()) { }
 
+    public Rect(T left, T top, T right, T bottom) : this(new Vector2<T>(left, top), new Vector2<T>(right - left, bottom - top)) { }
+    
     #region Conversions
 
     public static implicit operator Rect<double>(Rect<T> v) => new(v.Position, v.Size, v.LocalOrigin);

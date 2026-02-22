@@ -42,21 +42,21 @@ public readonly partial record struct Matrix3x3
 
 #region Returns Matrix3X3<TOut>
 
-    public static Matrix3x3<float> CreateRotation<TAng>(TAng angle, AngleUnit unit = AngleUnit.Degrees)
+    public static Matrix3x3<float> CreateRotation<TAng>(TAng angle, AngleUnit unit = AngleUnit.Degrees, RotationDirection direction = RotationDirection.Clockwise)
         where TAng : INumber<TAng>
-        => Matrix3x3<float>.CreateRotation(angle, unit);
+        => Matrix3x3<float>.CreateRotation(angle, unit, direction);
 
-    public static Matrix3x3<TOut> CreateRotation<TOut, TAng>(TAng angle, AngleUnit unit = AngleUnit.Degrees)
+    public static Matrix3x3<TOut> CreateRotation<TOut, TAng>(TAng angle, AngleUnit unit = AngleUnit.Degrees, RotationDirection direction = RotationDirection.Clockwise)
         where TOut : unmanaged, INumber<TOut>
         where TAng : INumber<TAng>
-        => Matrix3x3<float>.CreateRotation<TOut, TAng>(angle, unit);
+        => Matrix3x3<float>.CreateRotation<TOut, TAng>(angle, unit, direction);
 
-    public static Matrix3x3<float> CreateRotation(double angle, AngleUnit unit = AngleUnit.Degrees)
-        => Matrix3x3<float>.CreateRotation(angle, unit);
+    public static Matrix3x3<float> CreateRotation(double angle, AngleUnit unit = AngleUnit.Degrees, RotationDirection direction = RotationDirection.Clockwise)
+        => Matrix3x3<float>.CreateRotation(angle, unit, direction);
 
-    public static Matrix3x3<TOut> CreateRotation<TOut>(double angle, AngleUnit unit = AngleUnit.Degrees)
+    public static Matrix3x3<TOut> CreateRotation<TOut>(double angle, AngleUnit unit = AngleUnit.Degrees, RotationDirection direction = RotationDirection.Clockwise)
         where TOut : unmanaged, INumber<TOut>
-        => Matrix3x3<double>.CreateRotation<TOut>(angle, unit);
+        => Matrix3x3<double>.CreateRotation<TOut>(angle, unit, direction);
 
     
     public static Matrix3x3<float> CreateTranslation<TTx, TTy>(TTx tx, TTy ty)

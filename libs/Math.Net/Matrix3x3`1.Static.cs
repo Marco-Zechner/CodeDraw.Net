@@ -78,11 +78,12 @@ public readonly partial record struct Matrix3x3<T>
     // CreateRotation
     // -----------------------------
 
-    public static Matrix3x3<float> CreateRotation<TAng>(TAng angle, AngleUnit unit = AngleUnit.Degrees)
+    public static Matrix3x3<float> CreateRotation<TAng>(TAng angle, AngleUnit unit = AngleUnit.Degrees, RotationDirection direction = RotationDirection.Clockwise)
         where TAng : INumber<TAng>
     {
-        var c = MathG.Cos(angle, unit);
-        var s = MathG.Sin(angle, unit);
+        var fa = MathG.ToFloat(angle) * (int)direction;
+        var c = MathG.Cos(fa, unit);
+        var s = MathG.Sin(fa, unit);
         return new Matrix3x3<float>(
             c, -s, 0f,
             s,  c, 0f,
@@ -90,11 +91,11 @@ public readonly partial record struct Matrix3x3<T>
         );
     }
 
-    public static Matrix3x3<TOut> CreateRotation<TOut, TAng>(TAng angle, AngleUnit unit = AngleUnit.Degrees)
+    public static Matrix3x3<TOut> CreateRotation<TOut, TAng>(TAng angle, AngleUnit unit = AngleUnit.Degrees, RotationDirection direction = RotationDirection.Clockwise)
         where TOut : unmanaged, INumber<TOut>
         where TAng : INumber<TAng>
     {
-        var da = MathG.ToDouble(angle);
+        var da = MathG.ToDouble(angle) * (int)direction;
         var c = MathG.Cos<double>(da, unit);
         var s = MathG.Sin<double>(da, unit);
         return FromDouble<TOut>(new Matrix3x3<double>(
@@ -104,12 +105,12 @@ public readonly partial record struct Matrix3x3<T>
         ));
     }
 
-    public static Matrix3x3<float> CreateRotation(double angle, AngleUnit unit = AngleUnit.Degrees)
-        => CreateRotation<float>(angle, unit);
+    public static Matrix3x3<float> CreateRotation(double angle, AngleUnit unit = AngleUnit.Degrees, RotationDirection direction = RotationDirection.Clockwise)
+        => CreateRotation<float>(angle, unit, direction);
 
-    public static Matrix3x3<TOut> CreateRotation<TOut>(double angle, AngleUnit unit = AngleUnit.Degrees)
+    public static Matrix3x3<TOut> CreateRotation<TOut>(double angle, AngleUnit unit = AngleUnit.Degrees, RotationDirection direction = RotationDirection.Clockwise)
         where TOut : unmanaged, INumber<TOut>
-        => CreateRotation<TOut, double>(angle, unit);
+        => CreateRotation<TOut, double>(angle, unit, direction);
 
     // -----------------------------
     // CreateTranslation

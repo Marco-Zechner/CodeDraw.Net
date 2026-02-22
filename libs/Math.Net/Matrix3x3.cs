@@ -68,7 +68,7 @@ public readonly partial record struct Matrix3x3(
     
 #region Static Methods (returns Matrix3x3 and Vector2)
     
-    public static Matrix3x3 CreateRotation(float angle, AngleUnit unit = AngleUnit.Degrees) => CreateRotation<float>(angle, unit);
+    public static Matrix3x3 CreateRotation(float angle, AngleUnit unit = AngleUnit.Degrees, RotationDirection direction = RotationDirection.Clockwise) => CreateRotation<float>(angle, unit, direction);
     public static Matrix3x3 CreateTranslation(float tx, float ty) => CreateTranslation<float>(tx, ty);
     public static Matrix3x3 CreateScale(float sx, float sy) => CreateScale<float>(sx, sy);
     public static Matrix3x3 CreateBasis(Vector2 xAxis, Vector2 yAxis, Vector2 translation) => CreateBasis<float>(xAxis, yAxis, translation);

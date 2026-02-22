@@ -106,6 +106,16 @@ public readonly partial record struct Vector2<T>(T X, T Y) where T : unmanaged, 
         var dy = MathG.ToDouble(Y) / len;
         return new Vector2<TOut>(MathG.FromDouble<TOut>(dx), MathG.FromDouble<TOut>(dy));
     }
+    
+    public Vector2<float> AbsF => new(MathG.Abs(MathG.ToFloat(X)), MathG.Abs(MathG.ToFloat(Y)));
+    
+    public Vector2<TOut> Abs<TOut>() where TOut : unmanaged, INumber<TOut>
+    {
+        var ax = MathG.Abs(MathG.ToDouble(X));
+        var ay = MathG.Abs(MathG.ToDouble(Y));
+        return new Vector2<TOut>(MathG.FromDouble<TOut>(ax), MathG.FromDouble<TOut>(ay));
+    }
+    
 
 #endregion
 

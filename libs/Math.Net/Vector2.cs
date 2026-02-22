@@ -104,6 +104,8 @@ public readonly partial record struct Vector2(float X, float Y)
             return len == 0f ? Zero : new(X / len, Y / len);
         }
     }
+    
+    public Vector2 Abs => new(MathG.Abs(X), MathG.Abs(Y));
 
 #endregion
     public override string ToString() => $"Vector2({X}, {Y})";

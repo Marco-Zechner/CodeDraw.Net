@@ -11,5 +11,5 @@ internal readonly record struct CmdSdf(
 ) : ICmd
 {
     public void Exec(GL gl, CodeDrawLayer self)
-        => self.ExecSdf(gl, self, Placed, Style, ForceStrokeOnly);
+        => CodeDrawLayer.ExecSdf(gl, self, Placed, Style, ForceStrokeOnly);
 }

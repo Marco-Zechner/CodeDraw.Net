@@ -47,4 +47,25 @@ public sealed unsafe partial class CodeDrawLayer
         public bool Enabled;
         public void Exec(GL gl, CodeDrawLayer self) => self._clearFirst = Enabled;
     }
+    
+    internal sealed class CmdCpuBegin : ICmd
+    {
+        public bool Clear; // if true, clear CPU buffer to layer clear color
+
+        public void Exec(GL gl, CodeDrawLayer self) => self.ExecCpuBegin(gl, Clear);
+    }
+
+    internal sealed class CmdCpuPush : ICmd
+    {
+        // Upload CPU buffer -> _work texture. Also marks CPU as not-dirty.
+        public void Exec(GL gl, CodeDrawLayer self) => self.ExecCpuPush(gl);
+    }
+
+    internal sealed class CmdCpuPull : ICmd
+    {
+        // Read from GPU -> CPU buffer (debug). If FromPublished is true, read _pub.Tex else _work.Tex.
+        public bool FromPublished = true;
+
+        public void Exec(GL gl, CodeDrawLayer self) => self.ExecCpuPull(gl, FromPublished);
+    }
 }

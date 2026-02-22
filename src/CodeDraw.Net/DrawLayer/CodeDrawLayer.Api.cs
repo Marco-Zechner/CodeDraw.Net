@@ -41,7 +41,7 @@ public sealed partial class CodeDrawLayer
 
     public void Clear(float r = 0f, float g = 0, float b = 0f, float a = 0f) => Enqueue(new CmdClear(r, g, b, a));
 
-    public void DrawRect(float x, float y, float w, float h, float r, float g, float b, float a)
+    public void DrawDebugRect(float x, float y, float w, float h, float r, float g, float b, float a)
         => Enqueue(new CmdRect { X = x, Y = y, W = w, H = h, R = r, G = g, B = b, A = a });
 
 
@@ -113,6 +113,30 @@ public sealed partial class CodeDrawLayer
 
     public void PostProcess(CodeDrawShader shader, params UniformValue[] uniforms)
         => PostProcess(shader, new Uniforms(uniforms));
+    
+    /// <summary>
+    /// Ensures the CPU pixel buffer exists and is initialized for this frame.
+    /// If clear=true, clears CPU buffer to the layer clear color.
+    /// </summary>
+    public void CpuBegin(bool clear = false)
+    {
+        if (_disposed) return;
+        Enqueue(new CmdCpuBegin { Clear = clear });
+    }
+
+    /// <summary>Upload CPU buffer -> GPU (_work texture). Call near the end of a frame after CPU drawing cmds.</summary>
+    public void CpuPush()
+    {
+        if (_disposed) return;
+        Enqueue(new CmdCpuPush());
+    }
+
+    /// <summary>Read back GPU (_pub or _work) -> CPU buffer (debug).</summary>
+    public void CpuPull(bool fromPublished = true)
+    {
+        if (_disposed) return;
+        Enqueue(new CmdCpuPull { FromPublished = fromPublished });
+    }
     
     #region Transform Point Helpers
 

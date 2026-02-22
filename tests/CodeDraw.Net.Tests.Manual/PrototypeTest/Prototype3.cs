@@ -102,7 +102,7 @@ public class Prototype3
             DrawOrbitingDots(layer, 200, 200, 10, 50, 2, 0, new ColorF(0.5f, 0, 0, 1f), orbitShader);
             DrawOrbitingDots(layer, 200, 200, 10, 80, 2*80/50f, 0, new ColorF(0.0f, 1, 1, 1f), orbitShader);
             DrawOrbitingDots(layer, 350, 350, 4, 35, -2*80/50f, 0, new ColorF(0.0f, 1, 1, 1f), orbitShader);
-            layer.DrawRect(100,100,100,100, 1,0,0,0.5f);
+            layer.DrawDebugRect(100,100,100,100, 1,0,0,0.5f);
             layer.Render();
         };
 

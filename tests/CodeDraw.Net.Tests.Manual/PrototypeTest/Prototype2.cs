@@ -100,24 +100,24 @@ public sealed class Prototype2
 
             // --- 1) Quadrants (unique colors) ---
             layer.SetBlendMode(BlendMode.NONE);
-            layer.DrawRect(0, 0, HALF_W, HALF_H, 0.85f, 0.20f, 0.20f, 1f);              // TL red
-            layer.DrawRect(HALF_W, 0, HALF_W, HALF_H, 0.20f, 0.85f, 0.20f, 1f);           // TR green
-            layer.DrawRect(0, HALF_H, HALF_W, HALF_H, 0.20f, 0.35f, 0.95f, 1f);           // BL blue
-            layer.DrawRect(HALF_W, HALF_H, HALF_W, HALF_H, 0.90f, 0.85f, 0.20f, 1f);       // BR yellow
+            layer.DrawDebugRect(0, 0, HALF_W, HALF_H, 0.85f, 0.20f, 0.20f, 1f);              // TL red
+            layer.DrawDebugRect(HALF_W, 0, HALF_W, HALF_H, 0.20f, 0.85f, 0.20f, 1f);           // TR green
+            layer.DrawDebugRect(0, HALF_H, HALF_W, HALF_H, 0.20f, 0.35f, 0.95f, 1f);           // BL blue
+            layer.DrawDebugRect(HALF_W, HALF_H, HALF_W, HALF_H, 0.90f, 0.85f, 0.20f, 1f);       // BR yellow
 
             // --- 2) Stripe overlays (easy to spot scaling/cropping correctness) ---
             // vertical stripes in lower half
             for (var x = 0; x < W; x += 20)
             {
                 var a = (x / 20) % 2 == 0 ? 0.35f : 0.08f;
-                layer.DrawRect(x, HALF_H, 10, HALF_H, 1f, 1f, 1f, a);
+                layer.DrawDebugRect(x, HALF_H, 10, HALF_H, 1f, 1f, 1f, a);
             }
 
             // horizontal stripes in upper half
             for (var y = 0; y < HALF_H; y += 20)
             {
                 var a = ((y - HALF_H) / 20) % 2 == 0 ? 0.35f : 0.08f;
-                layer.DrawRect(0, y, W, 10, 1f, 1f, 1f, a);
+                layer.DrawDebugRect(0, y, W, 10, 1f, 1f, 1f, a);
             }
 
             // --- 3) Center crosshair (exact pixel) ---
@@ -125,13 +125,13 @@ public sealed class Prototype2
             const float CY = HALF_H;
             const int TH = 4;
             const int PAD = 4;
-            layer.DrawRect(CX - (60+PAD), CY - (TH+PAD), 120+PAD*2, TH*2+PAD*2, 1f, 0f, 1f, 1f);
-            layer.DrawRect(CX - (TH+PAD), CY - (60+PAD), TH*2+PAD*2, 120+PAD*2, 1f, 0f, 1f, 1f);
-            layer.DrawRect(CX - (40+PAD), CY - (60+PAD), 80+PAD*2, TH*2+PAD*2, 1f, 0f, 1f, 1f);
+            layer.DrawDebugRect(CX - (60+PAD), CY - (TH+PAD), 120+PAD*2, TH*2+PAD*2, 1f, 0f, 1f, 1f);
+            layer.DrawDebugRect(CX - (TH+PAD), CY - (60+PAD), TH*2+PAD*2, 120+PAD*2, 1f, 0f, 1f, 1f);
+            layer.DrawDebugRect(CX - (40+PAD), CY - (60+PAD), 80+PAD*2, TH*2+PAD*2, 1f, 0f, 1f, 1f);
 
-            layer.DrawRect(CX - 60, CY - TH, 120, TH*2, 1f, 1f, 1f, 1f);
-            layer.DrawRect(CX - TH, CY - 60, TH*2, 120, 1f, 1f, 1f, 1f);
-            layer.DrawRect(CX - 40, CY - 60, 80, TH*2, 1f, 1f, 1f, 1f);
+            layer.DrawDebugRect(CX - 60, CY - TH, 120, TH*2, 1f, 1f, 1f, 1f);
+            layer.DrawDebugRect(CX - TH, CY - 60, TH*2, 120, 1f, 1f, 1f, 1f);
+            layer.DrawDebugRect(CX - 40, CY - 60, 80, TH*2, 1f, 1f, 1f, 1f);
 
             // --- 4) Border outline (detect UV flip / off-by-one / scaling) ---
             DrawOutline(layer, new Rect(0, 0, W, H), new ColorF(1f, 1f, 1f, 1f), 3);
@@ -139,8 +139,8 @@ public sealed class Prototype2
             // --- 5) Moving marker (helps confirm "latest frame" + no caching bugs) ---
             var mx = 400 + 140 * MathF.Sin(_t * 0.9f) + 230 * MathF.Cos(_t * 1.6f);
             var my = 250 +  70 * MathF.Cos(_t * 1.1f) + 150 * MathF.Sin(_t * 0.4f);
-            layer.DrawRect(mx, my, 16, 16, 0f, 0f, 0f, 1f);
-            layer.DrawRect(mx + 3, my + 3, 10, 10, 1f, 1f, 1f, 1f);
+            layer.DrawDebugRect(mx, my, 16, 16, 0f, 0f, 0f, 1f);
+            layer.DrawDebugRect(mx + 3, my + 3, 10, 10, 1f, 1f, 1f, 1f);
 
             layer.CustomRect(
                 layer.FullRect,
@@ -203,8 +203,8 @@ public sealed class Prototype2
             dst.SetBlendMode(BlendMode.SOURCE_OVER_ALPHA);
 
             dst.SetBlendMode(BlendMode.NONE);
-            dst.DrawRect(0, 0, W, 4, 0f, 1f, 0f, 1f);
-            dst.DrawRect(0, H - 4, W, 4, 0f, 1f, 0f, 1f);
+            dst.DrawDebugRect(0, 0, W, 4, 0f, 1f, 0f, 1f);
+            dst.DrawDebugRect(0, H - 4, W, 4, 0f, 1f, 0f, 1f);
             dst.SetBlendMode(BlendMode.SOURCE_OVER_ALPHA);
 
             var regionB = new Rect(30, 30, 220, 140);
@@ -232,11 +232,11 @@ public sealed class Prototype2
             DrawOutline(dst, dstF, new ColorF(1f, 1f, 0.6f, 1f));
 
             dst.SetBlendMode(BlendMode.NONE);
-            dst.DrawRect(30, 470, 20, 20, 1f, 1f, 1f, 1f);
-            dst.DrawRect(60, 470, 20, 20, 1f, 0.5f, 0.5f, 1f);
-            dst.DrawRect(90, 470, 20, 20, 0.6f, 1f, 0.6f, 1f);
-            dst.DrawRect(120, 470, 20, 20, 0.6f, 0.8f, 1f, 1f);
-            dst.DrawRect(150, 470, 20, 20, 1f, 1f, 0.6f, 1f);
+            dst.DrawDebugRect(30, 470, 20, 20, 1f, 1f, 1f, 1f);
+            dst.DrawDebugRect(60, 470, 20, 20, 1f, 0.5f, 0.5f, 1f);
+            dst.DrawDebugRect(90, 470, 20, 20, 0.6f, 1f, 0.6f, 1f);
+            dst.DrawDebugRect(120, 470, 20, 20, 0.6f, 0.8f, 1f, 1f);
+            dst.DrawDebugRect(150, 470, 20, 20, 1f, 1f, 0.6f, 1f);
             dst.SetBlendMode(BlendMode.SOURCE_OVER_ALPHA);
 
             dst.Render();
@@ -290,23 +290,23 @@ public sealed class Prototype2
     private static void DrawOutline(CodeDrawLayer l, Rect r, ColorF c, float t = 2f)
     {
         l.SetBlendMode(BlendMode.SOURCE_OVER_ALPHA);
-        l.DrawRect(r.Left, r.Top, r.Width, t, c.R, c.G, c.B, c.A);
-        l.DrawRect(r.Left, r.Top + r.Height - t, r.Width, t, c.R, c.G, c.B, c.A);
-        l.DrawRect(r.Left, r.Top, t, r.Height, c.R, c.G, c.B, c.A);
-        l.DrawRect(r.Left + r.Width - t, r.Top, t, r.Height, c.R, c.G, c.B, c.A);
+        l.DrawDebugRect(r.Left, r.Top, r.Width, t, c.R, c.G, c.B, c.A);
+        l.DrawDebugRect(r.Left, r.Top + r.Height - t, r.Width, t, c.R, c.G, c.B, c.A);
+        l.DrawDebugRect(r.Left, r.Top, t, r.Height, c.R, c.G, c.B, c.A);
+        l.DrawDebugRect(r.Left + r.Width - t, r.Top, t, r.Height, c.R, c.G, c.B, c.A);
     }
 
     private static void DrawGrid(CodeDrawLayer l, int w, int h, int step, ColorF c)
     {
-        for (var x = 0; x < w; x += step) l.DrawRect(x, 0, 1, h, c.R, c.G, c.B, c.A);
-        for (var y = 0; y < h; y += step) l.DrawRect(0, y, w, 1, c.R, c.G, c.B, c.A);
+        for (var x = 0; x < w; x += step) l.DrawDebugRect(x, 0, 1, h, c.R, c.G, c.B, c.A);
+        for (var y = 0; y < h; y += step) l.DrawDebugRect(0, y, w, 1, c.R, c.G, c.B, c.A);
     }
 
     private static void MarkCorner(CodeDrawLayer l, Rect r, ColorF c)
     {
         // top-left "L" marker
         l.SetBlendMode(BlendMode.SOURCE_OVER_ALPHA);
-        l.DrawRect(r.Left, r.Top, 14, 6, c.R, c.G, c.B, c.A);
-        l.DrawRect(r.Left, r.Top, 6, 14, c.R, c.G, c.B, c.A);
+        l.DrawDebugRect(r.Left, r.Top, 14, 6, c.R, c.G, c.B, c.A);
+        l.DrawDebugRect(r.Left, r.Top, 6, 14, c.R, c.G, c.B, c.A);
     }
 }

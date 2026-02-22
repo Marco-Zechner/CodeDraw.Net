@@ -543,6 +543,9 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
         foreach (var (_, cmd) in local)
             cmd.Exec(_gl, this);
 
+        if (_cpuDirty)
+            ExecCpuPush(_gl);
+        
         _gl.Finish();
 
         (_pub, _work) = (_work, _pub);

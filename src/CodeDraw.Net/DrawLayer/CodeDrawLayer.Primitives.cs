@@ -37,4 +37,21 @@ public sealed unsafe partial class CodeDrawLayer
         public int W, H;
         public long Seq;
     }
+    
+    // CPU debug buffer (RGBA8 packed: R|G<<8|B<<16|A<<24)
+    // NOTE: only touched on render thread via cmds.
+    private uint[]? _cpuRgba8;
+    private int _cpuW, _cpuH;
+    private bool _cpuDirty;          // cpu buffer has new data not yet pushed
+    private bool _cpuValidThisFrame; // cpu buffer has meaningful contents for current size
+
+    public bool TryCopyCpuPixels(out uint[] rgba8, out int w, out int h)
+    {
+        // Not thread-safe: intended for debug usage after Render() / WaitForPublish()
+        // If you want hard safety, add a lock or a copy cmd that returns via callback.
+        if (_cpuRgba8 == null || _cpuW <= 0 || _cpuH <= 0) { rgba8 = []; w = h = 0; return false; }
+        rgba8 = (uint[])_cpuRgba8.Clone();
+        w = _cpuW; h = _cpuH;
+        return true;
+    }
 }

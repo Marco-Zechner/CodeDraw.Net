@@ -130,7 +130,7 @@ public class Prototype4
                 var thick = ((x / GRID_STEP) % GRID_THICK_EVERY) == 0;
                 var a = thick ? 0.55f : 0.18f;
                 float w = thick ? 3 : GRID_THIN;
-                layer.DrawRect(x, 0, w, _worldSize.Y, 1f, 1f, 1f, a);
+                layer.DrawDebugRect(x, 0, w, _worldSize.Y, 1f, 1f, 1f, a);
             }
 
             for (var y = 0; y <= _worldSize.Y; y += GRID_STEP)
@@ -138,21 +138,21 @@ public class Prototype4
                 var thick = ((y / GRID_STEP) % GRID_THICK_EVERY) == 0;
                 var a = thick ? 0.55f : 0.18f;
                 float h = thick ? 3 : GRID_THIN;
-                layer.DrawRect(0, y, _worldSize.X, h, 1f, 1f, 1f, a);
+                layer.DrawDebugRect(0, y, _worldSize.X, h, 1f, 1f, 1f, a);
             }
 
             // --- World origin marker (top-left of workarea) ---
             // Big L-corner + label-ish blocks
-            layer.DrawRect(0, 0, 140, 10, 1f, 0.2f, 0.2f, 1f);
-            layer.DrawRect(0, 0, 10, 140, 1f, 0.2f, 0.2f, 1f);
-            layer.DrawRect(16, 16, 18, 18, 1f, 0.2f, 0.2f, 1f);
-            layer.DrawRect(40, 16, 18, 18, 1f, 0.2f, 0.2f, 1f);
+            layer.DrawDebugRect(0, 0, 140, 10, 1f, 0.2f, 0.2f, 1f);
+            layer.DrawDebugRect(0, 0, 10, 140, 1f, 0.2f, 0.2f, 1f);
+            layer.DrawDebugRect(16, 16, 18, 18, 1f, 0.2f, 0.2f, 1f);
+            layer.DrawDebugRect(40, 16, 18, 18, 1f, 0.2f, 0.2f, 1f);
 
             // --- Center crosshair of the whole world ---
             var cx = _worldSize.X * 0.5f;
             var cy = _worldSize.Y * 0.5f;
-            layer.DrawRect(cx - 140, cy - 3, 280, 6, 0.2f, 0.85f, 0.25f, 0.95f);
-            layer.DrawRect(cx - 3, cy - 140, 6, 280, 0.2f, 0.85f, 0.25f, 0.95f);
+            layer.DrawDebugRect(cx - 140, cy - 3, 280, 6, 0.2f, 0.85f, 0.25f, 0.95f);
+            layer.DrawDebugRect(cx - 3, cy - 140, 6, 280, 0.2f, 0.85f, 0.25f, 0.95f);
 
             // --- Moving "comet" (makes it obvious you're seeing live updates) ---
             var mx = cx + 0.35f * _worldSize.X * MathF.Sin(t * 0.7f) + 0.12f * _worldSize.X * MathF.Cos(t * 1.4f);
@@ -165,16 +165,16 @@ public class Prototype4
                 var tx = mx - 220f * k;
                 var ty = my - 120f * k;
                 var a = (1f - k) * 0.35f;
-                layer.DrawRect(tx - 4, ty - 4, 8, 8, 0.9f, 0.9f, 1f, a);
+                layer.DrawDebugRect(tx - 4, ty - 4, 8, 8, 0.9f, 0.9f, 1f, a);
             }
 
             // head
-            layer.DrawRect(mx - 10, my - 10, 20, 20, 0f, 0f, 0f, 1f);
-            layer.DrawRect(mx - 7, my - 7, 14, 14, 1f, 1f, 1f, 1f);
+            layer.DrawDebugRect(mx - 10, my - 10, 20, 20, 0f, 0f, 0f, 1f);
+            layer.DrawDebugRect(mx - 7, my - 7, 14, 14, 1f, 1f, 1f, 1f);
 
             // --- Orbiting dots around world center (simple, no shader) ---
 
-            trailLayer.DrawRect(0,0, trailLayer.Width, trailLayer.Height, 0f,0f,0f, 0.005f); // fade old frames
+            trailLayer.DrawDebugRect(0,0, trailLayer.Width, trailLayer.Height, 0f,0f,0f, 0.005f); // fade old frames
             DrawOrbitDots(trailLayer, orbitShader, trailLayer.Width/2, trailLayer.Height/2, 14, 220, 6f, 0, new ColorF(1.00f, 0.45f, 0.10f, 1.00f));
             trailLayer.Render();
             layer.SetBlendMode(BlendMode.ADD);

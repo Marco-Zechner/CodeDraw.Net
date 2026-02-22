@@ -47,10 +47,10 @@ public class Prototype5
 
             // draw measured bounds for sanity
             var m = layer.MeasureText("Hello\nWorld\nÄÖÜ gyp █", style);
-            layer.DrawRect(layer.Width / 2f - m.X / 2f, layer.Height / 2f - m.Y / 2f, m.X, m.Y, 0, 0, 1, 0.15f);
+            layer.DrawDebugRect(layer.Width / 2f - m.X / 2f, layer.Height / 2f - m.Y / 2f, m.X, m.Y, 0, 0, 1, 0.15f);
 
             // target anchor marker (should be center for Align/VAlign)
-            layer.DrawRect(layer.Width / 2f - 2, layer.Height / 2f - 2, 4, 4, 1, 1, 0, 1);
+            layer.DrawDebugRect(layer.Width / 2f - 2, layer.Height / 2f - 2, 4, 4, 1, 1, 0, 1);
             
             layer.Render();
         };

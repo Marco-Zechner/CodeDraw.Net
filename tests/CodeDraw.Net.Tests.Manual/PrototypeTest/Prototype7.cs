@@ -164,7 +164,7 @@ public sealed class Prototype7
             // Center anchor marker
             var cx = layer.Width*3/4f;
             var cy = layer.Height/3f;
-            layer.DrawRect(cx - 2, cy - 2, 4, 4, 1f, 0.8f, 0.2f, 1f);
+            layer.DrawDebugRect(cx - 2, cy - 2, 4, 4, 1f, 0.8f, 0.2f, 1f);
 
             styleMonoBig.Align = TextAlign.Center;
             styleMonoBig.VAlign = TextVAlign.Top;
@@ -181,8 +181,8 @@ public sealed class Prototype7
             var w0 = m.X + padBox * 2f;
             var h0 = m.Y + padBox * 2f;
 
-            layer.DrawRect(x0, y0, w0, h0, 0.2f, 0.2f, 0.25f, 0.15f);                     // gray panel
-            layer.DrawRect(cx - m.X * 0.5f, cy, m.X, m.Y, 0.0f, 0.45f, 1.0f, 0.12f); // blue bounds
+            layer.DrawDebugRect(x0, y0, w0, h0, 0.2f, 0.2f, 0.25f, 0.15f);                     // gray panel
+            layer.DrawDebugRect(cx - m.X * 0.5f, cy, m.X, m.Y, 0.0f, 0.45f, 1.0f, 0.12f); // blue bounds
 
             // --- HUD / controls ---
             var hud = new StringBuilder();

@@ -50,15 +50,25 @@ public class SdfPrototype2
             _barXf[i] = new SdfTransformNode
             {
                 Child = _barRects[i],
-                LocalToParent = Matrix3x3.Identity
+                LocalToParent = Matrix3x3.CreateRotation(i * 60f),
             };
             _barChildren[i] = _barXf[i];
         }
+        
+        var barsCenterCircle = new SdfCircleNode {
+            Radius = 20,
+            Center = Vector2.Zero,
+        };
 
         var barsUnion = new SdfSmoothUnionNode
         {
             K = 25f,
-            Children = _barChildren
+            Children = _barChildren,
+        };
+
+        var barsSub = new SdfSubtractNode {
+            A = barsUnion,
+            Bs = [barsCenterCircle],
         };
         
         var barStyle = new DrawStyle(
@@ -91,16 +101,17 @@ public class SdfPrototype2
             layer.Clear(0.1f, 0.1f, 0.12f, 1f);
 
             // animate: only change transforms, mark dirty via property setters
-            for (var i = 0; i < 6; i++)
-            {
-                var angle = time * 20f + i * 60f;
-                _barXf[i].LocalToParent = Matrix3x3.CreateRotation(angle);
-            }
-
+            // for (var i = 0; i < 6; i++)
+            // {
+            //     var angle = time * 20f + i * 60f;
+            //     _barXf[i].LocalToParent = Matrix3x3.CreateRotation(angle);
+            // }
+            
             using (layer.ScopeTranslate(450, 400))
+            using (layer.ScopeRotate(time * 20))
             {
-                layer.DrawSdf(barsUnion, barStyle);
-                // barsUnion.DrawDebugRect(layer, ((ColorF)Colors.WHITE) with { A = 0.5f }, barStyle);
+                layer.DrawSdf(barsSub, barStyle);
+                // barsSub.DrawDebugRect(layer, ((ColorF)Colors.WHITE) with { A = 0.5f }, barStyle);
             }
             
             var hud = $"UPS: {ups:0.0}";

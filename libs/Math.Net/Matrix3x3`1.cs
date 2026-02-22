@@ -3,6 +3,9 @@ using System.Numerics;
 namespace MarcoZechner.MathDotNet;
 
 // ReSharper disable once InconsistentNaming
+/// <summary>
+/// <br/><b>row-major!</b>
+/// </summary>
 public readonly partial record struct Matrix3x3<T>(
     T M11, T M12, T M13,
     T M21, T M22, T M23,

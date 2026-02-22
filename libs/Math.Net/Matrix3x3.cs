@@ -3,6 +3,7 @@ namespace MarcoZechner.MathDotNet;
 /// <summary>
 /// A 3x3 matrix using float components (default).
 /// Hosts the "main" static API surface as well.
+/// <br/><b>row-major!</b>
 /// </summary>
 // ReSharper disable once InconsistentNaming
 public readonly partial record struct Matrix3x3(

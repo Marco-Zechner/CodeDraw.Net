@@ -2,7 +2,6 @@
 
 namespace MarcoZechner.MathDotNet;
 
-/// <inheritdoc />
 // ReSharper disable once InconsistentNaming
 public readonly partial record struct Matrix3x3<T>
     where T : unmanaged, INumber<T>

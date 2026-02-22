@@ -4,6 +4,7 @@ using System.Runtime.CompilerServices;
 using MarcoZechner.CodeDrawDotNet.DrawLayer.Commands;
 using MarcoZechner.CodeDrawDotNet.Shaders;
 using MarcoZechner.CodeDrawDotNet.Window;
+using MarcoZechner.MathDotNet;
 using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
 using Monitor = System.Threading.Monitor;
@@ -15,13 +16,28 @@ namespace MarcoZechner.CodeDrawDotNet.DrawLayer;
 public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
 {
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static void Uniform2F(GL gl, int loc, float x, float y)
+    private static void Uniform2F(GL gl, int loc, float x, float y)
         => gl.Uniform2(loc, x, y);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static void Uniform4F(GL gl, int loc, float x, float y, float z, float w)
+    private static void Uniform4F(GL gl, int loc, float x, float y, float z, float w)
         => gl.Uniform4(loc, x, y, z, w);
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void UniformMat3(GL gl, int loc, in Matrix3x3 m)
+    {
+        // Column-major layout for GLSL mat3.
+        // c# Matrix3x3 is row-major, so we transpose it by swapping indices.
+        Span<float> tmp = [
+            m.M11, m.M12, m.M13,
+            m.M21, m.M22, m.M23,
+            m.M31, m.M32, m.M33,
+        ];
+
+        fixed (float* p = tmp)
+            gl.UniformMatrix3(loc, 1, true, p);
+    }
+    
     private static int _nextLayerId;
     public int LayerId { get; } = Interlocked.Increment(ref _nextLayerId);
 
@@ -718,6 +734,24 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
                     break;
                 }
 
+                case UniformType.MAT3X3: {
+                    // IMPORTANT: Your Matrix3x3 is row-major in C#.
+                    // GLSL expects column-major data layout unless transpose=true.
+                    // Easiest: upload with transpose=true and send row-major as-is.
+                    Span<float> tmp = [
+                        u.Mat.M11, u.Mat.M12, u.Mat.M13,
+                        u.Mat.M21, u.Mat.M22, u.Mat.M23,
+                        u.Mat.M31, u.Mat.M32, u.Mat.M33,
+                    ];
+
+                    fixed (float* p = tmp)
+                        gl.UniformMatrix3(info.Loc, 1, true, p);
+
+                    break;
+                }
+                
+                case UniformType.COLOR: gl.Uniform4(info.Loc, u.ColorF.R, u.ColorF.G, u.ColorF.B, u.ColorF.A); break;
+
                 default:
                     throw new ArgumentOutOfRangeException();
             }
@@ -786,11 +820,10 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
 
             r.ByName[name] = info;
 
-            if (name.EndsWith("[0]", StringComparison.Ordinal))
-            {
-                var baseName = name[..^3];
-                r.ByName[baseName] = info;
-            }
+            if (!name.EndsWith("[0]", StringComparison.Ordinal)) continue;
+
+            var baseName = name[..^3];
+            r.ByName[baseName] = info;
         }
 
         return r;
@@ -804,7 +837,9 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
             UniformType.FLOAT2 => actual == SilkUniformType.FloatVec2,
             UniformType.FLOAT3 => actual == SilkUniformType.FloatVec3,
             UniformType.FLOAT4 => actual == SilkUniformType.FloatVec4,
-            UniformType.TEX_2D => actual == SilkUniformType.Sampler2D, // optionally allow Sampler2DShadow etc later
+            UniformType.TEX_2D => actual == SilkUniformType.Sampler2D,
+            UniformType.MAT3X3 => actual == SilkUniformType.FloatMat3,
+            UniformType.COLOR => actual == SilkUniformType.FloatVec4,
             _ => false
         };
     }

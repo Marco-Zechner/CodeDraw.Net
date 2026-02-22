@@ -9,9 +9,9 @@ public readonly record struct SdfSegment(Vector2 A, Vector2 B, float Radius = 0f
         // Distance to segment with optional radius (capsule).
         var pa = p - A;
         var ba = B - A;
-        var denom = Vector2.DotF(ba, ba);
+        var denom = Vector2.Dot(ba, ba);
         if (denom <= 0f) return (p - A).Length - Radius;
-        var h = MathG.Clamp(Vector2.DotF(pa, ba) / denom, 0f, 1f);
+        var h = MathG.Clamp(Vector2.Dot(pa, ba) / denom, 0f, 1f);
         var closest = A + ba * h;
         return (p - closest).Length - Radius;
     }

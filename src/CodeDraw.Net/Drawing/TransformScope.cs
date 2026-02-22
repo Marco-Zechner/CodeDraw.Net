@@ -32,20 +32,20 @@ public static class TransformScopeExtensions
     }
 
     public static TransformScope TranslateScope(this ICodeDrawTransformStack stack, float x, float y)
-        => stack.PushTransformScope(Matrix3x3.CreateTranslationF(x, y));
+        => stack.PushTransformScope(Matrix3x3.CreateTranslation(x, y));
 
     public static TransformScope ScaleScope(this ICodeDrawTransformStack stack, float sx, float sy)
-        => stack.PushTransformScope(Matrix3x3.CreateScaleF(sx, sy));
+        => stack.PushTransformScope(Matrix3x3.CreateScale(sx, sy));
 
     public static TransformScope RotateScopeDeg(this ICodeDrawTransformStack stack, float deg)
-        => stack.PushTransformScope(Matrix3x3.CreateRotationF(deg));
+        => stack.PushTransformScope(Matrix3x3.CreateRotation(deg));
 
     public static TransformScope RotateAroundScopeDeg(this ICodeDrawTransformStack stack, float px, float py, float deg)
     {
         // Current * (T(px,py) * R * T(-px,-py))
-        var t0 = Matrix3x3.CreateTranslationF(px, py);
-        var r  = Matrix3x3.CreateRotationF(deg);
-        var t1 = Matrix3x3.CreateTranslationF(-px, -py);
+        var t0 = Matrix3x3.CreateTranslation(px, py);
+        var r  = Matrix3x3.CreateRotation(deg);
+        var t1 = Matrix3x3.CreateTranslation(-px, -py);
         return stack.PushTransformScope(t0 * r * t1);
     }
 }

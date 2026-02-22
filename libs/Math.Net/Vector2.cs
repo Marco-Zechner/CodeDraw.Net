@@ -101,7 +101,7 @@ public readonly partial record struct Vector2(float X, float Y)
         get
         {
             var len = Length;
-            return len == 0f ? Zero : new(X / len, Y / len);
+            return len == 0f ? Zero : new Vector2(X / len, Y / len);
         }
     }
     
@@ -141,23 +141,23 @@ public readonly partial record struct Vector2(float X, float Y)
 
 #region Static Methods (returns Vector2)
 
-    public static float DistanceSquared(Vector2 a, Vector2 b) => DistanceSquaredF(a, b);
-    public static float Distance(Vector2 a, Vector2 b) => DistanceF(a, b);
-    public static float Dot(Vector2 a, Vector2 b) => DotF(a, b);
-    public static float CrossZ(Vector2 a, Vector2 b) => CrossZF(a, b);
-    public static float AngleBetween(Vector2 a, Vector2 b, AngleUnit angleUnit = AngleUnit.Degrees) => AngleBetweenF(a, b, angleUnit);
-    public static Vector2 Min(Vector2 a, Vector2 b) => MinF(a, b);
-    public static Vector2 Max(Vector2 a, Vector2 b) => MaxF(a, b);
-    public static Vector2 Clamp(Vector2 v, Vector2 min, Vector2 max) => ClampF(v, min, max);
-    public static Vector2 Lerp(Vector2 a, Vector2 b, float t) => LerpF(a, b, t);
-    public static Vector2 Reflect(Vector2 v, Vector2 normal) => ReflectF(v, normal);
-    public static Vector2 PerpendicularCcw(Vector2 v) => PerpendicularCcwF(v);
-    public static Vector2 PerpendicularCw(Vector2 v) => PerpendicularCwF(v);
-    public static Vector2 Rotate(Vector2 v, float angle, AngleUnit angleUnit = AngleUnit.Degrees) => RotateF(v, angle, angleUnit);
-    public static Vector2 FromPolar(float radius, float angle, AngleUnit angleUnit = AngleUnit.Degrees) => FromPolarF(radius, angle, angleUnit);
-    public static Vector2 Normalize(Vector2 v) => NormalizeF(v);
-    public static Vector2 Abs(Vector2 v) => AbsF(v);
-    public static Vector2 Sign(Vector2 v) => SignF(v);
+    public static float DistanceSquared(Vector2 a, Vector2 b) => DistanceSquared<float>(a, b);
+    public static float Distance(Vector2 a, Vector2 b) => Distance<float>(a, b);
+    public static float Dot(Vector2 a, Vector2 b) => Dot<float>(a, b);
+    public static float CrossZ(Vector2 a, Vector2 b) => CrossZ<float>(a, b);
+    public static float AngleBetween(Vector2 a, Vector2 b, AngleUnit angleUnit = AngleUnit.Degrees) => AngleBetween<float>(a, b, angleUnit);
+    public static Vector2 Min(Vector2 a, Vector2 b) => Min<float>(a, b);
+    public static Vector2 Max(Vector2 a, Vector2 b) => Max<float>(a, b);
+    public static Vector2 Clamp(Vector2 v, Vector2 min, Vector2 max) => Clamp<float>(v, min, max);
+    public static Vector2 Lerp(Vector2 a, Vector2 b, float t) => Lerp<float>(a, b, t);
+    public static Vector2 Reflect(Vector2 v, Vector2 normal) => Reflect<float>(v, normal);
+    public static Vector2 PerpendicularCcw(Vector2 v) => PerpendicularCcw<float>(v);
+    public static Vector2 PerpendicularCw(Vector2 v) => PerpendicularCw<float>(v);
+    public static Vector2 Rotate(Vector2 v, float angle, AngleUnit angleUnit = AngleUnit.Degrees) => Rotate<float>(v, angle, angleUnit);
+    public static Vector2 FromPolar(float radius, float angle, AngleUnit angleUnit = AngleUnit.Degrees) => FromPolar<float>(radius, angle, angleUnit);
+    public static Vector2 Normalize(Vector2 v) => Normalize<float>(v);
+    public static Vector2 Abs(Vector2 v) => Abs<float>(v);
+    public static Vector2 Sign(Vector2 v) => Sign<float>(v);
     
 #endregion
     

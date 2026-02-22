@@ -64,13 +64,27 @@ public readonly record struct Rect<T>(Vector2<T> Position, Vector2<T> Size, Orig
             new Vector2<T>(Right, Top),
             new Vector2<T>(Right, Bottom),
             new Vector2<T>(Left, Bottom));
+    
+    public bool Contains(Vector2<T> p, ContainsMode mode = ContainsMode.InclusiveMin)
+    {
+        var left   = (mode & ContainsMode.InclusiveLeft)   != 0 ? p.X >= Left   : p.X > Left;
+        var right  = (mode & ContainsMode.InclusiveRight)  != 0 ? p.X <= Right  : p.X < Right;
+        var top    = (mode & ContainsMode.InclusiveTop)    != 0 ? p.Y >= Top    : p.Y > Top;
+        var bottom = (mode & ContainsMode.InclusiveBottom) != 0 ? p.Y <= Bottom : p.Y < Bottom;
 
-    public bool Contains(Vector2<T> p)
-        => p.X >= Left && p.X <= Right && p.Y >= Top && p.Y <= Bottom;
+        return left && right && top && bottom;
+    }
 
-    public bool Contains(Rect<T> other)
-        => other.Left >= Left && other.Right <= Right && other.Top >= Top && other.Bottom <= Bottom;
+    public bool Contains(Rect<T> other, ContainsMode mode = ContainsMode.InclusiveMin)
+    {
+        var left   = (mode & ContainsMode.InclusiveLeft)   != 0 ? other.Left   >= Left   : other.Left   > Left;
+        var right  = (mode & ContainsMode.InclusiveRight)  != 0 ? other.Right  <= Right  : other.Right  < Right;
+        var top    = (mode & ContainsMode.InclusiveTop)    != 0 ? other.Top    >= Top    : other.Top    > Top;
+        var bottom = (mode & ContainsMode.InclusiveBottom) != 0 ? other.Bottom <= Bottom : other.Bottom < Bottom;
 
+        return left && right && top && bottom;
+    }
+    
     public bool Intersects(Rect<T> other)
         => !(other.Right < Left || other.Left > Right || other.Bottom < Top || other.Top > Bottom);
 

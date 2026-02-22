@@ -4,6 +4,7 @@ namespace MarcoZechner.MathDotNet;
 /// A 3x3 matrix using float components (default).
 /// Hosts the "main" static API surface as well.
 /// </summary>
+// ReSharper disable once InconsistentNaming
 public readonly partial record struct Matrix3x3(
     float M11, float M12, float M13,
     float M21, float M22, float M23,
@@ -67,22 +68,22 @@ public readonly partial record struct Matrix3x3(
     
 #region Static Methods (returns Matrix3x3 and Vector2)
     
-    public static Matrix3x3 CreateRotation(float angle, AngleUnit unit = AngleUnit.Degrees) => CreateRotationF(angle, unit);
-    public static Matrix3x3 CreateTranslation(float tx, float ty) => CreateTranslationF(tx, ty);
-    public static Matrix3x3 CreateScale(float sx, float sy) => CreateScaleF(sx, sy);
-    public static Matrix3x3 CreateBasis(Vector2 xAxis, Vector2 yAxis, Vector2 translation) => CreateBasisF(xAxis, yAxis, translation);
-    public static Matrix3x3 CreateShear(float shx, float shy) => CreateShearF(shx, shy);
-    public static Matrix3x3 Lerp(Matrix3x3 a, Matrix3x3 b, float t) => LerpF(a, b, t);
-    public static Matrix3x3 Transpose(Matrix3x3 m) => TransposeF(m);
+    public static Matrix3x3 CreateRotation(float angle, AngleUnit unit = AngleUnit.Degrees) => CreateRotation<float>(angle, unit);
+    public static Matrix3x3 CreateTranslation(float tx, float ty) => CreateTranslation<float>(tx, ty);
+    public static Matrix3x3 CreateScale(float sx, float sy) => CreateScale<float>(sx, sy);
+    public static Matrix3x3 CreateBasis(Vector2 xAxis, Vector2 yAxis, Vector2 translation) => CreateBasis<float>(xAxis, yAxis, translation);
+    public static Matrix3x3 CreateShear(float shx, float shy) => CreateShear<float>(shx, shy);
+    public static Matrix3x3 Lerp(Matrix3x3 a, Matrix3x3 b, float t) => Lerp<float>(a, b, t);
+    public static Matrix3x3 Transpose(Matrix3x3 m) => Transpose<float, float>(m);
     public static bool TryInvert(Matrix3x3 m, out Matrix3x3 inverse)
     {
-        var result = TryInvertF(m, out var inverseOut);
+        var result = TryInvert<float, float>(m, out var inverseOut);
         inverse = inverseOut;
         return result;
     }
-    public static Matrix3x3 Invert(Matrix3x3 m) => InvertF(m);
-    public static Vector2 TransformAffine(Matrix3x3 m, Vector2 v) => TransformAffineF(m, v);
-    public static Vector2 TransformProjective(Matrix3x3 m, Vector2 v) => TransformProjectiveF(m, v);
+    public static Matrix3x3 Invert(Matrix3x3 m) => Invert<float, float>(m);
+    public static Vector2 TransformAffine(Matrix3x3 m, Vector2 v) => TransformAffine<float>(m, v);
+    public static Vector2 TransformProjective(Matrix3x3 m, Vector2 v) => TransformProjective<float>(m, v);
     
 #endregion
 

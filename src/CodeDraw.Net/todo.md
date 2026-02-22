@@ -35,3 +35,16 @@ win2 = new Window();
 win2.SetPresentedLayer(win1.Layer); //auto-layer won't change anymore on resize.
 win1.Layer.FollowWindowSize(win2); //auto-layer will now follow win2 size changes
 win2.Layer.RequestLayerSize(100, 100); //auto-layer won't change anymore on resize. (win2.Layer is the same as win1.Layer, since both present the same layer)
+
+
+TODO: add "Analogous, Complementary, Triadic, Tetradic" to the color lib
+i have (RGB, HSV, CMYK)
+check if i want to add more like:
+- HSL (Hue, Saturation, Lightness)
+- HWB (Hue, Whiteness, Blackness)
+- RGBW (Red, Green, Blue, White)
+- CMY (Cyan, Magenta, Yellow)
+- YUV (Luma, Chroma U, Chroma V)
+look into Matrix5x5 for colors? what use do these have.
+
+BUG: files are constantly being read

@@ -4,6 +4,9 @@ namespace MarcoZechner.MathDotNet;
 
 public static class MathG
 {
+    public const float RAD_TO_DEG = 180f / MathF.PI;
+    public const float DEG_TO_RAD = MathF.PI / 180f;
+    
     // =====================================================
     // Basic (INumber<T>)
     // =====================================================
@@ -82,51 +85,51 @@ public static class MathG
     {
         var range = max - min;
         if (range <= T.Zero) throw new ArgumentOutOfRangeException(nameof(max), "Wrap requires max>min.");
-        return min + (value - min) % range;
+
+        var x = (value - min) % range;
+        if (x < T.Zero) x += range;   // the crucial part
+        return min + x;
     }
 
     // =====================================================
     // Float-return convenience (keep for Vector2<T> etc.)
     // =====================================================
 
-    public static float SinF<T>(T x, AngleUnit angleUnit = AngleUnit.Degrees) where T : INumber<T>
-        => float.Sin(AngleToRadiansF(x, angleUnit));
+    public static float Sin<T>(T x, AngleUnit angleUnit = AngleUnit.Degrees) where T : INumber<T>
+        => float.Sin(AngleToRadians(x, angleUnit));
 
-    public static float CosF<T>(T x, AngleUnit angleUnit = AngleUnit.Degrees) where T : INumber<T>
-        => float.Cos(AngleToRadiansF(x, angleUnit));
+    public static float Cos<T>(T x, AngleUnit angleUnit = AngleUnit.Degrees) where T : INumber<T>
+        => float.Cos(AngleToRadians(x, angleUnit));
 
-    public static float TanF<T>(T x, AngleUnit angleUnit = AngleUnit.Degrees) where T : INumber<T>
-        => float.Tan(AngleToRadiansF(x, angleUnit));
+    public static float Tan<T>(T x, AngleUnit angleUnit = AngleUnit.Degrees) where T : INumber<T>
+        => float.Tan(AngleToRadians(x, angleUnit));
 
-    public static float AsinF<T>(T x, AngleUnit angleUnit = AngleUnit.Degrees) where T : INumber<T>
-        => RadiansToAngleF(float.Asin(ToFloat(x)), angleUnit);
+    public static float Asin<T>(T x, AngleUnit angleUnit = AngleUnit.Degrees) where T : INumber<T>
+        => RadiansToAngle(float.Asin(ToFloat(x)), angleUnit);
 
-    public static float AcosF<T>(T x, AngleUnit angleUnit = AngleUnit.Degrees) where T : INumber<T>
-        => RadiansToAngleF(float.Acos(ToFloat(x)), angleUnit);
+    public static float Acos<T>(T x, AngleUnit angleUnit = AngleUnit.Degrees) where T : INumber<T>
+        => RadiansToAngle(float.Acos(ToFloat(x)), angleUnit);
 
-    public static float AtanF<T>(T x, AngleUnit angleUnit = AngleUnit.Degrees) where T : INumber<T>
-        => RadiansToAngleF(float.Atan(ToFloat(x)), angleUnit);
+    public static float Atan<T>(T x, AngleUnit angleUnit = AngleUnit.Degrees) where T : INumber<T>
+        => RadiansToAngle(float.Atan(ToFloat(x)), angleUnit);
 
-    public static float Atan2F<T>(T y, T x, AngleUnit angleUnit = AngleUnit.Degrees) where T : INumber<T>
-        => RadiansToAngleF(float.Atan2(ToFloat(y), ToFloat(x)), angleUnit);
+    public static float Atan2<T>(T y, T x, AngleUnit angleUnit = AngleUnit.Degrees) where T : INumber<T>
+        => RadiansToAngle(float.Atan2(ToFloat(y), ToFloat(x)), angleUnit);
 
-    public static float SqrtF<T>(T x) where T : INumber<T> => float.Sqrt(ToFloat(x));
-    public static float PowF<T>(T x, T y) where T : INumber<T> => float.Pow(ToFloat(x), ToFloat(y));
-    public static float ExpF<T>(T x) where T : INumber<T> => float.Exp(ToFloat(x));
-    public static float LogF<T>(T x) where T : INumber<T> => float.Log(ToFloat(x));
-    public static float LogF<T>(T x, T newBase) where T : INumber<T> => float.Log(ToFloat(x), ToFloat(newBase));
+    public static float Sqrt<T>(T x) where T : INumber<T> => float.Sqrt(ToFloat(x));
+    public static float Pow<T>(T x, T y) where T : INumber<T> => float.Pow(ToFloat(x), ToFloat(y));
+    public static float Exp<T>(T x) where T : INumber<T> => float.Exp(ToFloat(x));
+    public static float Log<T>(T x) where T : INumber<T> => float.Log(ToFloat(x));
+    public static float Log<T>(T x, T newBase) where T : INumber<T> => float.Log(ToFloat(x), ToFloat(newBase));
 
-    public static float ToRadiansF<T>(T degrees) where T : INumber<T> => ToFloat(degrees) * ToFloat(Math.PI / 180.0);
-    public static float ToDegreesF<T>(T radians) where T : INumber<T> => ToFloat(radians) * ToFloat(180.0 / Math.PI);
+    public static float ToRadians<T>(T degrees) where T : INumber<T> => ToFloat(degrees) * ToFloat(Math.PI / 180.0);
+    public static float ToDegrees<T>(T radians) where T : INumber<T> => ToFloat(radians) * ToFloat(180.0 / Math.PI);
     
-    private static float AngleToRadiansF<T>(T angle, AngleUnit unit) where T : INumber<T>
-    {
-        var a = ToFloat(angle);
-        return unit == AngleUnit.Degrees ? a * (MathF.PI / 180f) : a;
-    }
-    
-    private static float RadiansToAngleF(float radians, AngleUnit unit)
-        => unit == AngleUnit.Degrees ? radians * (180f / MathF.PI) : radians;
+    private static float AngleToRadians<T>(T angle, AngleUnit unit) where T : INumber<T> 
+        => unit == AngleUnit.Degrees ? ToFloat(angle) * DEG_TO_RAD : ToFloat(angle);
+
+    private static float RadiansToAngle(float radians, AngleUnit unit)
+        => unit == AngleUnit.Degrees ? radians * RAD_TO_DEG : radians;
 
     // =====================================================
     // Trig - typed output (output-only generic, input is double)
@@ -165,10 +168,10 @@ public static class MathG
     public static TOut ToDegrees<TOut>(double radians) where TOut : INumber<TOut> => FromDouble<TOut>(radians * (180.0 / Math.PI));
     
     private static double AngleToRadians(double angle, AngleUnit unit)
-        => unit == AngleUnit.Degrees ? angle * (Math.PI / 180.0) : angle;
+        => unit == AngleUnit.Degrees ? angle * DEG_TO_RAD : angle;
     
     private static double RadiansToAngle(double radians, AngleUnit unit)
-        => unit == AngleUnit.Degrees ? radians * (180.0 / Math.PI) : radians;
+        => unit == AngleUnit.Degrees ? radians * RAD_TO_DEG : radians;
     
     // =====================================================
     // Approx (double-domain semantics)

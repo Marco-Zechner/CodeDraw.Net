@@ -377,6 +377,8 @@ public static class FileCache
 
     private static bool TryReadFile(string absPath, out string text)
     {
+        //TODO: BUG this is called way to often...
+        // Console.WriteLine($"[Info] FileCache: reading from {absPath}");
         text = "";
         try
         {

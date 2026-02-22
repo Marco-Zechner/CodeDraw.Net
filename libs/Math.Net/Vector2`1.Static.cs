@@ -13,7 +13,7 @@ public readonly partial record struct Vector2<T>
         => new(MathG.ToDouble(v.X), MathG.ToDouble(v.Y));
     
 #region Returns Number
-    public static float DistanceSquaredF<TA, TB>(Vector2<TA> a, Vector2<TB> b)
+    public static float DistanceSquared<TA, TB>(Vector2<TA> a, Vector2<TB> b)
         where TA : unmanaged, INumber<TA>
         where TB : unmanaged, INumber<TB>
     {
@@ -32,19 +32,19 @@ public readonly partial record struct Vector2<T>
         return MathG.FromDouble<TOut>(dx * dx + dy * dy);
     }
 
-    public static float DistanceSquaredF(Vector2<double> a, Vector2<double> b) => DistanceSquaredF<double, double>(a, b);
+    public static float DistanceSquared(Vector2<double> a, Vector2<double> b) => DistanceSquared<float>(a, b);
     public static TOut DistanceSquared<TOut>(Vector2<double> a, Vector2<double> b)
         where TOut : unmanaged, INumber<TOut>
         => DistanceSquared<TOut, double, double>(a, b);
     
     
-    public static float DistanceF<TA, TB>(Vector2<TA> a, Vector2<TB> b)
+    public static float Distance<TA, TB>(Vector2<TA> a, Vector2<TB> b)
         where TA : unmanaged, INumber<TA>
         where TB : unmanaged, INumber<TB>
     {
         var dx = MathG.ToFloat(a.X) - MathG.ToFloat(b.X);
         var dy = MathG.ToFloat(a.Y) - MathG.ToFloat(b.Y);
-        return MathF.Sqrt(dx * dx + dy * dy);
+        return MathG.Sqrt(dx * dx + dy * dy);
     }
     public static TOut Distance<TOut, TA, TB>(Vector2<TA> a, Vector2<TB> b)
         where TOut : unmanaged, INumber<TOut>
@@ -56,11 +56,11 @@ public readonly partial record struct Vector2<T>
         return MathG.FromDouble<TOut>(Math.Sqrt(dx * dx + dy * dy));
     }
 
-    public static float DistanceF(Vector2<double> a, Vector2<double> b) => DistanceF<double, double>(a, b);
+    public static float Distance(Vector2<double> a, Vector2<double> b) => Distance<float>(a, b);
     public static TOut Distance<TOut>(Vector2<double> a, Vector2<double> b) where TOut : unmanaged, INumber<TOut> => Distance<TOut, double, double>(a, b);
 
     
-    public static float DotF<TA, TB>(Vector2<TA> a, Vector2<TB> b)
+    public static float Dot<TA, TB>(Vector2<TA> a, Vector2<TB> b)
         where TA : unmanaged, INumber<TA>
         where TB : unmanaged, INumber<TB>
         => MathG.ToFloat(a.X) * MathG.ToFloat(b.X) + MathG.ToFloat(a.Y) * MathG.ToFloat(b.Y);
@@ -70,11 +70,11 @@ public readonly partial record struct Vector2<T>
         where TB : unmanaged, INumber<TB>
         => MathG.FromDouble<TOut>(MathG.ToDouble(a.X) * MathG.ToDouble(b.X) + MathG.ToDouble(a.Y) * MathG.ToDouble(b.Y));
 
-    public static float DotF(Vector2<double> a, Vector2<double> b) => DotF<double, double>(a, b);
+    public static float Dot(Vector2<double> a, Vector2<double> b) => Dot<float>(a, b);
     public static TOut Dot<TOut>(Vector2<double> a, Vector2<double> b) where TOut : unmanaged, INumber<TOut> => Dot<TOut, double, double>(a, b);
 
 
-    public static float CrossZF<TA, TB>(Vector2<TA> a, Vector2<TB> b)
+    public static float CrossZ<TA, TB>(Vector2<TA> a, Vector2<TB> b)
         where TA : unmanaged, INumber<TA>
         where TB : unmanaged, INumber<TB>
         => MathG.ToFloat(a.X) * MathG.ToFloat(b.Y) - MathG.ToFloat(a.Y) * MathG.ToFloat(b.X);
@@ -84,19 +84,19 @@ public readonly partial record struct Vector2<T>
         where TB : unmanaged, INumber<TB>
         => MathG.FromDouble<TOut>(MathG.ToDouble(a.X) * MathG.ToDouble(b.Y) - MathG.ToDouble(a.Y) * MathG.ToDouble(b.X));
 
-    public static float CrossZF(Vector2<double> a, Vector2<double> b) => CrossZF<double, double>(a, b);
+    public static float CrossZ(Vector2<double> a, Vector2<double> b) => CrossZ<float>(a, b);
     public static TOut CrossZ<TOut>(Vector2<double> a, Vector2<double> b) where TOut : unmanaged, INumber<TOut> => CrossZ<TOut, double, double>(a, b);
 
-    public static float AngleBetweenF<TA, TB>(Vector2<TA> a, Vector2<TB> b, AngleUnit angleUnit = AngleUnit.Degrees)
+    public static float AngleBetween<TA, TB>(Vector2<TA> a, Vector2<TB> b, AngleUnit angleUnit = AngleUnit.Degrees)
         where TA : unmanaged, INumber<TA>
         where TB : unmanaged, INumber<TB>
     {
-        var na = NormalizeF(a);
-        var nb = NormalizeF(b);
+        var na = Normalize(a);
+        var nb = Normalize(b);
         var dot = na.X * nb.X + na.Y * nb.Y;
         dot = MathG.Max(-1f, MathG.Min(1f, dot));
 
-        return MathG.AcosF(dot, angleUnit);
+        return MathG.Acos(dot, angleUnit);
     }
 
     public static TOut AngleBetween<TOut, TA, TB>(Vector2<TA> a, Vector2<TB> b, AngleUnit angleUnit = AngleUnit.Degrees)
@@ -113,8 +113,8 @@ public readonly partial record struct Vector2<T>
         return MathG.Acos<TOut>(dot, angleUnit);
     }
 
-    public static float AngleBetweenF(Vector2<double> a, Vector2<double> b, AngleUnit angleUnit = AngleUnit.Degrees)
-        => AngleBetweenF<double, double>(a, b, angleUnit);
+    public static float AngleBetween(Vector2<double> a, Vector2<double> b, AngleUnit angleUnit = AngleUnit.Degrees)
+        => AngleBetween<float>(a, b, angleUnit);
 
     public static TOut AngleBetween<TOut>(Vector2<double> a, Vector2<double> b, AngleUnit angleUnit = AngleUnit.Degrees)
         where TOut : unmanaged, INumber<TOut>
@@ -124,7 +124,7 @@ public readonly partial record struct Vector2<T>
 
 #region Returns Vector2<TOut>
 
-    public static Vector2<float> MinF<TA, TB>(Vector2<TA> a, Vector2<TB> b)
+    public static Vector2<float> Min<TA, TB>(Vector2<TA> a, Vector2<TB> b)
         where TA : unmanaged, INumber<TA>
         where TB : unmanaged, INumber<TB>
         => new(MathF.Min(MathG.ToFloat(a.X), MathG.ToFloat(b.X)),
@@ -140,12 +140,12 @@ public readonly partial record struct Vector2<T>
         return FromDouble<TOut>(new Vector2<double>(Math.Min(da.X, db.X), Math.Min(da.Y, db.Y)));
     }
 
-    public static Vector2<float> MinF(Vector2<double> a, Vector2<double> b) => MinF<double, double>(a, b);
+    public static Vector2<float> Min(Vector2<double> a, Vector2<double> b) => Min<float>(a, b);
     public static Vector2<TOut> Min<TOut>(Vector2<double> a, Vector2<double> b)
         where TOut : unmanaged, INumber<TOut>
         => Min<TOut, double, double>(a, b);
 
-    public static Vector2<float> MaxF<TA, TB>(Vector2<TA> a, Vector2<TB> b)
+    public static Vector2<float> Max<TA, TB>(Vector2<TA> a, Vector2<TB> b)
         where TA : unmanaged, INumber<TA>
         where TB : unmanaged, INumber<TB>
         => new(MathF.Max(MathG.ToFloat(a.X), MathG.ToFloat(b.X)),
@@ -161,7 +161,7 @@ public readonly partial record struct Vector2<T>
         return FromDouble<TOut>(new Vector2<double>(Math.Max(da.X, db.X), Math.Max(da.Y, db.Y)));
     }
 
-    public static Vector2<float> MaxF(Vector2<double> a, Vector2<double> b) => MaxF<double, double>(a, b);
+    public static Vector2<float> Max(Vector2<double> a, Vector2<double> b) => Max<float>(a, b);
     public static Vector2<TOut> Max<TOut>(Vector2<double> a, Vector2<double> b)
         where TOut : unmanaged, INumber<TOut>
         => Max<TOut, double, double>(a, b);
@@ -169,7 +169,7 @@ public readonly partial record struct Vector2<T>
     // -----------------------------
     // Clamp (component-wise)
     // -----------------------------
-    public static Vector2<float> ClampF<TV, TMin, TMax>(Vector2<TV> v, Vector2<TMin> min, Vector2<TMax> max)
+    public static Vector2<float> Clamp<TV, TMin, TMax>(Vector2<TV> v, Vector2<TMin> min, Vector2<TMax> max)
         where TV : unmanaged, INumber<TV>
         where TMin : unmanaged, INumber<TMin>
         where TMax : unmanaged, INumber<TMax>
@@ -203,7 +203,7 @@ public readonly partial record struct Vector2<T>
         ));
     }
 
-    public static Vector2<float> ClampF(Vector2<double> v, Vector2<double> min, Vector2<double> max) => ClampF<double, double, double>(v, min, max);
+    public static Vector2<float> Clamp(Vector2<double> v, Vector2<double> min, Vector2<double> max) => Clamp<float>(v, min, max);
     public static Vector2<TOut> Clamp<TOut>(Vector2<double> v, Vector2<double> min, Vector2<double> max)
         where TOut : unmanaged, INumber<TOut>
         => Clamp<TOut, double, double, double>(v, min, max);
@@ -211,7 +211,7 @@ public readonly partial record struct Vector2<T>
     // -----------------------------
     // Lerp
     // -----------------------------
-    public static Vector2<float> LerpF<TA, TB, TT>(Vector2<TA> a, Vector2<TB> b, TT t)
+    public static Vector2<float> Lerp<TA, TB, TT>(Vector2<TA> a, Vector2<TB> b, TT t)
         where TA : unmanaged, INumber<TA>
         where TB : unmanaged, INumber<TB>
         where TT : INumber<TT>
@@ -244,7 +244,7 @@ public readonly partial record struct Vector2<T>
         ));
     }
 
-    public static Vector2<float> LerpF(Vector2<double> a, Vector2<double> b, double t) => LerpF<double, double, double>(a, b, t);
+    public static Vector2<float> Lerp(Vector2<double> a, Vector2<double> b, double t) => Lerp<float>(a, b, t);
     public static Vector2<TOut> Lerp<TOut>(Vector2<double> a, Vector2<double> b, double t)
         where TOut : unmanaged, INumber<TOut>
         => Lerp<TOut, double, double, double>(a, b, t);
@@ -252,7 +252,7 @@ public readonly partial record struct Vector2<T>
     // -----------------------------
     // Reflect
     // -----------------------------
-    public static Vector2<float> ReflectF<TV, TN>(Vector2<TV> v, Vector2<TN> normal)
+    public static Vector2<float> Reflect<TV, TN>(Vector2<TV> v, Vector2<TN> normal)
         where TV : unmanaged, INumber<TV>
         where TN : unmanaged, INumber<TN>
     {
@@ -280,7 +280,7 @@ public readonly partial record struct Vector2<T>
         ));
     }
 
-    public static Vector2<float> ReflectF(Vector2<double> v, Vector2<double> normal) => ReflectF<double, double>(v, normal);
+    public static Vector2<float> Reflect(Vector2<double> v, Vector2<double> normal) => Reflect<float>(v, normal);
     public static Vector2<TOut> Reflect<TOut>(Vector2<double> v, Vector2<double> normal)
         where TOut : unmanaged, INumber<TOut>
         => Reflect<TOut, double, double>(v, normal);
@@ -288,7 +288,7 @@ public readonly partial record struct Vector2<T>
     // -----------------------------
     // Perpendicular
     // -----------------------------
-    public static Vector2<float> PerpendicularCcwF<TA>(Vector2<TA> v)
+    public static Vector2<float> PerpendicularCcw<TA>(Vector2<TA> v)
         where TA : unmanaged, INumber<TA>
         => new(-MathG.ToFloat(v.Y), MathG.ToFloat(v.X));
 
@@ -300,12 +300,12 @@ public readonly partial record struct Vector2<T>
         return FromDouble<TOut>(new Vector2<double>(-dv.Y, dv.X));
     }
 
-    public static Vector2<float> PerpendicularCcwF(Vector2<double> v) => PerpendicularCcwF<double>(v);
+    public static Vector2<float> PerpendicularCcw(Vector2<double> v) => PerpendicularCcw<float>(v);
     public static Vector2<TOut> PerpendicularCcw<TOut>(Vector2<double> v)
         where TOut : unmanaged, INumber<TOut>
         => PerpendicularCcw<TOut, double>(v);
 
-    public static Vector2<float> PerpendicularCwF<TA>(Vector2<TA> v)
+    public static Vector2<float> PerpendicularCw<TA>(Vector2<TA> v)
         where TA : unmanaged, INumber<TA>
         => new(MathG.ToFloat(v.Y), -MathG.ToFloat(v.X));
 
@@ -317,7 +317,7 @@ public readonly partial record struct Vector2<T>
         return FromDouble<TOut>(new Vector2<double>(dv.Y, -dv.X));
     }
 
-    public static Vector2<float> PerpendicularCwF(Vector2<double> v) => PerpendicularCwF<double>(v);
+    public static Vector2<float> PerpendicularCw(Vector2<double> v) => PerpendicularCw<float>(v);
     public static Vector2<TOut> PerpendicularCw<TOut>(Vector2<double> v)
         where TOut : unmanaged, INumber<TOut>
         => PerpendicularCw<TOut, double>(v);
@@ -325,12 +325,12 @@ public readonly partial record struct Vector2<T>
     // -----------------------------
     // Rotate
     // -----------------------------
-    public static Vector2<float> RotateF<TV, TAng>(Vector2<TV> v, TAng angle, AngleUnit angleUnit = AngleUnit.Degrees)
+    public static Vector2<float> Rotate<TV, TAng>(Vector2<TV> v, TAng angle, AngleUnit angleUnit = AngleUnit.Degrees)
         where TV : unmanaged, INumber<TV>
         where TAng : INumber<TAng>
     {
-        var c = MathG.CosF(angle, angleUnit);
-        var s = MathG.SinF(angle, angleUnit);
+        var c = MathG.Cos(angle, angleUnit);
+        var s = MathG.Sin(angle, angleUnit);
 
         var x = MathG.ToFloat(v.X);
         var y = MathG.ToFloat(v.Y);
@@ -354,8 +354,8 @@ public readonly partial record struct Vector2<T>
         return FromDouble<TOut>(new Vector2<double>(x * c - y * s, x * s + y * c));
     }
 
-    public static Vector2<float> RotateF(Vector2<double> v, double angle, AngleUnit angleUnit = AngleUnit.Degrees)
-        => RotateF<double, double>(v, angle, angleUnit);
+    public static Vector2<float> Rotate(Vector2<double> v, double angle, AngleUnit angleUnit = AngleUnit.Degrees)
+        => Rotate<float>(v, angle, angleUnit);
 
     public static Vector2<TOut> Rotate<TOut>(Vector2<double> v, double angle, AngleUnit angleUnit = AngleUnit.Degrees)
         where TOut : unmanaged, INumber<TOut>
@@ -364,13 +364,13 @@ public readonly partial record struct Vector2<T>
     // -----------------------------
     // FromPolar
     // -----------------------------
-    public static Vector2<float> FromPolarF<TR, TA>(TR radius, TA angle, AngleUnit angleUnit = AngleUnit.Degrees)
+    public static Vector2<float> FromPolar<TR, TA>(TR radius, TA angle, AngleUnit angleUnit = AngleUnit.Degrees)
         where TR : INumber<TR>
         where TA : INumber<TA>
     {
         var r = MathG.ToFloat(radius);
         var a = MathG.ToFloat(angle);
-        return new Vector2<float>(r * MathG.CosF(a, angleUnit), r * MathG.SinF(a, angleUnit));
+        return new Vector2<float>(r * MathG.Cos(a, angleUnit), r * MathG.Sin(a, angleUnit));
     }
 
     public static Vector2<TOut> FromPolar<TOut, TR, TA>(TR radius, TA angle, AngleUnit angleUnit = AngleUnit.Degrees)
@@ -383,7 +383,7 @@ public readonly partial record struct Vector2<T>
         return FromDouble<TOut>(new Vector2<double>(r * MathG.Cos<double>(a, angleUnit), r * MathG.Sin<double>(a, angleUnit)));
     }
 
-    public static Vector2<float> FromPolarF(double radius, double angle, AngleUnit angleUnit = AngleUnit.Degrees) => FromPolarF<double, double>(radius, angle, angleUnit);
+    public static Vector2<float> FromPolar(double radius, double angle, AngleUnit angleUnit = AngleUnit.Degrees) => FromPolar<float>(radius, angle, angleUnit);
     public static Vector2<TOut> FromPolar<TOut>(double radius, double angle, AngleUnit angleUnit = AngleUnit.Degrees)
         where TOut : unmanaged, INumber<TOut>
         => FromPolar<TOut, double, double>(radius, angle, angleUnit);
@@ -391,7 +391,7 @@ public readonly partial record struct Vector2<T>
     // -----------------------------
     // Normalize
     // -----------------------------
-    public static Vector2<float> NormalizeF<TA>(Vector2<TA> v)
+    public static Vector2<float> Normalize<TA>(Vector2<TA> v)
         where TA : unmanaged, INumber<TA>
     {
         var x = MathG.ToFloat(v.X);
@@ -412,12 +412,12 @@ public readonly partial record struct Vector2<T>
         return FromDouble<TOut>(new Vector2<double>(x / len, y / len));
     }
 
-    public static Vector2<float> NormalizeF(Vector2<double> v) => NormalizeF<double>(v);
+    public static Vector2<float> Normalize(Vector2<double> v) => Normalize<float>(v);
     public static Vector2<TOut> Normalize<TOut>(Vector2<double> v)
         where TOut : unmanaged, INumber<TOut>
         => Normalize<TOut, double>(v);
 
-    public static Vector2<float> AbsF<TA>(Vector2<TA> v)
+    public static Vector2<float> Abs<TA>(Vector2<TA> v)
         where TA : unmanaged, INumber<TA>
         => new(MathG.Abs(MathG.ToFloat(v.X)), MathG.Abs(MathG.ToFloat(v.Y)));
     
@@ -429,12 +429,12 @@ public readonly partial record struct Vector2<T>
         return FromDouble<TOut>(new Vector2<double>(MathG.Abs(dv.X), MathG.Abs(dv.Y)));
     }
     
-    public static Vector2<float> AbsF(Vector2<double> v) => AbsF<double>(v);
+    public static Vector2<float> Abs(Vector2<double> v) => Abs<float>(v);
     public static Vector2<TOut> Abs<TOut>(Vector2<double> v)
         where TOut : unmanaged, INumber<TOut>
         => Abs<TOut, double>(v);
     
-    public static Vector2<float> SignF<TA>(Vector2<TA> v)
+    public static Vector2<float> Sign<TA>(Vector2<TA> v)
         where TA : unmanaged, INumber<TA>
         => new(MathG.Sign(MathG.ToFloat(v.X)), MathG.Sign(MathG.ToFloat(v.Y)));
     
@@ -446,7 +446,7 @@ public readonly partial record struct Vector2<T>
         return FromDouble<TOut>(new Vector2<double>(MathG.Sign(dv.X), MathG.Sign(dv.Y)));
     }
     
-    public static Vector2<float> SignF(Vector2<double> v) => SignF<double>(v);
+    public static Vector2<float> Sign(Vector2<double> v) => Sign<float>(v);
     public static Vector2<TOut> Sign<TOut>(Vector2<double> v)
         where TOut : unmanaged, INumber<TOut>
         => Sign<TOut, double>(v);

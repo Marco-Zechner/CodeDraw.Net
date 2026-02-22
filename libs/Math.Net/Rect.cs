@@ -80,11 +80,25 @@ public readonly record struct Rect(Vector2 Position, Vector2 Size, Origin LocalO
     // Containment / intersection
     // -----------------------------
 
-    public bool Contains(Vector2 p)
-        => p.X >= Left && p.X <= Right && p.Y >= Top && p.Y <= Bottom;
+    public bool Contains(Vector2 p, ContainsMode mode = ContainsMode.InclusiveMin)
+    {
+        var left   = (mode & ContainsMode.InclusiveLeft)   != 0 ? p.X >= Left   : p.X > Left;
+        var right  = (mode & ContainsMode.InclusiveRight)  != 0 ? p.X <= Right  : p.X < Right;
+        var top    = (mode & ContainsMode.InclusiveTop)    != 0 ? p.Y >= Top    : p.Y > Top;
+        var bottom = (mode & ContainsMode.InclusiveBottom) != 0 ? p.Y <= Bottom : p.Y < Bottom;
 
-    public bool Contains(Rect other)
-        => other.Left >= Left && other.Right <= Right && other.Top >= Top && other.Bottom <= Bottom;
+        return left && right && top && bottom;
+    }
+
+    public bool Contains(Rect other, ContainsMode mode = ContainsMode.InclusiveMin)
+    {
+        var left   = (mode & ContainsMode.InclusiveLeft)   != 0 ? other.Left   >= Left   : other.Left   > Left;
+        var right  = (mode & ContainsMode.InclusiveRight)  != 0 ? other.Right  <= Right  : other.Right  < Right;
+        var top    = (mode & ContainsMode.InclusiveTop)    != 0 ? other.Top    >= Top    : other.Top    > Top;
+        var bottom = (mode & ContainsMode.InclusiveBottom) != 0 ? other.Bottom <= Bottom : other.Bottom < Bottom;
+
+        return left && right && top && bottom;
+    }
 
     public bool Intersects(Rect other)
         => !(other.Right < Left || other.Left > Right || other.Bottom < Top || other.Top > Bottom);
@@ -96,8 +110,8 @@ public readonly record struct Rect(Vector2 Position, Vector2 Size, Origin LocalO
         var r = MathF.Min(Right, other.Right);
         var b = MathF.Min(Bottom, other.Bottom);
 
-        if (r < l || b < t) return new Rect(new Vector2(l, t), new Vector2(0f, 0f), OriginLocating.TopLeft);
-        return new Rect(new Vector2(l, t), new Vector2(r - l, b - t), OriginLocating.TopLeft);
+        if (r < l || b < t) return new Rect(new Vector2(l, t), new Vector2(0f, 0f));
+        return new Rect(new Vector2(l, t), new Vector2(r - l, b - t));
     }
 
     public Rect Union(Rect other)
@@ -106,7 +120,7 @@ public readonly record struct Rect(Vector2 Position, Vector2 Size, Origin LocalO
         var t = MathF.Min(Top, other.Top);
         var r = MathF.Max(Right, other.Right);
         var b = MathF.Max(Bottom, other.Bottom);
-        return new Rect(new Vector2(l, t), new Vector2(r - l, b - t), OriginLocating.TopLeft);
+        return new Rect(new Vector2(l, t), new Vector2(r - l, b - t));
     }
     
     /// <summary>Clamp a point into the rect bounds.</summary>
@@ -390,15 +404,15 @@ public readonly record struct Rect(Vector2 Position, Vector2 Size, Origin LocalO
         var br = new Vector2(Right, Bottom);
         var bl = new Vector2(Left, Bottom);
 
-        var p0 = Matrix3x3.TransformAffineF(m.AsGeneric(), tl.AsGeneric());
-        var p1 = Matrix3x3.TransformAffineF(m.AsGeneric(), tr.AsGeneric());
-        var p2 = Matrix3x3.TransformAffineF(m.AsGeneric(), br.AsGeneric());
-        var p3 = Matrix3x3.TransformAffineF(m.AsGeneric(), bl.AsGeneric());
+        var p0 = Matrix3x3.TransformAffine(m, tl);
+        var p1 = Matrix3x3.TransformAffine(m, tr);
+        var p2 = Matrix3x3.TransformAffine(m, br);
+        var p3 = Matrix3x3.TransformAffine(m, bl);
 
-        var minX = MathF.Min(MathF.Min(p0.X, p1.X), MathF.Min(p2.X, p3.X));
-        var minY = MathF.Min(MathF.Min(p0.Y, p1.Y), MathF.Min(p2.Y, p3.Y));
-        var maxX = MathF.Max(MathF.Max(p0.X, p1.X), MathF.Max(p2.X, p3.X));
-        var maxY = MathF.Max(MathF.Max(p0.Y, p1.Y), MathF.Max(p2.Y, p3.Y));
+        var minX = MathG.Min(MathG.Min(p0.X, p1.X), MathG.Min(p2.X, p3.X));
+        var minY = MathG.Min(MathG.Min(p0.Y, p1.Y), MathG.Min(p2.Y, p3.Y));
+        var maxX = MathG.Max(MathG.Max(p0.X, p1.X), MathG.Max(p2.X, p3.X));
+        var maxY = MathG.Max(MathG.Max(p0.Y, p1.Y), MathG.Max(p2.Y, p3.Y));
 
         return FromMinMaxUnchecked(new Vector2(minX, minY), new Vector2(maxX, maxY));
     }
@@ -411,10 +425,10 @@ public readonly record struct Rect(Vector2 Position, Vector2 Size, Origin LocalO
         var br = new Vector2(Right, Bottom);
         var bl = new Vector2(Left, Bottom);
 
-        var p0 = Matrix3x3.TransformProjectiveF(m.AsGeneric(), tl.AsGeneric());
-        var p1 = Matrix3x3.TransformProjectiveF(m.AsGeneric(), tr.AsGeneric());
-        var p2 = Matrix3x3.TransformProjectiveF(m.AsGeneric(), br.AsGeneric());
-        var p3 = Matrix3x3.TransformProjectiveF(m.AsGeneric(), bl.AsGeneric());
+        var p0 = Matrix3x3.TransformProjective(m, tl);
+        var p1 = Matrix3x3.TransformProjective(m, tr);
+        var p2 = Matrix3x3.TransformProjective(m, br);
+        var p3 = Matrix3x3.TransformProjective(m, bl);
 
         var minX = MathF.Min(MathF.Min(p0.X, p1.X), MathF.Min(p2.X, p3.X));
         var minY = MathF.Min(MathF.Min(p0.Y, p1.Y), MathF.Min(p2.Y, p3.Y));
@@ -429,20 +443,20 @@ public readonly record struct Rect(Vector2 Position, Vector2 Size, Origin LocalO
     public Quad2 TransformAffine(Matrix3x3 m)
     {
         var q = ToQuad();
-        var p0 = Matrix3x3.TransformAffineF(m.AsGeneric(), q.P0.AsGeneric());
-        var p1 = Matrix3x3.TransformAffineF(m.AsGeneric(), q.P1.AsGeneric());
-        var p2 = Matrix3x3.TransformAffineF(m.AsGeneric(), q.P2.AsGeneric());
-        var p3 = Matrix3x3.TransformAffineF(m.AsGeneric(), q.P3.AsGeneric());
+        var p0 = Matrix3x3.TransformAffine(m, q.P0);
+        var p1 = Matrix3x3.TransformAffine(m, q.P1);
+        var p2 = Matrix3x3.TransformAffine(m, q.P2);
+        var p3 = Matrix3x3.TransformAffine(m, q.P3);
         return new Quad2(p0, p1, p2, p3);
     }
     
     public Quad2 TransformProjective(Matrix3x3 m)
     {
         var q = ToQuad();
-        var p0 = Matrix3x3.TransformProjectiveF(m.AsGeneric(), q.P0.AsGeneric());
-        var p1 = Matrix3x3.TransformProjectiveF(m.AsGeneric(), q.P1.AsGeneric());
-        var p2 = Matrix3x3.TransformProjectiveF(m.AsGeneric(), q.P2.AsGeneric());
-        var p3 = Matrix3x3.TransformProjectiveF(m.AsGeneric(), q.P3.AsGeneric());
+        var p0 = Matrix3x3.TransformProjective(m, q.P0);
+        var p1 = Matrix3x3.TransformProjective(m, q.P1);
+        var p2 = Matrix3x3.TransformProjective(m, q.P2);
+        var p3 = Matrix3x3.TransformProjective(m, q.P3);
         return new Quad2(p0, p1, p2, p3);
     }
 }

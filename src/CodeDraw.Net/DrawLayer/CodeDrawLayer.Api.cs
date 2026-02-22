@@ -42,7 +42,7 @@ public sealed partial class CodeDrawLayer
     public void Clear(float r = 0f, float g = 0, float b = 0f, float a = 0f) => Enqueue(new CmdClear(r, g, b, a));
 
     public void DrawDebugRect(float x, float y, float w, float h, float r, float g, float b, float a)
-        => Enqueue(new CmdRect { X = x, Y = y, W = w, H = h, R = r, G = g, B = b, A = a });
+        => Enqueue(new CmdRect { X = x, Y = y, W = w, H = h, R = r, G = g, B = b, A = a , Xf = _xf});
 
 
     public void DrawLayer(CodeDrawLayer src, CodeDrawShader? shader = null)

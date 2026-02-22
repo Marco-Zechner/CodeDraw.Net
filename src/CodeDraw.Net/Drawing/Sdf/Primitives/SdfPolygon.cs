@@ -37,14 +37,18 @@ public sealed class SdfPolygon : ISdf2
         var inside = false;
         for (int i = 0, j = _pts.Length - 1; i < _pts.Length; j = i++)
         {
-            var pi = _pts[i];
-            var pj = _pts[j];
+            var a = _pts[i];
+            var b = _pts[j];
 
-            var intersect =
-                pi.Y > p.Y != pj.Y > p.Y &&
-                p.X < (pj.X - pi.X) * (p.Y - pi.Y) / MathG.Max(Sdf2Util.EPS, pj.Y - pi.Y) + pi.X;
+            // check edge crosses horizontal ray at p.Y
+            var cond = (a.Y > p.Y) != (b.Y > p.Y);
+            if (!cond) continue;
 
-            if (intersect) inside = !inside;
+            var denom = (b.Y - a.Y);
+            if (Math.Abs(denom) < Sdf2Util.EPS) continue;
+
+            var xHit = (b.X - a.X) * (p.Y - a.Y) / denom + a.X;
+            if (p.X < xHit) inside = !inside;
         }
 
         return inside ? -d : d;

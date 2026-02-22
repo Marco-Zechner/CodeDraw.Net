@@ -2,7 +2,7 @@
 
 namespace MarcoZechner.CodeDrawDotNet.Drawing.Sdf;
 
-public interface ISdf2
+internal interface ISdf2
 {
     /// <summary>
     /// Signed distance in the shape's LOCAL space.

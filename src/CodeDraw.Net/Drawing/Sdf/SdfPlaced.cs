@@ -2,10 +2,9 @@
 
 namespace MarcoZechner.CodeDrawDotNet.Drawing.Sdf;
 
-public readonly record struct SdfPlaced
+internal readonly record struct SdfPlaced
 {
-    private readonly Rect? _cachedWorldBounds;
-    
+
     public SdfPlaced(ISdf2 Shape, Matrix3x3 LocalToWorld)
     {
         this.Shape = Shape;
@@ -26,12 +25,11 @@ public readonly record struct SdfPlaced
 
         var wb = Rect.FromMinMaxUnchecked(new Vector2(minX, minY), new Vector2(maxX, maxY));
 
-        _cachedWorldBounds = wb;
+        WorldBounds = wb;
     }
 
-    public Rect WorldBounds => _cachedWorldBounds ?? throw new InvalidOperationException("World bounds not cached. Make sure to use the constructor that computes it.");
-
-    public ISdf2 Shape { get; init; }
+    public Rect WorldBounds { get; }
+    public ISdf2 Shape { get; }
     public Matrix3x3 LocalToWorld { get; init; }
 
     public bool TryGetWorldToLocal(out Matrix3x3 w2L)
@@ -39,7 +37,7 @@ public readonly record struct SdfPlaced
 
     public void Deconstruct(out ISdf2 shape, out Matrix3x3 localToWorld)
     {
-        shape = this.Shape;
-        localToWorld = this.LocalToWorld;
+        shape = Shape;
+        localToWorld = LocalToWorld;
     }
 }

@@ -228,7 +228,7 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
     private uint _vao, _vbo, _ebo;
 
     private AutoProgram _progRect = null!, _progBlit = null!, _progLayerRect = null!;
-    private AutoUniform _uRectPosSize = null!, _uRectColor = null!, _uRectRes = null!;
+    private AutoUniform _uRectPosSize = null!, _uRectColor = null!, _uRectRes = null!, _uRectXf = null!;
     private AutoUniform _uBlitTex = null!;
     private AutoUniform _uLayerRectDstRectPx = null!, _uLayerRectDstResPx = null!, _uLayerRectSrcUvRect = null!, _uLayerRectTex = null!;
 
@@ -280,6 +280,7 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
         _uRectPosSize = new AutoUniform(_gl, this, _progRect, "uPosSize");
         _uRectColor   = new AutoUniform(_gl, this, _progRect, "uColor");
         _uRectRes     = new AutoUniform(_gl, this, _progRect, "uRes");
+        _uRectXf   = new AutoUniform(_gl, this, _progRect, "uXf");
 
         _progBlit = new AutoProgram(this, ShaderPath.Engine("layerShader"));
         _uBlitTex = new AutoUniform(_gl, this, _progBlit, "uTex");

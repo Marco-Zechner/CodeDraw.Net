@@ -169,7 +169,7 @@ public sealed unsafe partial class CodeDrawLayer
         gl.Viewport(0, 0, (uint)_w, (uint)_h);
     }
     
-    internal void ExecRect(GL gl, float x, float y, float w, float h, float r, float g, float b, float a)
+    internal void ExecRect(GL gl, float x, float y, float w, float h, float r, float g, float b, float a, Matrix3x3 xf)
     {
         gl.UseProgram(_progRect);
         gl.BindVertexArray(_vao);
@@ -177,6 +177,7 @@ public sealed unsafe partial class CodeDrawLayer
         Uniform4F(gl, _uRectPosSize, x, y, w, h);
         Uniform4F(gl, _uRectColor, r, g, b, a);
         Uniform2F(gl, _uRectRes, _w, _h);
+        if (_uRectXf >= 0) UniformMat3(gl, _uRectXf, xf);
 
         gl.DrawElements(GLEnum.Triangles, 6, GLEnum.UnsignedInt, null);
 

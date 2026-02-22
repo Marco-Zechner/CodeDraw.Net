@@ -1,8 +1,8 @@
-﻿using System.Numerics;
-using MarcoZechner.CodeDrawDotNet.DrawLayer.Commands;
+﻿using MarcoZechner.CodeDrawDotNet.DrawLayer.Commands;
 using MarcoZechner.CodeDrawDotNet.Shaders;
 using MarcoZechner.CodeDrawDotNet.Text;
 using MarcoZechner.ColorDotNet.RGB;
+using MarcoZechner.MathDotNet;
 using Silk.NET.OpenGL;
 
 namespace MarcoZechner.CodeDrawDotNet.DrawLayer;
@@ -45,6 +45,7 @@ public sealed unsafe partial class CodeDrawLayer
     private AutoProgram _progText = null!;
     private AutoUniform _uTextRes = null!;
     private AutoUniform _uTextAtlas = null!;
+    private AutoUniform _uTextXf = null!;
 
     private uint _textVao;
     private uint _textVbo;
@@ -65,8 +66,9 @@ public sealed unsafe partial class CodeDrawLayer
 
         // MUST be called on render thread with current context
         _progText = new AutoProgram(this, ShaderPath.Engine("text"));
-        _uTextRes = new AutoUniform(_gl, this, _progText, "uRes");
-        _uTextAtlas = new AutoUniform(_gl, this, _progText, "uAtlas");
+        _uTextRes     = new AutoUniform(_gl, this, _progText, "uRes");
+        _uTextAtlas   = new AutoUniform(_gl, this, _progText, "uAtlas");
+        _uTextXf   = new AutoUniform(_gl, this, _progText, "uXf");
 
         _textAtlasBackend = new GlGlyphAtlasBackend(_gl);
         _textGlyphCache = new GlyphCache(_textAtlasBackend);
@@ -129,12 +131,12 @@ public sealed unsafe partial class CodeDrawLayer
             FontBlendMode = style.FontBlendMode,
         };
 
-        Enqueue(new CmdText { Text = text, X = x, Y = y, Style = copy });
+        Enqueue(new CmdText { Text = text, X = x, Y = y, Style = copy, Xf = _xf });
     }
 
 
 
-    internal void ExecText(GL gl, string text, float x, float y, TextStyle style)
+    internal void ExecText(GL gl, string text, float x, float y, TextStyle style, Matrix3x3 xf)
     {
         EnsureTextInit();
         if (_textLayout == null || _textAtlasBackend == null) return;
@@ -148,7 +150,7 @@ public sealed unsafe partial class CodeDrawLayer
         {
             // Try to draw Debug rects first
             foreach (var r in _debugScratch)
-                DrawDebugRect(gl, r.X, r.Y, r.W, r.H, r.Color, style.DebugRects, style.DebugOutlinePx);
+                DrawDebugRect(gl, r.X, r.Y, r.W, r.H, r.Color, style.DebugRects, style.DebugOutlinePx, xf);
             return;
         }
 
@@ -159,7 +161,7 @@ public sealed unsafe partial class CodeDrawLayer
         {
             ApplyBlendMode(style.BackgroundBlendMode);
 
-            DrawTextBackgrounds(gl, text, x, y, style, bg);
+            DrawTextBackgrounds(gl, text, x, y, style, bg, xf);
         }
         
         // ---- Glyphs ----
@@ -168,13 +170,14 @@ public sealed unsafe partial class CodeDrawLayer
         
         // Draw debug rects with fontBlendMode and on top of background
         foreach (var r in _debugScratch)
-            DrawDebugRect(gl, r.X, r.Y, r.W, r.H, r.Color, style.DebugRects, style.DebugOutlinePx);
+            DrawDebugRect(gl, r.X, r.Y, r.W, r.H, r.Color, style.DebugRects, style.DebugOutlinePx, xf);
         
         gl.BindVertexArray(_textVao);
         gl.UseProgram(_progText);
 
         if (_uTextRes >= 0) Uniform2F(gl, _uTextRes, _w, _h);
         if (_uTextAtlas >= 0) gl.Uniform1(_uTextAtlas, 0);
+        if (_uTextXf >= 0) UniformMat3(gl, _uTextXf, xf);
 
         gl.ActiveTexture(GLEnum.Texture0);
 
@@ -265,21 +268,21 @@ public sealed unsafe partial class CodeDrawLayer
     }
     
 
-    private void DrawDebugRect(GL gl, float x, float y, float w, float h, ColorF c, DebugRectMode mode, float outlinePx)
+    private void DrawDebugRect(GL gl, float x, float y, float w, float h, ColorF c, DebugRectMode mode, float outlinePx, Matrix3x3 xf)
     {
         outlinePx = MathF.Max(1, outlinePx);
 
         if (mode is DebugRectMode.Fill or DebugRectMode.FillAndOutline)
-            ExecRect(gl, x, y, w, h, c.R, c.G, c.B, c.A);
+            ExecRect(gl, x, y, w, h, c.R, c.G, c.B, c.A, xf);
 
         if (mode is not (DebugRectMode.Outline or DebugRectMode.FillAndOutline)) return;
 
         var a = MathF.Min(1f, c.A * 2f);
 
-        ExecRect(gl, x, y, w, outlinePx, c.R, c.G, c.B, a);
-        ExecRect(gl, x, y + h - outlinePx, w, outlinePx, c.R, c.G, c.B, a);
-        ExecRect(gl, x, y, outlinePx, h, c.R, c.G, c.B, a);
-        ExecRect(gl, x + w - outlinePx, y, outlinePx, h, c.R, c.G, c.B, a);
+        ExecRect(gl, x, y, w, outlinePx, c.R, c.G, c.B, a, xf);
+        ExecRect(gl, x, y + h - outlinePx, w, outlinePx, c.R, c.G, c.B, a, xf);
+        ExecRect(gl, x, y, outlinePx, h, c.R, c.G, c.B, a, xf);
+        ExecRect(gl, x + w - outlinePx, y, outlinePx, h, c.R, c.G, c.B, a, xf);
     }
 
     // -------- GL atlas backend --------
@@ -334,7 +337,7 @@ public sealed unsafe partial class CodeDrawLayer
         public uint GetPageTexture(int page) => _pages[page].tex;
     }
     
-    private void DrawTextBackgrounds(GL gl, string text, float x, float y, TextStyle style, ColorF bg)
+    private void DrawTextBackgrounds(GL gl, string text, float x, float y, TextStyle style, ColorF bg, Matrix3x3 xf)
     {
         // We need cellW/lineH/baselineFromTop and the same anchor math as Layout().
         _textLayout!.GetCellMetrics(style, out var cellW, out var lineH, out var baselineFromTop);
@@ -398,7 +401,7 @@ public sealed unsafe partial class CodeDrawLayer
                     var by = originY + row * lineH;
                     var bw = lc * cellW;
 
-                    ExecRect(gl, bx - pad, by - pad, bw + 2 * pad, lineH + 2 * pad, bg.R, bg.G, bg.B, bg.A);
+                    ExecRect(gl, bx - pad, by - pad, bw + 2 * pad, lineH + 2 * pad, bg.R, bg.G, bg.B, bg.A, xf);
                 }
                 break;
             }
@@ -427,7 +430,7 @@ public sealed unsafe partial class CodeDrawLayer
                     var cx = originX + lineOff + col * cellW;
                     var cy = originY + row * lineH;
 
-                    ExecRect(gl, cx - pad, cy - pad, cellW + 2 * pad, lineH + 2 * pad, bg.R, bg.G, bg.B, bg.A);
+                    ExecRect(gl, cx - pad, cy - pad, cellW + 2 * pad, lineH + 2 * pad, bg.R, bg.G, bg.B, bg.A, xf);
 
                     col++;
                 }
@@ -439,7 +442,7 @@ public sealed unsafe partial class CodeDrawLayer
                 // You already computed glyph positions in _glyphScratch; use those.
                 // This backgrounds only where glyph bitmap exists (nice for "tight highlight").
                 foreach (var g in _glyphScratch)
-                    ExecRect(gl, g.X - pad, g.Y - pad, g.W + 2 * pad, g.H + 2 * pad, bg.R, bg.G, bg.B, bg.A);
+                    ExecRect(gl, g.X - pad, g.Y - pad, g.W + 2 * pad, g.H + 2 * pad, bg.R, bg.G, bg.B, bg.A, xf);
                 break;
             }
         }

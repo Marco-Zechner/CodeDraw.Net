@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using MarcoZechner.CodeDrawDotNet.Drawing;
 using MarcoZechner.CodeDrawDotNet.DrawLayer;
 using MarcoZechner.CodeDrawDotNet.Text;
 using MarcoZechner.CodeDrawDotNet.Window;
@@ -152,37 +153,43 @@ public sealed class Prototype7
             
             // --- Simple "paper" margins ---
             const float PAD = 24f;
-
+            
             // --- Title block ---
-            layer.DrawText(demoTitle, PAD, PAD, styleTitle);
+            using (layer.ScopeRotateAround(PAD, PAD, 3))
+            using (layer.ScopeShearAround(PAD, PAD, 0.5f, 0))
+                layer.DrawText(demoTitle, PAD, PAD, styleTitle);
 
             // --- Body block ---
             var bodyY = PAD + 60f;
             layer.DrawText(demoBody, PAD, bodyY, styleBody);
 
-            // --- Monospace snap/center test block ---
-            // Center anchor marker
             var cx = layer.Width*3/4f;
             var cy = layer.Height/3f;
-            layer.DrawDebugRect(cx - 2, cy - 2, 4, 4, 1f, 0.8f, 0.2f, 1f);
+            using (layer.ScopeShearAround(cx, cy, -0.2f, 0))
+            {
+                // --- Monospace snap/center test block ---
+                // Center anchor marker
 
-            styleMonoBig.Align = TextAlign.Center;
-            styleMonoBig.VAlign = TextVAlign.Top;
+                layer.DrawDebugRect(cx - 2, cy - 2, 4, 4, 1f, 0.8f, 0.2f, 1f);
 
-            // Draw the test text centered relative to the anchor
-            layer.DrawText(monoSnapTest, cx, cy, styleMonoBig);
+                styleMonoBig.Align = TextAlign.Center;
+                styleMonoBig.VAlign = TextVAlign.Top;
 
-            // Measured bounds overlay (helps spot alignment bugs in normal mode)
-            var m = layer.MeasureText(monoSnapTest, styleMonoBig);
+                // Draw the test text centered relative to the anchor
+                layer.DrawText(monoSnapTest, cx, cy, styleMonoBig);
 
-            var padBox = 18f;
-            var x0 = cx - m.X * 0.5f - padBox;
-            var y0 = cy - padBox;
-            var w0 = m.X + padBox * 2f;
-            var h0 = m.Y + padBox * 2f;
+                // Measured bounds overlay (helps spot alignment bugs in normal mode)
+                var m = layer.MeasureText(monoSnapTest, styleMonoBig);
 
-            layer.DrawDebugRect(x0, y0, w0, h0, 0.2f, 0.2f, 0.25f, 0.15f);                     // gray panel
-            layer.DrawDebugRect(cx - m.X * 0.5f, cy, m.X, m.Y, 0.0f, 0.45f, 1.0f, 0.12f); // blue bounds
+                var padBox = 18f;
+                var x0 = cx - m.X * 0.5f - padBox;
+                var y0 = cy - padBox;
+                var w0 = m.X + padBox * 2f;
+                var h0 = m.Y + padBox * 2f;
+
+                layer.DrawDebugRect(x0, y0, w0, h0, 0.2f, 0.2f, 0.25f, 0.15f);                // gray panel
+                layer.DrawDebugRect(cx - m.X * 0.5f, cy, m.X, m.Y, 0.0f, 0.45f, 1.0f, 0.12f); // blue bounds
+            }
 
             // --- HUD / controls ---
             var hud = new StringBuilder();

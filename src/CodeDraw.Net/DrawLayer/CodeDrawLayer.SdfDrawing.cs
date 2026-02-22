@@ -2,6 +2,7 @@
 using MarcoZechner.CodeDrawDotNet.Drawing;
 using MarcoZechner.CodeDrawDotNet.Drawing.Sdf;
 using MarcoZechner.CodeDrawDotNet.Drawing.Sdf.Primitives;
+using MarcoZechner.CodeDrawDotNet.Drawing.SdfNode;
 using MarcoZechner.CodeDrawDotNet.DrawLayer.Commands;
 using MarcoZechner.ColorDotNet.RGB;
 using MarcoZechner.MathDotNet;
@@ -11,54 +12,6 @@ namespace MarcoZechner.CodeDrawDotNet.DrawLayer;
 
 public sealed partial class CodeDrawLayer : ICodeDrawShapes
 {
-    public readonly record struct SdfDrawToken(SdfPlaced Placed, DrawStyle Style)
-    {
-        /// <summary>
-        /// Bounds in LAYER PIXEL SPACE (world==layer), padded to include AA feather and stroke.
-        /// Use this for CPU raster loop bounds and debug rectangles.
-        /// </summary>
-        public Rect CoverageBoundsPx()
-        {
-            // Base world bounds of the primitive (no feather/stroke yet)
-            var bb = Placed.WorldBounds;
-
-            // Feather is always in px
-            var feather = MathG.Max(0f, Style.FeatherPx);
-
-            var pad = feather;
-
-            var stroke = Style.Paint.Stroke;
-            if (stroke is not { Thickness: > 0f, Color.A: > 0f }) return bb.Expand(pad);
-
-            var halfT = 0.5f * MathG.Max(0f, stroke.Thickness);
-
-            // StrokeAlign affects which side of the SDF boundary is covered.
-            // For bounds, we need a safe pad:
-            // - Inside: can still expand by feather (but not by halfT outside), however using halfT is safe.
-            // - Outside: definitely expands outward by halfT.
-            // - Center: expands by halfT both directions.
-            //
-            // We pick safe: include halfT always.
-            pad = MathG.Max(pad, halfT + feather);
-
-            // If fill-only and ForceStrokeOnly == true, only feather matters.
-            // If ForceStrokeOnly == false and fill has alpha, feather already included.
-
-            return bb.Expand(pad);
-        }
-
-        public void DrawDebugRect(CodeDrawLayer layer, ColorF color)
-        {
-            // IMPORTANT: draw debug rect in layer space (no current transform applied).
-            // If your debug rect primitive honors transforms, temporarily reset.
-            using (layer.PushTransformScope(Matrix3x3.Identity, TransformCombine.Replace))
-            {
-                var r = CoverageBoundsPx();
-                layer.DrawDebugRect(r.Left, r.Top, r.Width, r.Height, color.R, color.G, color.B, color.A);
-            }
-        }
-    }
-    
     // ---------------------------
     // Transform stack
     // ---------------------------
@@ -84,64 +37,20 @@ public sealed partial class CodeDrawLayer : ICodeDrawShapes
     // ---------------------------
     // Shapes => enqueue SDF draw commands
     // ---------------------------
-
-    public SdfDrawToken Rect(in Rect r, in DrawStyle style)
+    
+    public void DrawSdf(ISdf2Node node, in DrawStyle style = default)
     {
-        var t = new SdfDrawToken(new SdfPlaced(new SdfRect(r), _xf), style);
-        Enqueue(new CmdSdf(t.Placed, t.Style));
-        return t;
+        var compiled = SdfCompiler.Compile(node);  // immutable internal
+        var placed = new SdfPlaced(compiled, _xf); // snapshot current layer transform
+        Enqueue(new CmdSdf(placed, style));
     }
 
-    public SdfDrawToken RoundedRect(in Rect r, float radius, in DrawStyle style)
+    public void DebugSdfNode(ISdf2Node node, in DrawStyle style, ColorF color)
     {
-        var t = new SdfDrawToken(new SdfPlaced(new SdfRoundedRect(r, radius), _xf), style);
-        Enqueue(new CmdSdf(t.Placed, t.Style));
-        return t;
-    }
+        if (node is not SdfNodeBase bnode)
+            throw new InvalidOperationException("DebugSdfNode currently requires node to inherit SdfNodeBase.");
 
-    public SdfDrawToken Circle(Vector2 center, float radius, in DrawStyle style)
-    {
-        var t = new SdfDrawToken(new SdfPlaced(new SdfCircle(center, radius), _xf), style);
-        Enqueue(new CmdSdf(t.Placed, t.Style));
-        return t;
-    }
-
-    public SdfDrawToken Ellipse(Vector2 center, Vector2 radius, in DrawStyle style)
-    {
-        var t = new SdfDrawToken(new SdfPlaced(new SdfEllipse(center, radius), _xf), style);
-        Enqueue(new CmdSdf(t.Placed, t.Style));
-        return t;
-    }
-
-    public SdfDrawToken Triangle(in Vector2 a, in Vector2 b, in Vector2 c, in DrawStyle style)
-    {
-        var t = new SdfDrawToken(new SdfPlaced(new SdfTriangle(a, b, c), _xf), style);
-        Enqueue(new CmdSdf(t.Placed, t.Style));
-        return t;
-    }
-
-    public SdfDrawToken Polygon(ReadOnlySpan<Vector2> points, in DrawStyle style)
-    {
-        var t = new SdfDrawToken(new SdfPlaced(new SdfPolygon(points), _xf), style);
-        Enqueue(new CmdSdf(t.Placed, t.Style));
-        return t;
-    }
-
-    public SdfDrawToken Polyline(ReadOnlySpan<Vector2> points, in Stroke stroke, bool closed = false,
-        BlendMode blend = BlendMode.SOURCE_OVER_ALPHA, float opacity = 1f)
-    {
-        var style = new DrawStyle(Paint.StrokeOnly(stroke), blend, opacity, FeatherPx: 1f);
-        var t = new SdfDrawToken(new SdfPlaced(new SdfPolyline(points, closed), _xf), style);
-        Enqueue(new CmdSdf(t.Placed, t.Style));
-        return t;
-    }
-
-    public SdfDrawToken Line(Vector2 p0, Vector2 p1, in Stroke stroke, BlendMode blend = BlendMode.SOURCE_OVER_ALPHA, float opacity = 1f)
-    {
-        var style = new DrawStyle(Paint.StrokeOnly(stroke), blend, opacity, FeatherPx: 1f);
-        var t = new SdfDrawToken(new SdfPlaced(new SdfSegment(p0, p1), _xf), style);
-        Enqueue(new CmdSdf(t.Placed, t.Style));
-        return t;
+        bnode.DrawDebugRect(this, color, style);
     }
     
     // ---------------------------

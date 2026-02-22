@@ -35,7 +35,7 @@ public class Prototype6
             Align = TextAlign.Left,
             VAlign = TextVAlign.Top,
 
-            Color = new(BACKGROUND,BACKGROUND,BACKGROUND,1),
+            Color = new ColorF(BACKGROUND,BACKGROUND,BACKGROUND,1),
 
             ExtraAbovePx = 0,
             ExtraBelowPx = 0,
@@ -200,11 +200,10 @@ public class Prototype6
                     var revealThisLine = 0;
                     for (var j = 0; j < line.Length && remainingVisible > 0; j++)
                     {
-                        if (line[j] != ' ')
-                        {
-                            revealThisLine++;
-                            remainingVisible--;
-                        }
+                        if (line[j] == ' ') continue;
+
+                        revealThisLine++;
+                        remainingVisible--;
                     }
 
                     // Now actually write revealed chars (and carve the wall underneath).

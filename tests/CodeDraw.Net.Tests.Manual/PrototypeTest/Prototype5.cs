@@ -27,7 +27,7 @@ public class Prototype5
             Align = TextAlign.Center,
             VAlign = TextVAlign.Middle,
 
-            Color = new Color(1, 1, 1, 1),
+            Color = new ColorF(1, 1, 1, 1),
 
             // Start with “tight” (no extra) so you can see overlaps if metrics are wrong
             ExtraAbovePx = 0,
@@ -35,7 +35,7 @@ public class Prototype5
             ExtraLineGapPx = 0,
             ExtraCellGapPx = 0,
 
-            DebugMode = TextDebugMode.All
+            DebugMode = TextDebugMode.GlyphBoxes //TODO: the glyph boxes have... not all full boxes, it looks like some parts of the edge are missing.
         };
 
         win.OnUpdate += ctx =>

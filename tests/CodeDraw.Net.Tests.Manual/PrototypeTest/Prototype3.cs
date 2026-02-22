@@ -150,7 +150,7 @@ public class Prototype3
     private void DrawOrbitingDots(CodeDrawLayer layer, int centerX, int centerY, int radiusDot, int radiusOrbit,
         float period,
         float timeOffset,
-        Color color,
+        ColorF color,
         CodeDrawShader orbitShader
     )
     {

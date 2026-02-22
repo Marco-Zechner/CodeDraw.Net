@@ -49,4 +49,6 @@ public readonly struct UniformValue
     public static UniformValue Tex2D(string name, CodeDrawLayer layerRef)
         => new(name, UniformType.TEX_2D, 0, 0, 0, 0, layerRef);
 
+    //TODO: add a "Color" which takes "ColorB" and "ColorF" and automatically takes the correct 4 float components.
+    // would be nice to avoid accidentally passing it 4 bytes for color as a float4 and getting all white as a result
 }

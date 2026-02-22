@@ -200,8 +200,8 @@ public sealed class MonospaceLayout(GlyphCache glyphs, FontMetricsProvider metri
         public float X, Y, W, H;
         public Vector4 Uv;
         public int Page;
-        public Color Color;
+        public ColorF Color;
     }
 
-    public readonly record struct DebugRect(float X, float Y, float W, float H, Color Color);
+    public readonly record struct DebugRect(float X, float Y, float W, float H, ColorF Color);
 }

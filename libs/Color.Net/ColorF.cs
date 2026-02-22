@@ -117,7 +117,7 @@ public readonly partial record struct ColorF
     // ---- factories ----
 
     public static ColorF FromHex(string hex, HexType type = HexType.RRGGBBAA)
-        => new(Color.ParseHexToRgba(hex, type)); // reuse exact parsing logic
+        => new(ColorB.ParseHexToRgba(hex, type)); // reuse exact parsing logic
 
     public static ColorF FromHsv(int hue, float saturation, float value, float alpha = 1f)
     {
@@ -149,7 +149,7 @@ public readonly partial record struct ColorF
 
     /// <summary>Float -> byte quantization uses clamping to [0..1] + rounding to nearest byte.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static implicit operator Color(ColorF c)
+    public static implicit operator ColorB(ColorF c)
     {
         static byte ToByteClamped(float x)
         {
@@ -158,7 +158,7 @@ public readonly partial record struct ColorF
             return (byte)(x * 255f + 0.5f);
         }
 
-        return new Color(ToByteClamped(c._r), ToByteClamped(c._g), ToByteClamped(c._b), ToByteClamped(c._a));
+        return new ColorB(ToByteClamped(c._r), ToByteClamped(c._g), ToByteClamped(c._b), ToByteClamped(c._a));
     }
 
     // RGB<->HSV (float domain). Hue int degrees [0..360). s,v are floats (typically 0..1).

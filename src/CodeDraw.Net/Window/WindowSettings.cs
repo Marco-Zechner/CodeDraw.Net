@@ -67,7 +67,7 @@ public readonly record struct WindowSettingsSnapshot(
     bool StealFocusOnOpen,
     
     WindowPresentMode PresentMode,
-    Color BackgroundColor
+    ColorF BackgroundColor
 )
 {
     // How many pixels are "wasted" by the fake fullscreen hack.

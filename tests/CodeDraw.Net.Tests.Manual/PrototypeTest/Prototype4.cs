@@ -202,7 +202,7 @@ public class Prototype4
         app.WaitForClose();
     }
 
-    private static void DrawOrbitDots(CodeDrawLayer layer, CodeDrawShader orbitShader, int centerX, int centerY, int radiusDot, int radiusOrbit, float period, float timeOffset, Color color)
+    private static void DrawOrbitDots(CodeDrawLayer layer, CodeDrawShader orbitShader, int centerX, int centerY, int radiusDot, int radiusOrbit, float period, float timeOffset, ColorF color)
     {
         var size = radiusOrbit * 2 + radiusDot * 2;
         layer.CustomDrawRect(
@@ -229,7 +229,7 @@ public class Prototype4
         win.Settings = win.Settings with
         {
             PresentMode = WindowPresentMode.Camera,
-            BackgroundColor = ColorDotNet.Color.TRANSPARENT, 
+            BackgroundColor = Color.TRANSPARENT, 
         };
         
         win.Camera.ResizePolicy = CameraResizePolicy.Manual;

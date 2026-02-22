@@ -14,7 +14,7 @@ public interface IShapeCollectionBuilder
     public IShapeCollectionBuilder AddRect(in Rect r, in Paint paint);
     public IShapeCollectionBuilder AddCircle(float cx, float cy, float radius, in Paint paint);
     public IShapeCollectionBuilder AddPolygon(ReadOnlySpan<Vector2> pts, in Paint paint);
-    public IShapeCollectionBuilder AddPath(Action<IPathBuilder> build, in Paint paint);
+    public IPathBuilder AddPath(in DrawStyle style);
 
     public IShapeCollectionBuilder ApplyShader(CodeDrawShader shader, Uniforms uniforms); // optional: executes after drawing this collection into layer
     public void Draw();

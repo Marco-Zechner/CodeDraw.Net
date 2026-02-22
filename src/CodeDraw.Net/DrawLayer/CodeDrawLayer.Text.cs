@@ -210,7 +210,7 @@ public sealed unsafe partial class CodeDrawLayer
         gl.BindVertexArray(0);
         gl.UseProgram(0);
 
-        SetBlendMode(userBlend);
+        ApplyBlendMode(userBlend);
     }
     
     private void DrawGlyphRun(GL gl, List<MonospaceLayout.GlyphInstance> glyphs, int start, int end)

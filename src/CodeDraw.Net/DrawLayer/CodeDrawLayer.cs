@@ -72,6 +72,7 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
         public readonly HashSet<string> WarnedMissingFromShader = new(StringComparer.Ordinal);
         public readonly HashSet<string> WarnedTypeMismatch = new(StringComparer.Ordinal);
         public readonly HashSet<string> WarnedMissingFromCode = new(StringComparer.Ordinal);
+        public readonly HashSet<string> WarnedReservedSet = new(StringComparer.Ordinal);
 
         // Per-draw tracking:
         public readonly HashSet<string> TouchedThisDraw = new(StringComparer.Ordinal);
@@ -771,12 +772,12 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
     {
         usedTexUnits = 0;
 
-        var refl = GetOrCreateReflection(gl, key, prog);
+        var reflection = GetOrCreateReflection(gl, key, prog);
 
-        refl.TouchedThisDraw.Clear();
+        reflection.TouchedThisDraw.Clear();
 
         foreach (var n in reservedUniforms)
-            refl.TouchedThisDraw.Add(n);
+            reflection.TouchedThisDraw.Add(n);
 
         var nextTexUnit = providesTexture ? 1 : 0;
 
@@ -784,7 +785,7 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
         {
             if (Contains(reservedUniforms, u.Name))
             {
-                if (refl.WarnedMissingFromShader.Add(u.Name))
+                if (reflection.WarnedReservedSet.Add(u.Name))
                 {
                     Console.WriteLine(
                         $"[Warn] {DebugName} uniform '{u.Name}' is a reserved built-in but is set in code for shader '{key}'. " +
@@ -793,9 +794,9 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
                 continue;
             }
 
-            if (!refl.ByName.TryGetValue(u.Name, out var info) || info.Loc < 0)
+            if (!reflection.ByName.TryGetValue(u.Name, out var info) || info.Loc < 0)
             {
-                if (refl.WarnedMissingFromShader.Add(u.Name))
+                if (reflection.WarnedMissingFromShader.Add(u.Name))
                 {
                     Console.WriteLine(
                         $"[Warn] {DebugName} uniform '{u.Name}' was set in code but not found/active in shader '{key}'. " +
@@ -806,7 +807,7 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
 
             if (!IsCompatible(u.Type, info.Type))
             {
-                if (refl.WarnedTypeMismatch.Add(u.Name))
+                if (reflection.WarnedTypeMismatch.Add(u.Name))
                 {
                     Console.WriteLine(
                         $"[Error] {DebugName} uniform type mismatch for '{u.Name}' in shader '{key}'. " +
@@ -817,7 +818,7 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
                     $"Uniform type mismatch for '{u.Name}' in shader '{key}': Code={u.Type}, Shader={info.Type}.");
             }
 
-            refl.TouchedThisDraw.Add(u.Name);
+            reflection.TouchedThisDraw.Add(u.Name);
 
             switch (u.Type)
             {
@@ -853,14 +854,14 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
             }
         }
 
-        foreach (var (name, info) in refl.ByName)
+        foreach (var (name, info) in reflection.ByName)
         {
             if (info.Loc < 0) continue;
             if (name.StartsWith("gl_", StringComparison.Ordinal)) continue;
             if (reservedUniforms.Contains(name)) continue;
 
-            if (refl.TouchedThisDraw.Contains(name)) continue;
-            if (!refl.WarnedMissingFromCode.Add(name)) continue;
+            if (reflection.TouchedThisDraw.Contains(name)) continue;
+            if (!reflection.WarnedMissingFromCode.Add(name)) continue;
 
             Console.WriteLine(
                 $"[Warn] {DebugName} shader '{key}' has uniform '{name}' active but it was not set in code. " +

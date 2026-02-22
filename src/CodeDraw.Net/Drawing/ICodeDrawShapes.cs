@@ -6,28 +6,24 @@ namespace MarcoZechner.CodeDrawDotNet.Drawing;
 
 public interface ICodeDrawShapes : ICodeDrawTransformStack
 {
-    // --- primitives ---
-    public void Rect(in Rect r, in Paint paint);
-    public void RoundedRect(in Rect r, float radius, in Paint paint);
+    void Rect(in Rect r, in DrawStyle style);
+    void RoundedRect(in Rect r, float radius, in DrawStyle style);
 
-    public void Circle(Vector2 center, float radius, in Paint paint);
-    public void Ellipse(Vector2 center, Vector2 radius, in Paint paint);
+    void Circle(Vector2 center, float radius, in DrawStyle style);
+    void Ellipse(Vector2 center, Vector2 radius, in DrawStyle style);
 
-    public void Line(Vector2 point0, Vector2 point1, in Stroke stroke);
+    void Line(Vector2 p0, Vector2 p1, in Stroke stroke, BlendMode blend = BlendMode.SOURCE_OVER_ALPHA, float opacity = 1f);
 
-    public void Triangle(in Vector2 a, in Vector2 b, in Vector2 c, in Paint paint);
+    void Triangle(in Vector2 a, in Vector2 b, in Vector2 c, in DrawStyle style);
 
-    public void Polyline(ReadOnlySpan<Vector2> points, in Stroke stroke, bool closed = false);
-    public void Polygon(ReadOnlySpan<Vector2> points, in Paint paint);
+    void Polyline(ReadOnlySpan<Vector2> points, in Stroke stroke, bool closed = false,
+        BlendMode blend = BlendMode.SOURCE_OVER_ALPHA, float opacity = 1f);
+    void Polygon(ReadOnlySpan<Vector2> points, in DrawStyle style);
 
-    // --- path entry ---
-    public IPathBuilder Path(in Paint paint = default);
+    IPathBuilder Path(in DrawStyle style = default);
+    IShapeCollectionBuilder ShapeCollection(in Matrix3x3? initialTransform = null);
 
-    // --- groups / collections ---
-    public IShapeCollectionBuilder ShapeCollection(in Matrix3x3? initialTransform = null);
-
-    // --- your existing stuff stays ---
-    public CodeDrawLayer.BlitSrcStage Blit(CodeDrawLayer src);
-    public void CustomDrawRect(Rect rect, CodeDrawShader shader, Uniforms uniforms);
-    public void PostProcess(CodeDrawShader shader, Uniforms uniforms);
+    CodeDrawLayer.BlitSrcStage Blit(CodeDrawLayer src);
+    void CustomDrawRect(Rect rect, CodeDrawShader shader, Uniforms uniforms);
+    void PostProcess(CodeDrawShader shader, Uniforms uniforms);
 }

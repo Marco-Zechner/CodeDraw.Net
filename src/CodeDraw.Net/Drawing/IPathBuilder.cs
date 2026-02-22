@@ -18,6 +18,9 @@ public interface IPathBuilder
     public IPathBuilder Fill(ColorF fill);
     public IPathBuilder Stroke(in Stroke stroke);
     public IPathBuilder Paint(in Paint paint);
+    public IPathBuilder Style(in DrawStyle style);
 
     public void Draw(); // enqueue as CmdPath
+    
+    public IShapeCollectionBuilder ReturnToShapeCollectionBuilder(IShapeCollectionBuilder shapeCollectionBuilder) => shapeCollectionBuilder;
 }

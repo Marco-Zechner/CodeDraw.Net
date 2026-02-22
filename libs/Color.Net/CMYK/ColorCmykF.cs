@@ -6,6 +6,9 @@ namespace MarcoZechner.ColorDotNet.CMYK;
 [method: MethodImpl(MethodImplOptions.AggressiveInlining)]
 public readonly partial record struct ColorCmykF(float C, float M, float Y, float K, float A = 1f)
 {
+    public ColorCmykF(float grayscale, float alpha = 1f) : this(grayscale, grayscale, grayscale, grayscale, alpha) { }
+    public ColorCmykF((float c, float m, float y, float k, float a) c) : this(c.c, c.m, c.y, c.k, c.a) { }
+    
     public override string ToString() => $"ColorCmykF(C:{C}, M:{M}, Y:{Y}, K:{K}, A:{A})";
 
     // Core conversion: CMYK_F <-> RGB_F

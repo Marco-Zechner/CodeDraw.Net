@@ -6,10 +6,10 @@ public partial record struct ColorB
 {
     // Conversions (RGB only)
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static implicit operator ColorB(uint rgba) => new(rgba);
+    public static implicit operator ColorB(uint rgba) => new(rgba, ColorLayout.RRGGBBAA);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static implicit operator uint(ColorB c) => c.ToRgba32();
+    public static implicit operator uint(ColorB c) => c.ToRgba32(ColorLayout.RRGGBBAA);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static implicit operator ColorF(ColorB c) => new(c);
@@ -34,10 +34,10 @@ public partial record struct ColorF
 {
     // Conversions (RGB only)
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static implicit operator ColorF(uint rgba) => new(rgba);
+    public static implicit operator ColorF(uint rgba) => new(rgba, ColorLayout.RRGGBBAA);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static implicit operator uint(ColorF c) => c.ToRgba32();
+    public static implicit operator uint(ColorF c) => c.ToRgba32(ColorLayout.RRGGBBAA);
 
 
 }

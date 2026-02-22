@@ -5,6 +5,8 @@ namespace MarcoZechner.ColorDotNet.HSV;
 [method: MethodImpl(MethodImplOptions.AggressiveInlining)]
 public readonly partial record struct ColorHsvB(int H, byte S, byte V, byte A = 255)
 {
+    public ColorHsvB(byte grayscale, byte alpha = 255) : this(0, grayscale, grayscale, alpha) { }
+    public ColorHsvB((int h, byte s, byte v, byte a) c) : this(c.h, c.s, c.v, c.a) { }
     public override string ToString() => $"ColorHsvB(H:{H}, S:{S}, V:{V}, A:{A})";
 
     // Core conversion: HSV_B <-> HSV_F (quantize / dequantize)

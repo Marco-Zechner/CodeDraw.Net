@@ -6,6 +6,9 @@ namespace MarcoZechner.ColorDotNet.HSV;
 [method: MethodImpl(MethodImplOptions.AggressiveInlining)]
 public readonly partial record struct ColorHsvF(int H, float S, float V, float A = 1f)
 {
+    public ColorHsvF(float grayscale, float alpha = 1f) : this(0, grayscale, grayscale, alpha) { }
+    public ColorHsvF((int h, float s, float v, float a) c) : this(c.h, c.s, c.v, c.a) { }
+    
     public override string ToString() => $"ColorHsvF(H:{H}, S:{S}, V:{V}, A:{A})";
 
     // Core conversion: HSV_F <-> RGB_F
@@ -33,7 +36,7 @@ public readonly partial record struct ColorHsvF(int H, float S, float V, float A
 
         float h;
         if (d == 0f) h = 0f;
-        else if (Math.Abs(max - r) < float.Epsilon) h = 60f * (((g - b) / d) % 6f);
+        else if (Math.Abs(max - r) < float.Epsilon) h = 60f * ((g - b) / d % 6f);
         else if (Math.Abs(max - g) < float.Epsilon) h = 60f * ((b - r) / d + 2f);
         else h = 60f * ((r - g) / d + 4f);
 
@@ -47,7 +50,7 @@ public readonly partial record struct ColorHsvF(int H, float S, float V, float A
 
     private static (float r, float g, float b) HsvToRgb(int hue, float sat, float val)
     {
-        var h = ((hue % 360) + 360) % 360 / 60f; // 0..6
+        var h = (hue % 360 + 360) % 360 / 60f; // 0..6
         var s = sat;
         var v = val;
 

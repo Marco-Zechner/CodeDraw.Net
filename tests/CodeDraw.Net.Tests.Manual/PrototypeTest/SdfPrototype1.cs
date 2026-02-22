@@ -1,4 +1,6 @@
 ﻿using MarcoZechner.CodeDrawDotNet.Drawing;
+using MarcoZechner.CodeDrawDotNet.Drawing.SdfNode;
+using MarcoZechner.CodeDrawDotNet.Drawing.SdfNode.Composition;
 using MarcoZechner.CodeDrawDotNet.Drawing.SdfNode.Primitives;
 using MarcoZechner.CodeDrawDotNet.Window;
 using MarcoZechner.ColorDotNet;
@@ -35,10 +37,6 @@ public class SdfPrototype1
             var styleBlue = new DrawStyle(fillBlue, FeatherPx: 1.5f);
             var styleRed  = new DrawStyle(fillRed,  FeatherPx: 1.5f);
 
-            var centerRect = new Rect(win.Width/2f, win.Height/2f, 100, 100, OriginLocating.Center);
-            using (layer.ScopeRotateAround(centerRect.Position.X, centerRect.Position.Y, 45))
-                layer.DrawDebugRect(centerRect.Left, centerRect.Top, centerRect.Width, centerRect.Height, 1,1,1,0.5f);
-            
             // =====================================================
             // 1) Rotating transform test (rect + circle with stroke)
             // =====================================================
@@ -104,7 +102,7 @@ public class SdfPrototype1
             {
                 var polyNode = new SdfPolygonNode
                 {
-                    Points = polyPoints
+                    Points = polyPoints,
                 };
 
                 layer.DrawSdf(polyNode, styleRed);
@@ -136,19 +134,44 @@ public class SdfPrototype1
                     FeatherPx: 1.0f
                 );
 
+                var bars = new ISdf2Node[6];
                 for (var i = 0; i < 6; i++)
                 {
-                    using (layer.ScopeRotate(time * 20f + i * 60f))
-                    {
-                        var barNode = new SdfRectNode
-                        {
-                            Rect = new Rect(0, -10, 80, 10)
-                        };
+                    // local bar at origin
+                    ISdf2Node bar = new SdfRectNode { Rect = new Rect(0, -10, 80, 10) };
 
-                        layer.DrawSdf(barNode, barStyle);
-                        barNode.DrawDebugRect(layer, DebugWhite(0.5f));
-                    }
+                    // rotate around (0,0) in SDF space
+                    var angle = time * 20f + i * 60f;
+                    bar = Sdf.Rotate(bar, angle);
+
+                    bars[i] = bar;
                 }
+                
+                var union = Sdf.SmoothUnion(25, bars);
+
+                layer.DrawSdf(union, barStyle);
+                union.DrawDebugRect(layer, DebugWhite(0.5f), barStyle);
+            }
+            
+            // ======================
+            // 6) Subtract circle from rect
+            // ======================
+            using (layer.ScopeTranslate(500, 450))
+            using (layer.ScopeRotate(15))
+            {
+                var subStyle = new DrawStyle(new Paint(new ColorF(0.4f, 1f, 0.4f, 1f), default(Stroke)), FeatherPx: 1.5f);
+
+                var rectNode = Sdf.Rect(new Rect(-60, -60, 120, 120));
+                var circleNode = Sdf.Circle(Vector2.Zero, 50);
+                
+                var subNode = new SdfSubtractNode
+                {
+                    A = rectNode,
+                    Bs = [circleNode],
+                };
+                
+                layer.DrawSdf(subNode, subStyle);
+                subNode.DrawDebugRect(layer, DebugWhite(0.5f));
             }
 
             layer.Render();

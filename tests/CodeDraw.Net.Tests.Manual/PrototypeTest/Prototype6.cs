@@ -3,6 +3,7 @@ using MarcoZechner.CodeDrawDotNet.DrawLayer;
 using MarcoZechner.CodeDrawDotNet.DrawLayer.Text;
 using MarcoZechner.CodeDrawDotNet.Shaders;
 using MarcoZechner.CodeDrawDotNet.Window;
+using MarcoZechner.ColorDotNet;
 using MarcoZechner.MathDotNet;
 using Silk.NET.GLFW;
 
@@ -48,7 +49,7 @@ public class Prototype6
         {
             Font = style.Font.WithVariant(FontVariant.Bold),
             SizePx = FONT_PX,
-            Color = new Rgba(0.9f, 0.9f, 0.9f, 1f),
+            Color = new Color(0.9f, 0.9f, 0.9f, 1f),
             MonospaceSnapLineAlignToCells = true
         };
 

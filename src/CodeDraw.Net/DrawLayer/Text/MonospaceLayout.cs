@@ -1,4 +1,5 @@
 ﻿using System.Numerics;
+using MarcoZechner.ColorDotNet;
 
 namespace MarcoZechner.CodeDrawDotNet.DrawLayer.Text;
 
@@ -167,10 +168,10 @@ public sealed class MonospaceLayout
             float baselineY = cellY + baselineFromTop;
 
             if ((style.DebugMode & TextDebugMode.Cells) != 0)
-                outDebugRects.Add(new DebugRect(cellX, cellY, cellW, lineH, new Rgba(0, 1, 0, 0.15f)));
+                outDebugRects.Add(new DebugRect(cellX, cellY, cellW, lineH, new Color(0, 1, 0, 0.15f)));
 
             if ((style.DebugMode & TextDebugMode.Baseline) != 0)
-                outDebugRects.Add(new DebugRect(cellX, baselineY, cellW, 1, new Rgba(1, 0, 0, 0.35f)));
+                outDebugRects.Add(new DebugRect(cellX, baselineY, cellW, 1, new Color(1, 0, 0, 0.35f)));
 
             var gi = _glyphs.GetGlyph(style.Font, sizePx, c);
 
@@ -178,7 +179,7 @@ public sealed class MonospaceLayout
             float gy = baselineY - gi.BearingY;
 
             if ((style.DebugMode & TextDebugMode.GlyphBoxes) != 0 && gi.BitmapW > 0 && gi.BitmapH > 0)
-                outDebugRects.Add(new DebugRect(gx, gy, gi.BitmapW, gi.BitmapH, new Rgba(0, 0.6f, 1, 0.18f)));
+                outDebugRects.Add(new DebugRect(gx, gy, gi.BitmapW, gi.BitmapH, new Color(0, 0.6f, 1, 0.18f)));
 
             if (gi.AtlasPage >= 0 && gi.BitmapW > 0 && gi.BitmapH > 0)
             {
@@ -215,8 +216,8 @@ public sealed class MonospaceLayout
         public float X, Y, W, H;
         public Vector4 Uv;
         public int Page;
-        public Rgba Color;
+        public Color Color;
     }
 
-    public readonly record struct DebugRect(float X, float Y, float W, float H, Rgba Color);
+    public readonly record struct DebugRect(float X, float Y, float W, float H, Color Color);
 }

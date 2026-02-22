@@ -1,6 +1,7 @@
 ﻿using MarcoZechner.CodeDrawDotNet.DrawLayer;
 using MarcoZechner.CodeDrawDotNet.DrawLayer.Text;
 using MarcoZechner.CodeDrawDotNet.Window;
+using MarcoZechner.ColorDotNet;
 
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.PrototypeTest;
 
@@ -26,7 +27,7 @@ public class Prototype5
             Align = TextAlign.Center,
             VAlign = TextVAlign.Middle,
 
-            Color = new Rgba(1, 1, 1, 1),
+            Color = new Color(1, 1, 1, 1),
 
             // Start with “tight” (no extra) so you can see overlaps if metrics are wrong
             ExtraAbovePx = 0,

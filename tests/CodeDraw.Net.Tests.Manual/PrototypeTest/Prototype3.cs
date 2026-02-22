@@ -1,6 +1,7 @@
 ﻿using MarcoZechner.CodeDrawDotNet.DrawLayer;
 using MarcoZechner.CodeDrawDotNet.Shaders;
 using MarcoZechner.CodeDrawDotNet.Window;
+using MarcoZechner.ColorDotNet;
 using MarcoZechner.MathDotNet;
 using Silk.NET.GLFW;
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.PrototypeTest;
@@ -97,9 +98,9 @@ public class Prototype3
             var layer = win.Layer;
 
             layer.Clear(1,1,1, 0.5f);
-            DrawOrbitingDots(layer, 200, 200, 10, 50, 2, 0, new Rgba(0.5f, 0, 0, 1f), orbitShader);
-            DrawOrbitingDots(layer, 200, 200, 10, 80, 2*80/50f, 0, new Rgba(0.0f, 1, 1, 1f), orbitShader);
-            DrawOrbitingDots(layer, 350, 350, 4, 35, -2*80/50f, 0, new Rgba(0.0f, 1, 1, 1f), orbitShader);
+            DrawOrbitingDots(layer, 200, 200, 10, 50, 2, 0, new Color(0.5f, 0, 0, 1f), orbitShader);
+            DrawOrbitingDots(layer, 200, 200, 10, 80, 2*80/50f, 0, new Color(0.0f, 1, 1, 1f), orbitShader);
+            DrawOrbitingDots(layer, 350, 350, 4, 35, -2*80/50f, 0, new Color(0.0f, 1, 1, 1f), orbitShader);
             layer.DrawRect(100,100,100,100, 1,0,0,0.5f);
             layer.Render();
         };
@@ -149,7 +150,7 @@ public class Prototype3
     private void DrawOrbitingDots(CodeDrawLayer layer, int centerX, int centerY, int radiusDot, int radiusOrbit,
         float period,
         float timeOffset,
-        Rgba color,
+        Color color,
         CodeDrawShader orbitShader
     )
     {

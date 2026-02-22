@@ -6,6 +6,7 @@ using MarcoZechner.ColorDotNet;
 using MarcoZechner.MathDotNet;
 using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
+using Color = MarcoZechner.ColorDotNet.Color;
 
 namespace MarcoZechner.CodeDrawDotNet.Window;
 

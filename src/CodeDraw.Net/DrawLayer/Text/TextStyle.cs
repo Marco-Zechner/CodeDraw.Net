@@ -1,4 +1,6 @@
-﻿namespace MarcoZechner.CodeDrawDotNet.DrawLayer.Text;
+﻿using MarcoZechner.ColorDotNet;
+
+namespace MarcoZechner.CodeDrawDotNet.DrawLayer.Text;
 
 public sealed record TextStyle
 {
@@ -8,8 +10,8 @@ public sealed record TextStyle
     public TextAlign Align { get; set; } = TextAlign.Left;
     public TextVAlign VAlign { get; set; } = TextVAlign.Top;
 
-    public Rgba Color { get; set; } = new(1, 1, 1, 1);
-    public Rgba Background { get; set; } = new(0, 0, 0, 0.5f);
+    public Color Color { get; set; } = new(1, 1, 1, 1);
+    public Color Background { get; set; } = new(0, 0, 0, 0.5f);
     
     public BlendMode FontBlendMode { get; set; } = BlendMode.SOURCE_OVER_ALPHA;
     public BlendMode BackgroundBlendMode { get; set; } = BlendMode.SOURCE_OVER_ALPHA;

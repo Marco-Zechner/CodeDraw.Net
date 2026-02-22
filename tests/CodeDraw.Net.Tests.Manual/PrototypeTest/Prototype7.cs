@@ -2,6 +2,7 @@
 using MarcoZechner.CodeDrawDotNet.DrawLayer;
 using MarcoZechner.CodeDrawDotNet.DrawLayer.Text;
 using MarcoZechner.CodeDrawDotNet.Window;
+using MarcoZechner.ColorDotNet;
 using Silk.NET.GLFW;
 
 namespace MarcoZechner.CodeDrawDotNet.Tests.Manual.PrototypeTest;
@@ -37,7 +38,7 @@ public sealed class Prototype7
             SizePx = 44,
             Align = TextAlign.Left,
             VAlign = TextVAlign.Top,
-            Color = new Rgba(0.1f, 0.1f, 0.1f, 1f),
+            Color = new Color(0.1f, 0.1f, 0.1f, 1f),
             DebugMode = TextDebugMode.None,
             DebugRects = DebugRectMode.Outline,
             DebugOutlinePx = 1,
@@ -50,7 +51,7 @@ public sealed class Prototype7
             SizePx = 26,
             Align = TextAlign.Left,
             VAlign = TextVAlign.Top,
-            Color = new Rgba(0.05f, 0.05f, 0.05f, 0.95f),
+            Color = new Color(0.05f, 0.05f, 0.05f, 0.95f),
             DebugMode = TextDebugMode.None,
             DebugRects = DebugRectMode.Outline,
             DebugOutlinePx = 1,
@@ -63,8 +64,8 @@ public sealed class Prototype7
             SizePx = 48,
             Align = TextAlign.Center,
             VAlign = TextVAlign.Top,
-            Color = new Rgba(1f, 1f, 1f, 1f),
-            Background = new Rgba(0.08f, 0.1f, 0.14f, 0.9f),
+            Color = new Color(1f, 1f, 1f, 1f),
+            Background = new Color(0.08f, 0.1f, 0.14f, 0.9f),
             DebugMode = TextDebugMode.None,
             DebugRects = DebugRectMode.Outline,
             DebugOutlinePx = 1,
@@ -81,8 +82,8 @@ public sealed class Prototype7
             SizePx = 18,
             Align = TextAlign.Left,
             VAlign = TextVAlign.Top,
-            Color = new Rgba(1f, 1f, 1f, 0.95f),
-            Background = new Rgba(0f, 0f, 0f, 0.55f),
+            Color = new Color(1f, 1f, 1f, 0.95f),
+            Background = new Color(0f, 0f, 0f, 0.55f),
             DebugMode = TextDebugMode.None,
             DebugRects = DebugRectMode.Outline,
             DebugOutlinePx = 1,

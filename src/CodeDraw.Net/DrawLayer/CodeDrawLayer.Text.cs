@@ -3,6 +3,7 @@
 using System.Numerics;
 using MarcoZechner.CodeDrawDotNet.DrawLayer.Text;
 using MarcoZechner.CodeDrawDotNet.Shaders;
+using MarcoZechner.ColorDotNet;
 using Silk.NET.OpenGL;
 
 namespace MarcoZechner.CodeDrawDotNet.DrawLayer;
@@ -271,7 +272,7 @@ public sealed unsafe partial class CodeDrawLayer
     }
     
 
-    private void DrawDebugRect(GL gl, float x, float y, float w, float h, Rgba c, DebugRectMode mode, float outlinePx)
+    private void DrawDebugRect(GL gl, float x, float y, float w, float h, Color c, DebugRectMode mode, float outlinePx)
     {
         outlinePx = MathF.Max(1, outlinePx);
 
@@ -340,7 +341,7 @@ public sealed unsafe partial class CodeDrawLayer
         public uint GetPageTexture(int page) => _pages[page].tex;
     }
     
-    private void DrawTextBackgrounds(GL gl, string text, float x, float y, TextStyle style, Rgba bg)
+    private void DrawTextBackgrounds(GL gl, string text, float x, float y, TextStyle style, Color bg)
     {
         // We need cellW/lineH/baselineFromTop and the same anchor math as Layout().
         _textLayout!.GetCellMetrics(style, out var cellW, out var lineH, out var baselineFromTop);

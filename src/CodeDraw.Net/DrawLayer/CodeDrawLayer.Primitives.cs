@@ -44,7 +44,8 @@ public sealed unsafe partial class CodeDrawLayer
     private int _cpuW, _cpuH;
     private bool _cpuDirty;          // cpu buffer has new data not yet pushed
     private bool _cpuValidThisFrame; // cpu buffer has meaningful contents for current size
-
+    private Buffer _cpu;
+    
     public bool TryCopyCpuPixels(out uint[] rgba8, out int w, out int h)
     {
         // Not thread-safe: intended for debug usage after Render() / WaitForPublish()

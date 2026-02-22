@@ -5,7 +5,7 @@ namespace MarcoZechner.CodeDrawDotNet.DrawLayer;
 
 public sealed unsafe partial class CodeDrawLayer
 {
-    internal void ExecCpuBegin(GL gl, bool clear)
+    private void ExecCpuBegin(GL gl, bool clear)
     {
         // Ensure CPU buffer matches current layer size
         if (_w <= 0 || _h <= 0) return;
@@ -42,13 +42,13 @@ public sealed unsafe partial class CodeDrawLayer
         }
     }
 
-    internal void ExecCpuPush(GL gl)
+    private void ExecCpuPush(GL gl)
     {
         if (_cpuRgba8 == null || _cpuW != _w || _cpuH != _h) return;
         if (!_cpuDirty) return;
         if (_work.Tex == 0) return;
 
-        gl.BindTexture(GLEnum.Texture2D, _work.Tex);
+        gl.BindTexture(GLEnum.Texture2D, _cpu.Tex);
 
         // Upload whole texture. Simple & correct. Optimize later (dirty rects).
         fixed (uint* p = _cpuRgba8)
@@ -70,8 +70,27 @@ public sealed unsafe partial class CodeDrawLayer
         _cpuDirty = false;
         _cpuValidThisFrame = true;
     }
+    
+    private void ExecCpuComposite(GL gl)
+    {
+        if (_cpu.Tex == 0) return;
 
-    internal void ExecCpuPull(GL gl, bool fromPublished)
+        gl.UseProgram(_progBlit);
+        gl.BindVertexArray(_vao);
+
+        gl.ActiveTexture(GLEnum.Texture0);
+        gl.BindTexture(GLEnum.Texture2D, _cpu.Tex);
+
+        if (_uBlitTex >= 0) gl.Uniform1(_uBlitTex, 0);
+
+        gl.DrawElements(GLEnum.Triangles, 6, GLEnum.UnsignedInt, null);
+
+        gl.BindTexture(GLEnum.Texture2D, 0);
+        gl.BindVertexArray(0);
+        gl.UseProgram(0);
+    }
+
+    private void ExecCpuPull(GL gl, bool fromPublished)
     {
         if (_w <= 0 || _h <= 0) return;
 

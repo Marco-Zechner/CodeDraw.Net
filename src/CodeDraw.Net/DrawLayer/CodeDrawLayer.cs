@@ -4,7 +4,6 @@ using System.Runtime.CompilerServices;
 using MarcoZechner.CodeDrawDotNet.DrawLayer.Commands;
 using MarcoZechner.CodeDrawDotNet.Shaders;
 using MarcoZechner.CodeDrawDotNet.Window;
-using MarcoZechner.MathDotNet;
 using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
 using Monitor = System.Threading.Monitor;
@@ -431,6 +430,7 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
             DeleteBuffer(ref _pub);
             DeleteBuffer(ref _work);
             DeleteBuffer(ref _tmp);
+            DeleteBuffer(ref _cpu);
 
             ShaderStore.DisposeConsumer(_gl, this);
 
@@ -501,6 +501,10 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
 
         RetireRequestedFences();
 
+        _cpuDirty = false;
+        if (_cpuRgba8 != null)
+            Array.Clear(_cpuRgba8);
+        
         CmdResize? lastResize = null;
         var local = new List<(long seq, ICmd cmd)>(256);
         while (Volatile.Read(ref _lastRenderedCmdSeq) < targetSeq)
@@ -544,7 +548,11 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
             cmd.Exec(_gl, this);
 
         if (_cpuDirty)
+        {
             ExecCpuPush(_gl);
+            
+            ExecCpuComposite(_gl);
+        }
         
         _gl.Finish();
 
@@ -601,10 +609,12 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
         DeleteBuffer(ref _pub);
         DeleteBuffer(ref _work);
         DeleteBuffer(ref _tmp);
+        CreateBuffer(ref _cpu, w, h);
 
         CreateBuffer(ref _pub,  w, h);
         CreateBuffer(ref _work, w, h);
         CreateBuffer(ref _tmp,  w, h);
+        CreateBuffer(ref _cpu, w, h);
 
         _pubInfo = new Publication { Fence = 0, W = w, H = h, Seq = 0 };
 

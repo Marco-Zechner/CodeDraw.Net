@@ -37,44 +37,87 @@ public sealed partial class CodeDrawLayer : ICodeDrawShapes
     // Shapes => enqueue SDF draw commands
     // ---------------------------
 
-    public void Rect(in Rect r, in DrawStyle style)
-        => Enqueue(new CmdSdf(new SdfPlaced(new SdfRect(r), _xf), style));
-
-    public void RoundedRect(in Rect r, float radius, in DrawStyle style)
-        => Enqueue(new CmdSdf(new SdfPlaced(new SdfRoundedRect(r, radius), _xf), style));
-
-    public void Circle(Vector2 center, float radius, in DrawStyle style)
-        => Enqueue(new CmdSdf(new SdfPlaced(new SdfCircle(center, radius), _xf), style));
-
-    public void Ellipse(Vector2 center, Vector2 radius, in DrawStyle style)
-        => Enqueue(new CmdSdf(new SdfPlaced(new SdfEllipse(center, radius), _xf), style));
-
-    public void Triangle(in Vector2 a, in Vector2 b, in Vector2 c, in DrawStyle style)
-        => Enqueue(new CmdSdf(new SdfPlaced(new SdfTriangle(a, b, c), _xf), style));
-
-    public void Polygon(ReadOnlySpan<Vector2> points, in DrawStyle style)
-        => Enqueue(new CmdSdf(new SdfPlaced(new SdfPolygon(points), _xf), style));
-
-    public void Polyline(ReadOnlySpan<Vector2> points, in Stroke stroke, bool closed = false,
-        BlendMode blend = BlendMode.SOURCE_OVER_ALPHA, float opacity = 1f)
+    public SdfDrawInfo Rect(in Rect r, in DrawStyle style)
     {
-        var paint = Paint.StrokeOnly(stroke);
-        var style = new DrawStyle(paint, blend, opacity, FeatherPx: 1f);
-        Enqueue(new CmdSdf(new SdfPlaced(new SdfPolyline(points, closed), _xf), style, ForceStrokeOnly: true));
+        var placed = new SdfPlaced(new SdfRect(r), _xf);
+        Enqueue(new CmdSdf(placed, style));
+        return new SdfDrawInfo(placed, style, ForceStrokeOnly: false);
     }
 
-    public void Line(Vector2 p0, Vector2 p1, in Stroke stroke, BlendMode blend = BlendMode.SOURCE_OVER_ALPHA, float opacity = 1f)
-        => Polyline([p0, p1], stroke, closed: false, blend, opacity);
+    public SdfDrawInfo RoundedRect(in Rect r, float radius, in DrawStyle style)
+    {
+        var placed = new SdfPlaced(new SdfRoundedRect(r, radius), _xf);
+        Enqueue(new CmdSdf(placed, style));
+        return new SdfDrawInfo(placed, style, ForceStrokeOnly: false);
+    }
 
+    public SdfDrawInfo Circle(Vector2 center, float radius, in DrawStyle style)
+    {
+        var placed = new SdfPlaced(new SdfCircle(center, radius), _xf);
+        Enqueue(new CmdSdf(placed, style));
+        return new SdfDrawInfo(placed, style, ForceStrokeOnly: false);
+    }
+
+    public SdfDrawInfo Ellipse(Vector2 center, Vector2 radius, in DrawStyle style)
+    {
+        var placed = new SdfPlaced(new SdfEllipse(center, radius), _xf);
+        Enqueue(new CmdSdf(placed, style));
+        return new SdfDrawInfo(placed, style, ForceStrokeOnly: false);
+    }
+
+    public SdfDrawInfo Triangle(in Vector2 a, in Vector2 b, in Vector2 c, in DrawStyle style)
+    {
+        var placed = new SdfPlaced(new SdfTriangle(a, b, c), _xf);
+        Enqueue(new CmdSdf(placed, style));
+        return new SdfDrawInfo(placed, style, ForceStrokeOnly: false);
+    }
+
+    public SdfDrawInfo Polygon(ReadOnlySpan<Vector2> points, in DrawStyle style)
+    {
+        var placed = new SdfPlaced(new SdfPolygon(points), _xf);
+        Enqueue(new CmdSdf(placed, style));
+        return new SdfDrawInfo(placed, style, ForceStrokeOnly: false);
+    }
+
+    public SdfDrawInfo Polyline(
+        ReadOnlySpan<Vector2> points,
+        in Stroke stroke,
+        bool closed = false,
+        BlendMode blend = BlendMode.SOURCE_OVER_ALPHA,
+        float opacity = 1f)
+    {
+        var style = new DrawStyle(Paint.StrokeOnly(stroke), blend, opacity, FeatherPx: 1f);
+        var placed = new SdfPlaced(new SdfPolyline(points, closed), _xf);
+
+        Enqueue(new CmdSdf(placed, style, ForceStrokeOnly: true));
+        return new SdfDrawInfo(placed, style, ForceStrokeOnly: true);
+    }
+
+    public SdfDrawInfo Line(
+        Vector2 p0,
+        Vector2 p1,
+        in Stroke stroke,
+        BlendMode blend = BlendMode.SOURCE_OVER_ALPHA,
+        float opacity = 1f)
+    {
+        var style = new DrawStyle(Paint.StrokeOnly(stroke), blend, opacity, FeatherPx: 1f);
+
+        // Segment is nicer than Polyline for bounds and distance stability.
+        var placed = new SdfPlaced(new SdfSegment(p0, p1), _xf);
+
+        Enqueue(new CmdSdf(placed, style, ForceStrokeOnly: true));
+        return new SdfDrawInfo(placed, style, ForceStrokeOnly: true);
+    }
+    
     // ---------------------------
     // Path + Collections
     // ---------------------------
 
     public IPathBuilder Path(in DrawStyle style = default)
-        => throw new NotImplementedException();//new PathBuilderImpl(this, _xf, style);
+        => new PathBuilderImpl(this, _xf, style);
 
-    public IShapeCollectionBuilder ShapeCollection(in Matrix3x3? initialTransform = null)
-        => throw new NotImplementedException();//new ShapeCollectionBuilderImpl(this, initialTransform ?? _xf);
+    public IShapeCollectionBuilder ShapeCollection(in Matrix3x3? initialTransform = null) 
+        => new ShapeCollectionBuilderImpl(this,  initialTransform ?? _xf);
 
     // =====================================================
     // INTERNAL COMMANDS + EXECUTION
@@ -89,7 +132,10 @@ public sealed partial class CodeDrawLayer : ICodeDrawShapes
         if (px == null) return;
 
         if (!placed.TryGetWorldToLocal(out var w2L))
+        {
+            Console.WriteLine("W2L failed");
             return;
+        }
 
         // Conservative bounds in layer space (world == layer)
         var bb = placed.WorldBounds;
@@ -111,7 +157,7 @@ public sealed partial class CodeDrawLayer : ICodeDrawShapes
 
         for (var y = y0; y <= y1; y++)
         {
-            var row = y * self._w;
+            var row = (self._h - 1 - y) * self._w;
             for (var x = x0; x <= x1; x++)
             {
                 var pWorld = new Vector2(x + 0.5f, y + 0.5f);

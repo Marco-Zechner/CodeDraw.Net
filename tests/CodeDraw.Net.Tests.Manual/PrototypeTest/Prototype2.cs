@@ -142,8 +142,8 @@ public sealed class Prototype2
             layer.DrawRect(mx, my, 16, 16, 0f, 0f, 0f, 1f);
             layer.DrawRect(mx + 3, my + 3, 10, 10, 1f, 1f, 1f, 1f);
 
-            layer.CustomDrawRect(
-                0,0, layer.Width, layer.Height,
+            layer.CustomRect(
+                layer.FullRect,
                 shader: orbitShader,
                 uniforms: Uniforms.Of(
                     UniformValue.Float("uTime", layer.LayerAliveForSeconds()),
@@ -164,8 +164,8 @@ public sealed class Prototype2
         {
             var size = radiusOrbit * 2 + radiusDot * 2;
             
-            layer.CustomDrawRect(
-                centerX-size/2, centerY-size/2, size, size,
+            layer.CustomRect(
+                new Rect<int>(centerX-size/2, centerY-size/2, size, size),
                 shader: orbitShader,
                 uniforms: Uniforms.Of(
                     UniformValue.Float("uTime", layer.LayerAliveForSeconds()),

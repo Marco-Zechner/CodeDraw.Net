@@ -60,6 +60,7 @@ public class Prototype6
 
         StringBuilder displayTitle = new();
         
+        bool firstFrame = true;
         
         window.OnUpdate += ctx =>
         {
@@ -146,7 +147,7 @@ public class Prototype6
 
             // Distance -> how many title characters are “revealed”
             var distanceToCenter = (mousePos - textLayer.Size / 2).Length<double>();
-            var maxDistance = (textLayer.Size / 2).Length<double>() / 1.5f;
+            var maxDistance = (textLayer.Size / 2).Length<double>() / 2f;
             var minDistance = (textLayer.Size / 2).Length<double>() / 15;
 
             var desiredVisible = (int)MathG.MapClamped(
@@ -158,7 +159,8 @@ public class Prototype6
             );
 
             // only rebuild when mouse moved OR after some time has passed (optional)
-            var shouldRebuild = mouseMoved || resized;
+            var shouldRebuild = mouseMoved || resized || firstFrame;
+            firstFrame = false;
 
             string textWall;
             string displayTitleStr;
@@ -272,8 +274,8 @@ public class Prototype6
             window.Layer.Clear(0, 0, 0, 1);
             
             
-            window.Layer.CustomDrawRect(
-                0, 0, textLayer.Width, textLayer.Height,
+            window.Layer.CustomRect(
+                textLayer.FullRect,
                 shader: glowShader,
                 uniforms: Uniforms.Of(
                     UniformValue.Tex2D("uTex", textLayer),
@@ -285,8 +287,8 @@ public class Prototype6
                 )
             );
             
-            window.Layer.CustomDrawRect(
-                0, 0, textLayer.Width, textLayer.Height,
+            window.Layer.CustomRect(
+                textLayer.FullRect,
                 shader: circleCopyShader,
                 uniforms: Uniforms.Of(
                     UniformValue.Tex2D("uTex", textLayer),

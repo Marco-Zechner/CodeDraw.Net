@@ -206,8 +206,8 @@ public class Prototype4
     private static void DrawOrbitDots(CodeDrawLayer layer, CodeDrawShader orbitShader, int centerX, int centerY, int radiusDot, int radiusOrbit, float period, float timeOffset, ColorF color)
     {
         var size = radiusOrbit * 2 + radiusDot * 2;
-        layer.CustomDrawRect(
-            centerX - size / 2, centerY - size / 2, size, size,
+        layer.CustomRect(
+            new Rect<int>(centerX - size / 2, centerY - size / 2, size, size),
             shader: orbitShader,
             uniforms: Uniforms.Of(
                 UniformValue.Float("uTime", layer.LayerAliveForSeconds()),

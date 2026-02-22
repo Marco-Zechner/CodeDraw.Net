@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using MarcoZechner.CodeDrawDotNet.Shaders;
 using MarcoZechner.CodeDrawDotNet.Window;
+using MarcoZechner.MathDotNet;
 using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
 using Monitor = System.Threading.Monitor;
@@ -668,7 +669,7 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
 
     private void ExecCustomRect(
         GL gl,
-        int x, int y, int w, int h,
+        in Rect<int> rect,
         CodeDrawShader? shader,
         Uniforms uniforms)
     {
@@ -705,7 +706,7 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
         gl.UseProgram(prog);
         gl.BindVertexArray(_vao);
 
-        if (uPosSize >= 0) Uniform4F(gl, uPosSize, x, y, w, h);
+        if (uPosSize >= 0) Uniform4F(gl, uPosSize, rect.Left, rect.Top, rect.Width, rect.Height);
         if (uRes >= 0) Uniform2F(gl, uRes, _w, _h);
         
         // User uniforms
@@ -721,7 +722,7 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
             }
         }
         _gl.Enable(GLEnum.ScissorTest);
-        _gl.Scissor(x, _h - (y + h), (uint)w, (uint)h);
+        _gl.Scissor(rect.Left, _h - rect.Bottom, (uint)rect.Width, (uint)rect.Height);
         gl.DrawElements(GLEnum.Triangles, 6, GLEnum.UnsignedInt, null);
         _gl.Disable(GLEnum.ScissorTest);
         

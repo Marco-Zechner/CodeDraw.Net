@@ -1,4 +1,5 @@
 ﻿using MarcoZechner.CodeDrawDotNet.Shaders;
+using MarcoZechner.MathDotNet;
 using Silk.NET.OpenGL;
 
 namespace MarcoZechner.CodeDrawDotNet.DrawLayer;
@@ -57,10 +58,7 @@ public sealed unsafe partial class CodeDrawLayer
 
     private sealed class CmdCustomRect : ICmd
     {
-        public int X;
-        public int Y;
-        public int W;
-        public int H;
+        public Rect<int> Rect; 
         public CodeDrawShader? Shader;
         public Uniforms Uniforms;
 
@@ -71,7 +69,7 @@ public sealed unsafe partial class CodeDrawLayer
 
             self.ExecCustomRect(
                 gl,
-                X, Y, W, H,
+                Rect,
                 s,
                 Uniforms);
         }

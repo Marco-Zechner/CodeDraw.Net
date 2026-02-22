@@ -120,8 +120,8 @@ public class Prototype3
 
             layer.Clear();
             layer.SetBlendMode(BlendMode.NONE);
-            layer.CustomDrawRect(
-                0,0, layer.Width, layer.Height,
+            layer.CustomRect(
+                layer.FullRect,
                 shader: colorShiftShader,
                 uniforms: Uniforms.Of(
                     UniformValue.Tex2D("uTexCopy", win1.Layer),
@@ -157,8 +157,8 @@ public class Prototype3
     {
         var size = radiusOrbit * 2 + radiusDot * 2;
             
-        layer.CustomDrawRect(
-            centerX-size/2, centerY-size/2, size, size,
+        layer.CustomRect(
+            new Rect<int>(centerX-size/2, centerY-size/2, size, size),
             shader: orbitShader,
             uniforms: Uniforms.Of(
                 UniformValue.Float("uTime", layer.LayerAliveForSeconds()),

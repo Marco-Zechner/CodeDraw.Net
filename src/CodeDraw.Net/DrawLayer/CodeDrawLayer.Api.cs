@@ -69,10 +69,7 @@ public sealed partial class CodeDrawLayer
     public BlitSrcStage Blit(CodeDrawLayer src) => new(this, src);
 
 
-    public void CustomDrawRect(
-        int x, int y, int w, int h,
-        CodeDrawShader shader,
-        Uniforms uniforms)
+    public void CustomRect(Rect<int> rect, CodeDrawShader shader, Uniforms uniforms)
     {
         if (_disposed) return;
 
@@ -85,17 +82,15 @@ public sealed partial class CodeDrawLayer
 
         Enqueue(new CmdCustomRect
         {
-            X = x, Y = y, W = w, H = h,
+            Rect = rect,
             Shader = shader,
             Uniforms = new Uniforms(copy)
         });
     }
 
-    public void CustomDrawRect(
-        int x, int y, int w, int h,
-        CodeDrawShader shader,
+    public void CustomRect(Rect<int> rect, CodeDrawShader shader, 
         params UniformValue[] uniforms)
-        => CustomDrawRect(x,y,w,h,shader, new Uniforms(uniforms));
+        => CustomRect(rect, shader, new Uniforms(uniforms));
 
     public void PostProcess(CodeDrawShader shader, Uniforms uniforms)
     {

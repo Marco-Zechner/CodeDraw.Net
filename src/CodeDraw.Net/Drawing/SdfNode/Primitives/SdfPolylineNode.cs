@@ -6,8 +6,19 @@ namespace MarcoZechner.CodeDrawDotNet.Drawing.SdfNode.Primitives;
 
 public sealed class SdfPolylineNode : SdfNodeBase
 {
-    public Vector2[] Points = [];
-    public bool Closed = true;
+    private Vector2[] _points = [];
+    public required Vector2[]? Points
+    {
+        get => _points;
+        set { _points = value ?? []; MarkDirty(); }
+    }
 
-    override internal ISdf2 Build(SdfCompileContext ctx) => new SdfPolyline(Points, Closed);
+    private bool _closed = true;
+    public required bool Closed
+    {
+        get => _closed;
+        set { _closed = value; MarkDirty(); }
+    }
+
+    override internal ISdf2 Build(SdfCompileContext ctx) => new SdfPolyline(_points, _closed);
 }

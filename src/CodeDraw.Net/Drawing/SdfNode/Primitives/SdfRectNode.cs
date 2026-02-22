@@ -6,7 +6,12 @@ namespace MarcoZechner.CodeDrawDotNet.Drawing.SdfNode.Primitives;
 
 public sealed class SdfRectNode : SdfNodeBase
 {
-    public Rect Rect;
+    private Rect _rect;
+    public required Rect Rect
+    {
+        get => _rect;
+        set { _rect = value; MarkDirty(); }
+    }
 
-    override internal ISdf2 Build(SdfCompileContext ctx) => new SdfRect(Rect);
+    override internal ISdf2 Build(SdfCompileContext ctx) => new SdfRect(_rect);
 }

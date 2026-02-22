@@ -9,7 +9,13 @@ public sealed class SdfPolygonNode : SdfNodeBase
     /// <summary>
     /// Mutable authoring array. Keep it non-null.
     /// </summary>
-    public Vector2[] Points = Array.Empty<Vector2>();
+    private Vector2[] _points = [];
+    public required Vector2[]? Points
+    {
+        get => _points;
+        set { _points = value ?? []; MarkDirty(); }
+    }
 
-    override internal ISdf2 Build(SdfCompileContext ctx) => new SdfPolygon(Points); // assumes primitive takes ReadOnlySpan/array
+    override internal ISdf2 Build(SdfCompileContext ctx)
+        => new SdfPolygon(_points); // assumes primitive takes ReadOnlySpan/array
 }

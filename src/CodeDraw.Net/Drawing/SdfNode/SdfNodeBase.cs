@@ -13,10 +13,14 @@ namespace MarcoZechner.CodeDrawDotNet.Drawing.SdfNode;
 ///
 /// Inherit from this instead of manually re-implementing helpers.
 /// </summary>
-public abstract class SdfNodeBase : ISdf2Node
+public abstract class SdfNodeBase : ISdf2Node, IVersionedSdfNode
 {
-    ISdf2 ISdf2Node.Build(SdfCompileContext ctx) => Build(ctx);
+    private int _version;
+    public int Version => _version;
 
+    protected void MarkDirty() => _version++;
+
+    ISdf2 ISdf2Node.Build(SdfCompileContext ctx) => Build(ctx);
     internal abstract ISdf2 Build(SdfCompileContext ctx);
 
     /// <summary>Distance query in layer/world space (same space you authored nodes in), with an optional transform.</summary>

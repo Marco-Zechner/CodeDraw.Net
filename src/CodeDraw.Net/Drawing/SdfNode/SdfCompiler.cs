@@ -4,8 +4,10 @@ namespace MarcoZechner.CodeDrawDotNet.Drawing.SdfNode;
 
 internal sealed class SdfCompileContext
 {
-    internal readonly Dictionary<ISdf2Node, ISdf2> Cache = new();
+    internal readonly Dictionary<ISdf2Node, CacheEntry> Cache = new();
     internal readonly HashSet<ISdf2Node> Visiting = [];
+
+    internal readonly record struct CacheEntry(ISdf2 Built, int Version);
 }
 
 internal static class SdfCompiler
@@ -18,8 +20,10 @@ internal static class SdfCompiler
 
     internal static ISdf2 Compile(ISdf2Node node, SdfCompileContext ctx)
     {
-        if (ctx.Cache.TryGetValue(node, out var built))
-            return built;
+        var v = GetVersion(node);
+
+        if (ctx.Cache.TryGetValue(node, out var ce) && ce.Version == v)
+            return ce.Built;
 
         if (!ctx.Visiting.Add(node))
             throw new InvalidOperationException("SDF graph cycle detected.");
@@ -27,7 +31,15 @@ internal static class SdfCompiler
         var result = node.Build(ctx);
 
         ctx.Visiting.Remove(node);
-        ctx.Cache[node] = result;
+        ctx.Cache[node] = new SdfCompileContext.CacheEntry(result, v);
         return result;
     }
+
+    private static int GetVersion(ISdf2Node node)
+        => node is IVersionedSdfNode vn ? vn.Version : 0;
+}
+
+internal interface IVersionedSdfNode
+{
+    int Version { get; }
 }

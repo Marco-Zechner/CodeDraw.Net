@@ -4,15 +4,28 @@ namespace MarcoZechner.CodeDrawDotNet.Drawing.SdfNode.Composition;
 
 public sealed class SdfSmoothIntersectNode : SdfNodeBase
 {
-    public ISdf2Node[] Children = [];
-    public float K = 8f;
+    private ISdf2Node[] _children = [];
+    public required ISdf2Node[]? Children
+    {
+        get => _children;
+        set { _children = value ?? []; MarkDirty(); }
+    }
+
+    private float _k = 8f;
+    public required float K
+    {
+        get => _k;
+        set { _k = value; MarkDirty(); }
+    }
 
     override internal ISdf2 Build(SdfCompileContext ctx)
     {
-        if (Children.Length == 0) return new SdfSmoothIntersectN([], K);
-        var compiled = new ISdf2[Children.Length];
-        for (var i = 0; i < Children.Length; i++)
-            compiled[i] = SdfCompiler.Compile(Children[i], ctx);
-        return new SdfSmoothIntersectN(compiled, K);
+        if (_children.Length == 0) return new SdfSmoothIntersectN([], _k);
+
+        var compiled = new ISdf2[_children.Length];
+        for (var i = 0; i < _children.Length; i++)
+            compiled[i] = SdfCompiler.Compile(_children[i], ctx);
+
+        return new SdfSmoothIntersectN(compiled, _k);
     }
 }

@@ -2,14 +2,8 @@ using System.Runtime.CompilerServices;
 
 namespace MarcoZechner.ColorDotNet;
 
-public enum HexType
+public readonly partial record struct Color
 {
-    RRGGBBAA,
-    AARRGGBB
-}
-
-public partial record struct Color {
-
     private readonly byte _r;
     private readonly byte _g;
     private readonly byte _b;
@@ -27,82 +21,29 @@ public partial record struct Color {
     public Color(byte grayscale, byte alpha = 255)
         : this(grayscale, grayscale, grayscale, alpha) { }
 
-    // Interprets rgba as 0xRRGGBBAA (your chosen canonical packed layout)
+    // Interprets rgba as 0xRRGGBBAA (canonical packed layout)
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public Color(uint rgba)
         : this(
-            (byte)((rgba >> 24) & 0xFF),
-            (byte)((rgba >> 16) & 0xFF),
-            (byte)((rgba >>  8) & 0xFF),
+            (byte)(rgba >> 24 & 0xFF),
+            (byte)(rgba >> 16 & 0xFF),
+            (byte)(rgba >>  8 & 0xFF),
             (byte)( rgba        & 0xFF)
         )
     { }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public Color(float r, float g, float b, float a = 1f)
-        : this(ToByte(r), ToByte(g), ToByte(b), ToByte(a)) { }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public Color(float grayscale, float alpha = 1f)
-        : this(grayscale, grayscale, grayscale, alpha) { }
-
     // ---- byte views (get + init) ----
 
-    public byte R
-    {
-        get => _r;
-        init => _r = value;
-    }
-
-    public byte G
-    {
-        get => _g;
-        init => _g = value;
-    }
-
-    public byte B
-    {
-        get => _b;
-        init => _b = value;
-    }
-
-    public byte A
-    {
-        get => _a;
-        init => _a = value;
-    }
-
-    // ---- float views (get + init) ----
-
-    public float Rf
-    {
-        get => _r * (1f / 255f);
-        init => _r = ToByte(value);
-    }
-
-    public float Gf
-    {
-        get => _g * (1f / 255f);
-        init => _g = ToByte(value);
-    }
-
-    public float Bf
-    {
-        get => _b * (1f / 255f);
-        init => _b = ToByte(value);
-    }
-
-    public float Af
-    {
-        get => _a * (1f / 255f);
-        init => _a = ToByte(value);
-    }
+    public byte R { get => _r; init => _r = value; }
+    public byte G { get => _g; init => _g = value; }
+    public byte B { get => _b; init => _b = value; }
+    public byte A { get => _a; init => _a = value; }
 
     // ---- HSV views (get + init) ----
     // Semantics:
     // - Setting Hue/Saturation/Value preserves the other two HSV components derived from current RGB,
     //   and preserves Alpha as-is.
-    // - HSV is derived from current RGB, which means repeated edits can accumulate rounding noise (byte math).
+    // - HSV is derived from current RGB, repeated edits can accumulate rounding noise (byte domain).
 
     public int Hue
     {
@@ -154,8 +95,7 @@ public partial record struct Color {
     /// <summary>Returns packed RGBA in canonical layout 0xRRGGBBAA.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public uint ToRgba32()
-        => ((uint)_r << 24) | ((uint)_g << 16) | ((uint)_b << 8) | _a;
-
+        => (uint)_r << 24 | (uint)_g << 16 | (uint)_b << 8 | _a;
 
     // ---- factories ----
 
@@ -170,15 +110,7 @@ public partial record struct Color {
 
     // ---- helpers ----
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static byte ToByte(float x)
-    {
-        if (x <= 0f) return 0;
-        if (x >= 1f) return 255;
-        return (byte)(x * 255f + 0.5f);
-    }
-
-    private static uint ParseHexToRgba(string hex, HexType type = HexType.RRGGBBAA)
+    internal static uint ParseHexToRgba(string hex, HexType type = HexType.RRGGBBAA)
     {
         if (hex is null) throw new ArgumentNullException(nameof(hex));
         if (hex.Length < 7 || hex[0] != '#')
@@ -190,7 +122,7 @@ public partial record struct Color {
         {
             // #RRGGBB -> RRGGBBAA (AA = FF)
             var rrggbb = Convert.ToUInt32(s.ToString(), 16);
-            return (rrggbb << 8) | 0xFFu;
+            return rrggbb << 8 | 0xFFu;
         }
 
         if (s.Length == 8)
@@ -199,8 +131,8 @@ public partial record struct Color {
 
             return type switch
             {
-                HexType.RRGGBBAA => x, // already in desired canonical order
-                HexType.AARRGGBB => ((x & 0x00FFFFFFu) << 8) | ((x >> 24) & 0xFFu), // AARRGGBB -> RRGGBBAA
+                HexType.RRGGBBAA => x,                                        // already canonical
+                HexType.AARRGGBB => (x & 0x00FFFFFFu) << 8 | x >> 24 & 0xFFu, // AARRGGBB -> RRGGBBAA
                 _ => throw new ArgumentOutOfRangeException(nameof(type), type, "Unknown HexType.")
             };
         }
@@ -218,21 +150,23 @@ public partial record struct Color {
 
         float h;
         if (d == 0f) h = 0f;
-        else if (Math.Abs(max - rf) < float.Epsilon) h = 60f * (((gf - bf) / d) % 6f);
-        else if (Math.Abs(max - gf) < float.Epsilon) h = 60f * (((bf - rf) / d) + 2f);
-        else h = 60f * (((rf - gf) / d) + 4f);
+        else if (Math.Abs(max - rf) < float.Epsilon) h = 60f * ((gf - bf) / d % 6f);
+        else if (Math.Abs(max - gf) < float.Epsilon) h = 60f * ((bf - rf) / d + 2f);
+        else h = 60f * ((rf - gf) / d + 4f);
 
         if (h < 0f) h += 360f;
 
-        var s = (max == 0f) ? 0f : (d / max);
+        var s = max == 0f ? 0f : d / max;
         var v = max;
 
-        return ((int)(h + 0.5f), (byte)(s * 255f + 0.5f), (byte)(v * 255f + 0.5f));
+        return ((int)(h + 0.5f),
+                (byte)(s * 255f + 0.5f),
+                (byte)(v * 255f + 0.5f));
     }
 
     private static (byte r, byte g, byte b) HsvToRgb(int hue, byte sat, byte val)
     {
-        var h = ((hue % 360) + 360) % 360 / 60f; // 0..6
+        var h = (hue % 360 + 360) % 360 / 60f; // 0..6
         var s = sat / 255f;
         var v = val / 255f;
 
@@ -256,29 +190,58 @@ public partial record struct Color {
         return (ToByte(rf), ToByte(gf), ToByte(bf));
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static byte ToByte(float x)
+    {
+        if (x <= 0f) return 0;
+        if (x >= 1f) return 255;
+        return (byte)(x * 255f + 0.5f);
+    }
+
     public override string ToString()
         => $"Color(R: {_r}, G: {_g}, B: {_b}, A: {_a})";
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static Color Lerp(in Color a, in Color b, float t)
-        => new(
-            a.Rf + (b.Rf - a.Rf) * t,
-            a.Gf + (b.Gf - a.Gf) * t,
-            a.Bf + (b.Bf - a.Bf) * t,
-            a.Af + (b.Af - a.Af) * t
-        );
+    {
+        // Lerp in float space, then quantize back to bytes.
+        var rf = a._r + (b._r - a._r) * t;
+        var gf = a._g + (b._g - a._g) * t;
+        var bf = a._b + (b._b - a._b) * t;
+        var af = a._a + (b._a - a._a) * t;
+
+        // rf/gf/bf/af are in [0..255] if t in [0..1], but clamp anyway.
+        static byte Clamp255(float x)
+        {
+            if (x <= 0f) return 0;
+            if (x >= 255f) return 255;
+            return (byte)(x + 0.5f);
+        }
+
+        return new Color(Clamp255(rf), Clamp255(gf), Clamp255(bf), Clamp255(af));
+    }
 
     // -----------------------------------------------------------------------------------------
     // Conversions for your API style.
     // -----------------------------------------------------------------------------------------
 
-    /// <summary>
-    /// Enables: Method(Color.Black) where Black is a uint const; or new Color(Color.Transparent).
-    /// </summary>
+    /// <summary>Enables: Method(Color.BLACK) where BLACK is a uint const; or new Color(Color.TRANSPARENT).</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static implicit operator Color(uint rgba) => new(rgba);
-    
-    
+
+    /// <summary>Convenient pack back to uint if you want it.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static implicit operator uint(Color c) => c.ToRgba32();
+
+    /// <summary>Implicit conversion to float-color.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static implicit operator ColorF(Color c) => new(
+        c._r * (1f / 255f),
+        c._g * (1f / 255f),
+        c._b * (1f / 255f),
+        c._a * (1f / 255f)
+    );
+
     #region Constants
 
     public const uint TRANSPARENT = 0x00000000u;
@@ -430,5 +393,6 @@ public partial record struct Color {
     public const uint WHITE_SMOKE = 0xF5F5F5FFu;
     public const uint YELLOW = 0xFFFF00FFu;
     public const uint YELLOW_GREEN = 0x9ACD32FFu;
+
     #endregion
 }

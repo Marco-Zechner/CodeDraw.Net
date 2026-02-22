@@ -14,6 +14,19 @@ public readonly record struct Rect(Vector2 Position, Vector2 Size, Origin LocalO
     
     public Rect(float x, float y, float width, float height, float originX, float originY) : this(new Vector2(x, y), new Vector2(width, height), new Origin(originX, originY)) {}
 
+#region Conversions
+    
+    public static explicit operator Rect(Rect<double> v) => new((Vector2)v.Position, (Vector2)v.Size, v.LocalOrigin);
+    public static implicit operator Rect<double>(Rect v) => new(v.Position, v.Size, v.LocalOrigin);
+
+    public static implicit operator Rect(Rect<float> v) => new(v.Position, v.Size, v.LocalOrigin);
+    public static implicit operator Rect<float>(Rect v) => new(v.Position, v.Size, v.LocalOrigin);
+
+    public static implicit operator Rect(Rect<int> v) => new(v.Position, v.Size, v.LocalOrigin);
+    public static explicit operator Rect<int>(Rect v) => new((Vector2<int>)v.Position, (Vector2<int>)v.Size, v.LocalOrigin);
+
+#endregion
+    
     /// <summary>
     /// Create a rect from min/max corners, without checking for min &lt;= max.
     /// </summary>

@@ -14,6 +14,22 @@ public readonly record struct Rect<T>(Vector2<T> Position, Vector2<T> Size, Orig
     public Rect(Vector2<T> position, Vector2<T> size, OriginLocating origin = OriginLocating.TopLeft)
         : this(position, size, origin.ToOrigin()) { }
 
+    public Rect(T x, T y, T width, T height, OriginLocating origin = OriginLocating.TopLeft)
+        : this(new Vector2<T>(x, y), new Vector2<T>(width, height), origin.ToOrigin()) { }
+    
+    public Rect(T x, T y, T width, T height, Origin? origin)
+        : this(new Vector2<T>(x, y), new Vector2<T>(width, height), origin ?? OriginLocating.TopLeft.ToOrigin()) { }
+   
+#region Implicit/Explicit Conversions
+    
+    public static implicit operator Rect<double>(Rect<T> v) => new(v.Position, v.Size, v.LocalOrigin);
+
+    public static explicit operator Rect<float>(Rect<T> v) => new((Vector2<float>)v.Position, (Vector2<float>)v.Size, v.LocalOrigin);
+    
+    public static explicit operator Rect<int>(Rect<T> v) => new((Vector2<int>)v.Position, (Vector2<int>)v.Size, v.LocalOrigin);
+    
+#endregion 
+    
     /// <summary>Create a rect from min/max corners, without checking for min &lt;= max.</summary>
     public static Rect<T> FromMinMaxUnchecked(Vector2<T> min, Vector2<T> max, OriginLocating origin = OriginLocating.TopLeft)
     {

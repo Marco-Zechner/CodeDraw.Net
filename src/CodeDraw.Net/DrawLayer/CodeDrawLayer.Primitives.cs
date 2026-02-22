@@ -21,7 +21,7 @@ public sealed unsafe partial class CodeDrawLayer
     
     public Vector2<int> Size => new(_w, _h);
 
-    public RectF FullRect => new(0, 0, _w, _h);
+    public Rect FullRect => new(0, 0, _w, _h);
 
     private struct Buffer
     {

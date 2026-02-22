@@ -1,6 +1,7 @@
 ﻿using MarcoZechner.CodeDrawDotNet.DrawLayer;
 using MarcoZechner.CodeDrawDotNet.Shaders;
 using MarcoZechner.CodeDrawDotNet.Window;
+using MarcoZechner.MathDotNet;
 using Silk.NET.GLFW;
 using CodeDrawLayer = MarcoZechner.CodeDrawDotNet.DrawLayer.CodeDrawLayer;
 
@@ -22,17 +23,17 @@ public sealed class Prototype2
 
     private int _hoverRegion = (int)HoverRegion.NONE;
 
-    private static bool Hit(RectF r, float mx, float my)
-        => mx >= r.X && mx <= r.X2 && my >= r.Y && my <= r.Y2;
+    private static bool Hit(Rect r, float mx, float my)
+        => mx >= r.Left && mx <= r.Right && my >= r.Top && my <= r.Bottom; //TODO: use Contains from Rect
 
     private static HoverRegion ComputeHoverInWinDst(float mx, float my)
     {
         // These MUST match the rectangles in your _winDst.OnUpdate
-        var regionB  = new RectF(30, 30, 220, 140);
-        var dstC     = new RectF(300, 30, 220, 140);
-        var dstD     = new RectF(30, 210, 490, 70);
-        var dstE     = new RectF(560, 30, 210, 210);
-        var dstF     = new RectF(560, 270, 210, 190);
+        var regionB  = new Rect(30, 30, 220, 140);
+        var dstC     = new Rect(300, 30, 220, 140);
+        var dstD     = new Rect(30, 210, 490, 70);
+        var dstE     = new Rect(560, 30, 210, 210);
+        var dstF     = new Rect(560, 270, 210, 190);
 
         // Order matters if you ever overlap.
         if (Hit(regionB, mx, my)) return HoverRegion.B_FULL;
@@ -128,7 +129,7 @@ public sealed class Prototype2
             layer.DrawRect(CX - 40, CY - 60, 80, TH*2, 1f, 1f, 1f, 1f);
 
             // --- 4) Border outline (detect UV flip / off-by-one / scaling) ---
-            DrawOutline(layer, new RectF(0, 0, W, H), new Rgba(1f, 1f, 1f, 1f), 3);
+            DrawOutline(layer, new Rect(0, 0, W, H), new Rgba(1f, 1f, 1f, 1f), 3);
 
             // --- 5) Moving marker (helps confirm "latest frame" + no caching bugs) ---
             var mx = 400 + 140 * MathF.Sin(_t * 0.9f) + 230 * MathF.Cos(_t * 1.6f);
@@ -201,27 +202,27 @@ public sealed class Prototype2
             dst.DrawRect(0, H - 4, W, 4, 0f, 1f, 0f, 1f);
             dst.SetBlendMode(BlendMode.SOURCE_OVER_ALPHA);
 
-            var regionB = new RectF(30, 30, 220, 140);
+            var regionB = new Rect(30, 30, 220, 140);
             dst.DrawLayer(src, regionB);
             DrawOutline(dst, regionB, new Rgba(1f, 1f, 1f, 1f));
 
-            var cropTl = new RectF(0, 0, 400, 250);
-            var dstC = new RectF(300, 30, 220, 140);
+            var cropTl = new Rect(0, 0, 400, 250);
+            var dstC = new Rect(300, 30, 220, 140);
             dst.DrawLayer(src, cropTl, dstC);
             DrawOutline(dst, dstC, new Rgba(1f, 0.5f, 0.5f, 1f));
 
-            var cropBand = new RectF(0, 0, 800, 120);
-            var dstD = new RectF(30, 210, 490, 70);
+            var cropBand = new Rect(0, 0, 800, 120);
+            var dstD = new Rect(30, 210, 490, 70);
             dst.DrawLayer(src, cropBand, dstD);
             DrawOutline(dst, dstD, new Rgba(0.6f, 1f, 0.6f, 1f));
 
-            var cropCenter = new RectF(300, 150, 200, 200);
-            var dstE = new RectF(560, 30, 210, 210);
+            var cropCenter = new Rect(300, 150, 200, 200);
+            var dstE = new Rect(560, 30, 210, 210);
             dst.DrawLayer(src, cropCenter, dstE);
             DrawOutline(dst, dstE, new Rgba(0.6f, 0.8f, 1f, 1f));
 
-            var cropBr = new RectF(400, 250, 400, 250);
-            var dstF = new RectF(560, 270, 210, 190);
+            var cropBr = new Rect(400, 250, 400, 250);
+            var dstF = new Rect(560, 270, 210, 190);
             dst.DrawLayer(src, cropBr, dstF);
             DrawOutline(dst, dstF, new Rgba(1f, 1f, 0.6f, 1f));
 
@@ -252,11 +253,11 @@ public sealed class Prototype2
             dst.SetBlendMode(BlendMode.SOURCE_OVER_ALPHA);
 
             // These are SOURCE-SPACE rects (as you already did)
-            var regionB = new RectF(0, 0, 800, 500);
-            var srcC    = new RectF(0, 0, 400, 250);
-            var srcD    = new RectF(0, 0, 800, 120);
-            var srcE    = new RectF(300, 150, 200, 200);
-            var srcF    = new RectF(400, 250, 400, 250);
+            var regionB = new Rect(0, 0, 800, 500);
+            var srcC    = new Rect(0, 0, 400, 250);
+            var srcD    = new Rect(0, 0, 800, 120);
+            var srcE    = new Rect(300, 150, 200, 200);
+            var srcF    = new Rect(400, 250, 400, 250);
 
             var hover = (HoverRegion)Volatile.Read(ref _hoverRegion);
 
@@ -281,13 +282,13 @@ public sealed class Prototype2
         app.WaitForClose();
     }
 
-    private static void DrawOutline(CodeDrawLayer l, RectF r, Rgba c, float t = 2f)
+    private static void DrawOutline(CodeDrawLayer l, Rect r, Rgba c, float t = 2f)
     {
         l.SetBlendMode(BlendMode.SOURCE_OVER_ALPHA);
-        l.DrawRect(r.X, r.Y, r.W, t, c.R, c.G, c.B, c.A);
-        l.DrawRect(r.X, r.Y + r.H - t, r.W, t, c.R, c.G, c.B, c.A);
-        l.DrawRect(r.X, r.Y, t, r.H, c.R, c.G, c.B, c.A);
-        l.DrawRect(r.X + r.W - t, r.Y, t, r.H, c.R, c.G, c.B, c.A);
+        l.DrawRect(r.Left, r.Top, r.Width, t, c.R, c.G, c.B, c.A);
+        l.DrawRect(r.Left, r.Top + r.Height - t, r.Width, t, c.R, c.G, c.B, c.A);
+        l.DrawRect(r.Left, r.Top, t, r.Height, c.R, c.G, c.B, c.A);
+        l.DrawRect(r.Left + r.Width - t, r.Top, t, r.Height, c.R, c.G, c.B, c.A);
     }
 
     private static void DrawGrid(CodeDrawLayer l, int w, int h, int step, Rgba c)
@@ -296,11 +297,11 @@ public sealed class Prototype2
         for (var y = 0; y < h; y += step) l.DrawRect(0, y, w, 1, c.R, c.G, c.B, c.A);
     }
 
-    private static void MarkCorner(CodeDrawLayer l, RectF r, Rgba c)
+    private static void MarkCorner(CodeDrawLayer l, Rect r, Rgba c)
     {
         // top-left "L" marker
         l.SetBlendMode(BlendMode.SOURCE_OVER_ALPHA);
-        l.DrawRect(r.X, r.Y, 14, 6, c.R, c.G, c.B, c.A);
-        l.DrawRect(r.X, r.Y, 6, 14, c.R, c.G, c.B, c.A);
+        l.DrawRect(r.Left, r.Top, 14, 6, c.R, c.G, c.B, c.A);
+        l.DrawRect(r.Left, r.Top, 6, 14, c.R, c.G, c.B, c.A);
     }
 }

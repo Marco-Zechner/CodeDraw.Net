@@ -1,4 +1,5 @@
-﻿using Silk.NET.OpenGL;
+﻿using MarcoZechner.MathDotNet;
+using Silk.NET.OpenGL;
 
 namespace MarcoZechner.CodeDrawDotNet.DrawLayer;
 
@@ -9,8 +10,8 @@ public sealed unsafe partial class CodeDrawLayer
     {
         public CodeDrawLayer? Src;
 
-        public RectF SrcRectPx;
-        public RectF DstRectPx;
+        public Rect SrcRectPx;
+        public Rect DstRectPx;
 
         // Optional per-draw blend override
         public bool HasBlendOverride;
@@ -26,10 +27,10 @@ public sealed unsafe partial class CodeDrawLayer
             if (DstRectPx.IsEmpty || SrcRectPx.IsEmpty) return;
 
             // Clamp src rect to src bounds (hard clamp: this avoids sampling outside)
-            var sx = MathF.Max(0, SrcRectPx.X);
-            var sy = MathF.Max(0, SrcRectPx.Y);
-            var sx2 = MathF.Min(sw, SrcRectPx.X2);
-            var sy2 = MathF.Min(sh, SrcRectPx.Y2);
+            var sx = MathF.Max(0, SrcRectPx.Left);
+            var sy = MathF.Max(0, SrcRectPx.Top);
+            var sx2 = MathF.Min(sw, SrcRectPx.Right);
+            var sy2 = MathF.Min(sh, SrcRectPx.Bottom);
             var cw = sx2 - sx;
             var ch = sy2 - sy;
             if (cw <= 0 || ch <= 0) return;
@@ -54,7 +55,7 @@ public sealed unsafe partial class CodeDrawLayer
             gl.BindTexture(GLEnum.Texture2D, tex);
             if (self._uLayerRectTex >= 0) gl.Uniform1(self._uLayerRectTex, 0);
 
-            Uniform4F(gl, self._uLayerRectDstRectPx, DstRectPx.X, DstRectPx.Y, DstRectPx.W, DstRectPx.H);
+            Uniform4F(gl, self._uLayerRectDstRectPx, DstRectPx.Left, DstRectPx.Top, DstRectPx.Width, DstRectPx.Height);
             Uniform2F(gl, self._uLayerRectDstResPx, self._w, self._h);
             Uniform4F(gl, self._uLayerRectSrcUvRect, u0, v0, du, dv);
 
@@ -76,28 +77,28 @@ public sealed unsafe partial class CodeDrawLayer
         private readonly CodeDrawLayer _dst;
         private readonly CodeDrawLayer _src;
 
-        private readonly RectF _srcRectPx; // crop in src pixels
+        private readonly Rect _srcRectPx; // crop in src pixels
 
         internal BlitSrcStage(CodeDrawLayer dst, CodeDrawLayer src)
         {
             _dst = dst;
             _src = src;
-            _srcRectPx = new RectF(0, 0, src._w, src._h);
+            _srcRectPx = new Rect(0, 0, src._w, src._h);
         }
 
-        private BlitSrcStage(CodeDrawLayer dst, CodeDrawLayer src, RectF srcRect)
+        private BlitSrcStage(CodeDrawLayer dst, CodeDrawLayer src, Rect srcRect)
         {
             _dst = dst;
             _src = src;
             _srcRectPx = srcRect;
         }
 
-        public BlitSrcStage Crop(RectF srcRectPx) => new(_dst, _src, srcRectPx);
+        public BlitSrcStage Crop(Rect srcRectPx) => new(_dst, _src, srcRectPx);
 
         // “FitToTarget” shortcut (dstRect = full dst)
         public BlitDstStage FitToTarget() => new(_dst, _src, _srcRectPx, _dst.FullRect);
 
-        public BlitDstStage Place(RectF dstRectPx) => new(_dst, _src, _srcRectPx, dstRectPx);
+        public BlitDstStage Place(Rect dstRectPx) => new(_dst, _src, _srcRectPx, dstRectPx);
     }
 
     public readonly struct BlitDstStage
@@ -105,13 +106,13 @@ public sealed unsafe partial class CodeDrawLayer
         private readonly CodeDrawLayer _dst;
         private readonly CodeDrawLayer _src;
 
-        private readonly RectF _srcRectPx;
-        private readonly RectF _dstRectPx;
+        private readonly Rect _srcRectPx;
+        private readonly Rect _dstRectPx;
 
         private readonly bool _hasBlendOverride;
         private readonly BlendMode _blendOverride;
 
-        internal BlitDstStage(CodeDrawLayer dst, CodeDrawLayer src, RectF srcRect, RectF dstRect)
+        internal BlitDstStage(CodeDrawLayer dst, CodeDrawLayer src, Rect srcRect, Rect dstRect)
         {
             _dst = dst;
             _src = src;
@@ -121,7 +122,7 @@ public sealed unsafe partial class CodeDrawLayer
             _blendOverride = default;
         }
 
-        private BlitDstStage(CodeDrawLayer dst, CodeDrawLayer src, RectF srcRect, RectF dstRect, bool hasBlend, BlendMode mode)
+        private BlitDstStage(CodeDrawLayer dst, CodeDrawLayer src, Rect srcRect, Rect dstRect, bool hasBlend, BlendMode mode)
         {
             _dst = dst;
             _src = src;
@@ -153,19 +154,19 @@ public sealed unsafe partial class CodeDrawLayer
             srcX = srcY = 0;
 
             // outside dst rect -> no mapping
-            if (dstX < _dstRectPx.X || dstX > _dstRectPx.X2 ||
-                dstY < _dstRectPx.Y || dstY > _dstRectPx.Y2)
+            if (dstX < _dstRectPx.Left || dstX > _dstRectPx.Right ||
+                dstY < _dstRectPx.Top || dstY > _dstRectPx.Bottom)
                 return false;
 
-            float du = _dstRectPx.W;
-            float dv = _dstRectPx.H;
+            float du = _dstRectPx.Width;
+            float dv = _dstRectPx.Height;
             if (du == 0 || dv == 0) return false;
 
-            float lx = (dstX - _dstRectPx.X) / du; // 0..1
-            float ly = (dstY - _dstRectPx.Y) / dv; // 0..1
+            float lx = (dstX - _dstRectPx.Left) / du; // 0..1
+            float ly = (dstY - _dstRectPx.Top) / dv; // 0..1
 
-            srcX = _srcRectPx.X + lx * _srcRectPx.W;
-            srcY = _srcRectPx.Y + ly * _srcRectPx.H;
+            srcX = _srcRectPx.Left + lx * _srcRectPx.Width;
+            srcY = _srcRectPx.Top + ly * _srcRectPx.Height;
             return true;
         }
 
@@ -174,19 +175,19 @@ public sealed unsafe partial class CodeDrawLayer
             dstX = dstY = 0;
 
             // outside src rect -> no mapping
-            if (srcX < _srcRectPx.X || srcX > _srcRectPx.X2 ||
-                srcY < _srcRectPx.Y || srcY > _srcRectPx.Y2)
+            if (srcX < _srcRectPx.Left || srcX > _srcRectPx.Right ||
+                srcY < _srcRectPx.Top || srcY > _srcRectPx.Bottom)
                 return false;
 
-            float su = _srcRectPx.W;
-            float sv = _srcRectPx.H;
+            float su = _srcRectPx.Width;
+            float sv = _srcRectPx.Height;
             if (su == 0 || sv == 0) return false;
 
-            float lx = (srcX - _srcRectPx.X) / su; // 0..1
-            float ly = (srcY - _srcRectPx.Y) / sv; // 0..1
+            float lx = (srcX - _srcRectPx.Left) / su; // 0..1
+            float ly = (srcY - _srcRectPx.Top) / sv; // 0..1
 
-            dstX = _dstRectPx.X + lx * _dstRectPx.W;
-            dstY = _dstRectPx.Y + ly * _dstRectPx.H;
+            dstX = _dstRectPx.Left + lx * _dstRectPx.Width;
+            dstY = _dstRectPx.Top + ly * _dstRectPx.Height;
             return true;
         }
     }

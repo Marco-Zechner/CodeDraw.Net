@@ -1,5 +1,6 @@
 ﻿using MarcoZechner.CodeDrawDotNet.Shaders;
 using MarcoZechner.CodeDrawDotNet.Window;
+using MarcoZechner.MathDotNet;
 
 namespace MarcoZechner.CodeDrawDotNet.DrawLayer;
 
@@ -51,16 +52,16 @@ public sealed partial class CodeDrawLayer
         Enqueue(new CmdLayer { Src = src, Shader = shader });
     }
 
-    public void DrawLayer(CodeDrawLayer src, RectF dstRect)
+    public void DrawLayer(CodeDrawLayer src, Rect dstRect)
         => Blit(src).Place(dstRect).Draw();
 
-    public void DrawLayer(CodeDrawLayer src, RectF dstRect, BlendMode blend)
+    public void DrawLayer(CodeDrawLayer src, Rect dstRect, BlendMode blend)
         => Blit(src).Place(dstRect).Blend(blend).Draw();
 
-    public void DrawLayer(CodeDrawLayer src, RectF srcRect, bool fitToTarget)
-        => Blit(src).Crop(srcRect).Place(fitToTarget ? FullRect : new RectF(0, 0, srcRect.W, srcRect.H)).Draw();
+    public void DrawLayer(CodeDrawLayer src, Rect srcRect, bool fitToTarget)
+        => Blit(src).Crop(srcRect).Place(fitToTarget ? FullRect : new Rect(0, 0, srcRect.Width, srcRect.Height)).Draw();
 
-    public void DrawLayer(CodeDrawLayer src, RectF srcRect, RectF dstRect)
+    public void DrawLayer(CodeDrawLayer src, Rect srcRect, Rect dstRect)
         => Blit(src).Crop(srcRect).Place(dstRect).Draw();
 
 
@@ -145,51 +146,51 @@ public sealed partial class CodeDrawLayer
 
     public bool TransformLayerPointFrom(
         CodeDrawLayer src,
-        RectF dstRectPx,
+        Rect dstRectPx,
         float srcX, float srcY,
         out float dstX, out float dstY)
     {
         // src full rect
-        var srcRect = new RectF(0, 0, src._w, src._h);
+        var srcRect = new Rect(0, 0, src._w, src._h);
         return TransformLayerPointFrom(src, srcRect, dstRectPx, srcX, srcY, out dstX, out dstY);
     }
 
     public bool TransformLayerPointTo(
         CodeDrawLayer src,
-        RectF dstRectPx,
+        Rect dstRectPx,
         float dstX, float dstY,
         out float srcX, out float srcY)
     {
-        var srcRect = new RectF(0, 0, src._w, src._h);
+        var srcRect = new Rect(0, 0, src._w, src._h);
         return TransformLayerPointTo(src, srcRect, dstRectPx, dstX, dstY, out srcX, out srcY);
     }
 
     public bool TransformLayerPointFrom(
         CodeDrawLayer src,
-        RectF srcRectPx,
+        Rect srcRectPx,
         bool fitToTarget,
         float srcX, float srcY,
         out float dstX, out float dstY)
     {
-        var dstRectPx = fitToTarget ? FullRect : new RectF(0, 0, srcRectPx.W, srcRectPx.H);
+        var dstRectPx = fitToTarget ? FullRect : new Rect(0, 0, srcRectPx.Width, srcRectPx.Height);
         return TransformLayerPointFrom(src, srcRectPx, dstRectPx, srcX, srcY, out dstX, out dstY);
     }
 
     public bool TransformLayerPointTo(
         CodeDrawLayer src,
-        RectF srcRectPx,
+        Rect srcRectPx,
         bool fitToTarget,
         float dstX, float dstY,
         out float srcX, out float srcY)
     {
-        var dstRectPx = fitToTarget ? FullRect : new RectF(0, 0, srcRectPx.W, srcRectPx.H);
+        var dstRectPx = fitToTarget ? FullRect : new Rect(0, 0, srcRectPx.Width, srcRectPx.Height);
         return TransformLayerPointTo(src, srcRectPx, dstRectPx, dstX, dstY, out srcX, out srcY);
     }
 
     public static bool TransformLayerPointFrom(
         CodeDrawLayer src,
-        RectF srcRectPx,
-        RectF dstRectPx,
+        Rect srcRectPx,
+        Rect dstRectPx,
         float srcX, float srcY,
         out float dstX, out float dstY)
     {
@@ -198,26 +199,26 @@ public sealed partial class CodeDrawLayer
         if (srcRectPx.IsEmpty || dstRectPx.IsEmpty) return false;
 
         // outside srcRect => no mapping
-        if (srcX < srcRectPx.X || srcX > srcRectPx.X2 ||
-            srcY < srcRectPx.Y || srcY > srcRectPx.Y2)
+        if (srcX < srcRectPx.Left || srcX > srcRectPx.Right ||
+            srcY < srcRectPx.Top || srcY > srcRectPx.Bottom )
             return false;
 
-        float su = srcRectPx.W;
-        float sv = srcRectPx.H;
+        float su = srcRectPx.Width;
+        float sv = srcRectPx.Height;
         if (su == 0 || sv == 0) return false;
 
-        float lx = (srcX - srcRectPx.X) / su; // 0..1
-        float ly = (srcY - srcRectPx.Y) / sv; // 0..1
+        float lx = (srcX - srcRectPx.Left) / su; // 0..1
+        float ly = (srcY - srcRectPx.Top) / sv; // 0..1
 
-        dstX = dstRectPx.X + lx * dstRectPx.W;
-        dstY = dstRectPx.Y + ly * dstRectPx.H;
+        dstX = dstRectPx.Left + lx * dstRectPx.Width;
+        dstY = dstRectPx.Top + ly * dstRectPx.Height;
         return true;
     }
 
     public static bool TransformLayerPointTo(
         CodeDrawLayer src,
-        RectF srcRectPx,
-        RectF dstRectPx,
+        Rect srcRectPx,
+        Rect dstRectPx,
         float dstX, float dstY,
         out float srcX, out float srcY)
     {
@@ -226,19 +227,19 @@ public sealed partial class CodeDrawLayer
         if (srcRectPx.IsEmpty || dstRectPx.IsEmpty) return false;
 
         // outside dstRect => no mapping
-        if (dstX < dstRectPx.X || dstX > dstRectPx.X2 ||
-            dstY < dstRectPx.Y || dstY > dstRectPx.Y2)
+        if (dstX < dstRectPx.Left || dstX > dstRectPx.Right ||
+            dstY < dstRectPx.Top || dstY > dstRectPx.Bottom)
             return false;
 
-        float du = dstRectPx.W;
-        float dv = dstRectPx.H;
+        float du = dstRectPx.Width;
+        float dv = dstRectPx.Height;
         if (du == 0 || dv == 0) return false;
 
-        float lx = (dstX - dstRectPx.X) / du; // 0..1
-        float ly = (dstY - dstRectPx.Y) / dv; // 0..1
+        float lx = (dstX - dstRectPx.Left) / du; // 0..1
+        float ly = (dstY - dstRectPx.Top) / dv; // 0..1
 
-        srcX = srcRectPx.X + lx * srcRectPx.W;
-        srcY = srcRectPx.Y + ly * srcRectPx.H;
+        srcX = srcRectPx.Left + lx * srcRectPx.Width;
+        srcY = srcRectPx.Top + ly * srcRectPx.Height;
         return true;
     }
 

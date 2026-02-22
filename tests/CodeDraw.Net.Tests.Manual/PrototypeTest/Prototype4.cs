@@ -177,7 +177,7 @@ public class Prototype4
             DrawOrbitDots(trailLayer, orbitShader, trailLayer.Width/2, trailLayer.Height/2, 14, 220, 6f, 0, new Rgba(1.00f, 0.45f, 0.10f, 1.00f));
             trailLayer.Render();
             layer.SetBlendMode(BlendMode.ADD);
-            layer.DrawLayer(trailLayer, dstRect: new RectF(cx-trailLayer.Width/2f, cy-trailLayer.Height/2f, trailLayer.Width, trailLayer.Height));
+            layer.DrawLayer(trailLayer, dstRect: new Rect(cx-trailLayer.Width/2f, cy-trailLayer.Height/2f, trailLayer.Width, trailLayer.Height));
             layer.SetBlendMode(BlendMode.SOURCE_OVER_ALPHA);
             
             DrawOrbitDots(layer, orbitShader, (int)cx, (int)cy, 10,360, -4f, 0, new Rgba(0.10f, 0.80f, 1.00f, 1.00f));

@@ -1,4 +1,5 @@
-﻿using MarcoZechner.CodeDrawDotNet.Shaders;
+﻿using MarcoZechner.CodeDrawDotNet.DrawLayer.Commands;
+using MarcoZechner.CodeDrawDotNet.Shaders;
 using MarcoZechner.MathDotNet;
 using Silk.NET.OpenGL;
 
@@ -6,8 +7,6 @@ namespace MarcoZechner.CodeDrawDotNet.DrawLayer;
 
 public sealed unsafe partial class CodeDrawLayer
 {
-    private interface ICmd { void Exec(GL gl, CodeDrawLayer self); }
-
     private sealed class CmdSetBlendMode : ICmd
     {
         public BlendMode Mode;
@@ -23,14 +22,7 @@ public sealed unsafe partial class CodeDrawLayer
             gl.Clear((uint)ClearBufferMask.ColorBufferBit);
         }
     }
-
-    private sealed class CmdRect : ICmd
-    {
-        public float X, Y, W, H;
-        public float R, G, B, A;
-        public void Exec(GL gl, CodeDrawLayer self) => self.ExecRect(gl, X, Y, W, H, R, G, B, A);
-    }
-
+    
     private sealed class CmdLayer : ICmd
     {
         public CodeDrawLayer? Src;
@@ -54,37 +46,5 @@ public sealed unsafe partial class CodeDrawLayer
     {
         public bool Enabled;
         public void Exec(GL gl, CodeDrawLayer self) => self._clearFirst = Enabled;
-    }
-
-    private sealed class CmdCustomRect : ICmd
-    {
-        public Rect<int> Rect; 
-        public CodeDrawShader? Shader;
-        public Uniforms Uniforms;
-
-        public void Exec(GL gl, CodeDrawLayer self)
-        {
-            var s = Shader;
-            if (s is null) return;
-
-            self.ExecCustomRect(
-                gl,
-                Rect,
-                s,
-                Uniforms);
-        }
-    }
-    
-    private sealed class CmdPostProcess : ICmd
-    {
-        public CodeDrawShader? Shader;
-        public Uniforms Uniforms;
-
-        public void Exec(GL gl, CodeDrawLayer self)
-        {
-            var s = Shader;
-            if (s is null) return;
-            self.ExecPostProcess(gl, s, Uniforms);
-        }
     }
 }

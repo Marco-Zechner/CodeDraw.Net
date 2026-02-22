@@ -1,74 +1,61 @@
-﻿using MarcoZechner.MathDotNet;
+﻿using MarcoZechner.CodeDrawDotNet.DrawLayer.Commands;
+using MarcoZechner.MathDotNet;
 using Silk.NET.OpenGL;
 
 namespace MarcoZechner.CodeDrawDotNet.DrawLayer;
 
 public sealed unsafe partial class CodeDrawLayer
 {
-    // ---------- internal command ----------
-    private sealed class CmdBlit : ICmd
+    internal void ExecBlit(GL gl, CodeDrawLayer self, Rect srcRectPx, Rect dstRectPx, bool hasBlendOverride, BlendMode blendOverride)
     {
-        public CodeDrawLayer? Src;
+        if (self._disposed) return;
+        if (!self.TryGetLatest(out var tex, out var sw, out var sh, out _, out _)) return;
+        if (tex == 0 || sw <= 0 || sh <= 0) return;
 
-        public Rect SrcRectPx;
-        public Rect DstRectPx;
+        if (dstRectPx.IsEmpty || srcRectPx.IsEmpty) return;
 
-        // Optional per-draw blend override
-        public bool HasBlendOverride;
-        public BlendMode BlendOverride;
+        // Clamp src rect to src bounds (hard clamp: this avoids sampling outside)
+        var sx = MathF.Max(0, srcRectPx.Left);
+        var sy = MathF.Max(0, srcRectPx.Top);
+        var sx2 = MathF.Min(sw, srcRectPx.Right);
+        var sy2 = MathF.Min(sh, srcRectPx.Bottom);
+        var cw = sx2 - sx;
+        var ch = sy2 - sy;
+        if (cw <= 0 || ch <= 0) return;
 
-        public void Exec(GL gl, CodeDrawLayer self)
+        var u0 = sx / sw;
+        var v0 = 1f - ((sy + ch) / sh);
+        var du = cw / sw;
+        var dv = ch / sh;
+
+        // Blend override (scoped)
+        var oldBlend = self._blendMode;
+        if (hasBlendOverride)
         {
-            var src = Src;
-            if (src is null || src._disposed) return;
-            if (!src.TryGetLatest(out var tex, out var sw, out var sh, out _, out _)) return;
-            if (tex == 0 || sw <= 0 || sh <= 0) return;
-
-            if (DstRectPx.IsEmpty || SrcRectPx.IsEmpty) return;
-
-            // Clamp src rect to src bounds (hard clamp: this avoids sampling outside)
-            var sx = MathF.Max(0, SrcRectPx.Left);
-            var sy = MathF.Max(0, SrcRectPx.Top);
-            var sx2 = MathF.Min(sw, SrcRectPx.Right);
-            var sy2 = MathF.Min(sh, SrcRectPx.Bottom);
-            var cw = sx2 - sx;
-            var ch = sy2 - sy;
-            if (cw <= 0 || ch <= 0) return;
-
-            var u0 = sx / sw;
-            var v0 = 1f - ((sy + ch) / sh);
-            var du = cw / sw;
-            var dv = ch / sh;
-
-            // Blend override (scoped)
-            var oldBlend = self._blendMode;
-            if (HasBlendOverride)
-            {
-                self._blendMode = BlendOverride;
-                self.ApplyBlendMode();
-            }
-
-            gl.UseProgram(self._progLayerRect);
-            gl.BindVertexArray(self._vao);
-
-            gl.ActiveTexture(GLEnum.Texture0);
-            gl.BindTexture(GLEnum.Texture2D, tex);
-            if (self._uLayerRectTex >= 0) gl.Uniform1(self._uLayerRectTex, 0);
-
-            Uniform4F(gl, self._uLayerRectDstRectPx, DstRectPx.Left, DstRectPx.Top, DstRectPx.Width, DstRectPx.Height);
-            Uniform2F(gl, self._uLayerRectDstResPx, self._w, self._h);
-            Uniform4F(gl, self._uLayerRectSrcUvRect, u0, v0, du, dv);
-
-            gl.DrawElements(GLEnum.Triangles, 6, GLEnum.UnsignedInt, null);
-
-            gl.BindTexture(GLEnum.Texture2D, 0);
-            gl.BindVertexArray(0);
-            gl.UseProgram(0);
-
-            if (!HasBlendOverride) return;
-            self._blendMode = oldBlend;
+            self._blendMode = blendOverride;
             self.ApplyBlendMode();
         }
+
+        gl.UseProgram(self._progLayerRect);
+        gl.BindVertexArray(self._vao);
+
+        gl.ActiveTexture(GLEnum.Texture0);
+        gl.BindTexture(GLEnum.Texture2D, tex);
+        if (self._uLayerRectTex >= 0) gl.Uniform1(self._uLayerRectTex, 0);
+
+        Uniform4F(gl, self._uLayerRectDstRectPx, dstRectPx.Left, dstRectPx.Top, dstRectPx.Width, dstRectPx.Height);
+        Uniform2F(gl, self._uLayerRectDstResPx, self._w, self._h);
+        Uniform4F(gl, self._uLayerRectSrcUvRect, u0, v0, du, dv);
+
+        gl.DrawElements(GLEnum.Triangles, 6, GLEnum.UnsignedInt, null);
+
+        gl.BindTexture(GLEnum.Texture2D, 0);
+        gl.BindVertexArray(0);
+        gl.UseProgram(0);
+
+        if (!hasBlendOverride) return;
+        self._blendMode = oldBlend;
+        self.ApplyBlendMode();
     }
 
     // ---------- stages ----------

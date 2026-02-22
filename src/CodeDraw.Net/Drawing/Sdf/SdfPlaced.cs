@@ -4,7 +4,6 @@ namespace MarcoZechner.CodeDrawDotNet.Drawing.Sdf;
 
 public readonly record struct SdfPlaced(ISdf2 Shape, Matrix3x3 LocalToWorld)
 {
-    public readonly Matrix3x3 LocalToWorld = LocalToWorld;
     public readonly ISdf2 Shape = Shape;
 
     // Cached inverse is worth it if you evaluate many points/pixels.

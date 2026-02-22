@@ -49,3 +49,6 @@ look into Matrix5x5 for colors? what use do these have.
 look into RGB linear and sRGB conversions
 
 BUG: files are constantly being read
+
+---
+

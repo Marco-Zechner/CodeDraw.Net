@@ -1,4 +1,5 @@
 ﻿using System.Numerics;
+using MarcoZechner.CodeDrawDotNet.DrawLayer.Commands;
 using MarcoZechner.CodeDrawDotNet.Shaders;
 using MarcoZechner.CodeDrawDotNet.Text;
 using MarcoZechner.ColorDotNet.RGB;
@@ -131,15 +132,9 @@ public sealed unsafe partial class CodeDrawLayer
         Enqueue(new CmdText { Text = text, X = x, Y = y, Style = copy });
     }
 
-    private sealed class CmdText : ICmd
-    {
-        public string Text = "";
-        public float X, Y;
-        public TextStyle Style = null!;
-        public void Exec(GL gl, CodeDrawLayer self) => self.ExecText(gl, Text, X, Y, Style);
-    }
 
-    private void ExecText(GL gl, string text, float x, float y, TextStyle style)
+
+    internal void ExecText(GL gl, string text, float x, float y, TextStyle style)
     {
         EnsureTextInit();
         if (_textLayout == null || _textAtlasBackend == null) return;

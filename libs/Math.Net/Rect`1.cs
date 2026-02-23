@@ -142,6 +142,8 @@ public readonly record struct Rect<T>(Vector2<T> Position, Vector2<T> Size, Orig
     // Containment / intersection
     // -----------------------------
 
+    public bool Contains(T x, T y, ContainsMode mode = ContainsMode.InclusiveMin) => Contains(new Vector2<T>(x, y), mode);
+    
     public bool Contains(Vector2<T> p, ContainsMode mode = ContainsMode.InclusiveMin)
     {
         var left   = (mode & ContainsMode.InclusiveLeft)   != 0 ? p.X >= Left   : p.X > Left;

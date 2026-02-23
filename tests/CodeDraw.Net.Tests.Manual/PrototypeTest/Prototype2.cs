@@ -24,24 +24,21 @@ public sealed class Prototype2
 
     private int _hoverRegion = (int)HoverRegion.NONE;
 
-    private static bool Hit(Rect r, float mx, float my)
-        => mx >= r.Left && mx <= r.Right && my >= r.Top && my <= r.Bottom; //TODO: use Contains from Rect
-
     private static HoverRegion ComputeHoverInWinDst(float mx, float my)
     {
         // These MUST match the rectangles in your _winDst.OnUpdate
-        var regionB  = new RectWh(30, 30, 220, 140);
-        var dstC     = new RectWh(300, 30, 220, 140);
-        var dstD     = new RectWh(30, 210, 490, 70);
-        var dstE     = new RectWh(560, 30, 210, 210);
-        var dstF     = new RectWh(560, 270, 210, 190);
+        Rect regionB  = new RectWh(30, 30, 220, 140);
+        Rect dstC     = new RectWh(300, 30, 220, 140);
+        Rect dstD     = new RectWh(30, 210, 490, 70);
+        Rect dstE     = new RectWh(560, 30, 210, 210);
+        Rect dstF     = new RectWh(560, 270, 210, 190);
 
         // Order matters if you ever overlap.
-        if (Hit(regionB, mx, my)) return HoverRegion.B_FULL;
-        if (Hit(dstC,    mx, my)) return HoverRegion.C_TL_QUADRANT;
-        if (Hit(dstD,    mx, my)) return HoverRegion.D_BAND;
-        if (Hit(dstE,    mx, my)) return HoverRegion.E_CENTER;
-        if (Hit(dstF,    mx, my)) return HoverRegion.F_BR_QUADRANT;
+        if (regionB.Contains(mx, my)) return HoverRegion.B_FULL;
+        if (dstC.Contains(mx, my)) return HoverRegion.C_TL_QUADRANT;
+        if (dstD.Contains(mx, my)) return HoverRegion.D_BAND;
+        if (dstE.Contains(mx, my)) return HoverRegion.E_CENTER;
+        if (dstF.Contains(mx, my)) return HoverRegion.F_BR_QUADRANT;
 
         return HoverRegion.NONE;
     }

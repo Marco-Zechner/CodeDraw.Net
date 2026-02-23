@@ -23,8 +23,9 @@ void main()
 
     // world/layer px -> NDC (top-left origin)
     vec2 ndc;
-    ndc.x = (pWorld.x / uRes.x) * 2.0 - 1.0;
-    ndc.y = 1.0 - (pWorld.y / uRes.y) * 2.0;
+    vec2 p = pWorld + vec2(0.5, 0.5);
+    ndc.x = (p.x / uRes.x) * 2.0 - 1.0;
+    ndc.y = 1.0 - (p.y / uRes.y) * 2.0;
 
     gl_Position = vec4(ndc, 0.0, 1.0);
 }

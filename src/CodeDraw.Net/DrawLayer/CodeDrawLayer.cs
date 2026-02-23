@@ -238,6 +238,8 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
     private AutoUniform _uSdfStrokeThickness = null!, _uSdfFeatherPx = null!;
     private AutoUniform _uSdfHasFill = null!, _uSdfHasStroke = null!;
     private uint _sdfSsbo; //TODO: make "AutoSSBO" similar to "AutoUniform"
+    private uint _sdfMatSsbo;
+    private uint _sdfRuleSsbo;
 
     private int _w, _h;
 
@@ -308,7 +310,9 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
         _uSdfFeatherPx       = new AutoUniform(_gl, this, _progSdf, "uFeatherPx");
         _uSdfHasFill         = new AutoUniform(_gl, this, _progSdf, "uHasFill");
         _uSdfHasStroke       = new AutoUniform(_gl, this, _progSdf, "uHasStroke");
-        _sdfSsbo = _gl.GenBuffer(); //TODO: cleanup required?
+        _sdfSsbo = _gl.GenBuffer();
+        _sdfMatSsbo = _gl.GenBuffer();
+        _sdfRuleSsbo = _gl.GenBuffer();
     }
 
     public void Dispose()
@@ -469,7 +473,11 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
             DeleteBuffer(ref _cpu);
             
             if (_sdfSsbo != 0) _gl.DeleteBuffer(_sdfSsbo);
+            if (_sdfMatSsbo != 0) _gl.DeleteBuffer(_sdfMatSsbo);
+            if (_sdfRuleSsbo != 0) _gl.DeleteBuffer(_sdfRuleSsbo);
             _sdfSsbo = 0;
+            _sdfMatSsbo = 0;
+            _sdfRuleSsbo = 0;
 
             ShaderStore.DisposeConsumer(_gl, this);
 

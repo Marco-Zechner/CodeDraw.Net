@@ -1,10 +1,12 @@
 ﻿using MarcoZechner.CodeDrawDotNet.Drawing;
+using MarcoZechner.CodeDrawDotNet.Drawing.SdfGpu;
 using MarcoZechner.CodeDrawDotNet.Drawing.SdfNode;
 using MarcoZechner.CodeDrawDotNet.Drawing.SdfNode.Composition;
 using MarcoZechner.CodeDrawDotNet.Drawing.SdfNode.Primitives;
 using MarcoZechner.CodeDrawDotNet.Drawing.SdfNode.Transform;
 using MarcoZechner.CodeDrawDotNet.Text;
 using MarcoZechner.CodeDrawDotNet.Window;
+using MarcoZechner.ColorDotNet.HSV;
 using MarcoZechner.ColorDotNet.RGB;
 using MarcoZechner.MathDotNet;
 
@@ -14,6 +16,7 @@ public class SdfPrototype2
 {
     // --- persistent nodes (allocated once) ---
     private readonly SdfRectNode[] _barRects = new SdfRectNode[6];
+    private readonly SdfMaterialDef[] _barMaterials = new SdfMaterialDef[6];
     private readonly SdfTransformNode[] _barXf = new SdfTransformNode[6];
     private readonly ISdf2Node[] _barChildren = new ISdf2Node[6];
 
@@ -47,11 +50,31 @@ public class SdfPrototype2
         for (var i = 0; i < 6; i++)
         {
             _barRects[i] = new SdfRectNode { Rect = new RectWh(0, 0, 20, 80) };
-            _barXf[i] = new SdfTransformNode
+
+            // different color per bar
+            var hue = i / 6f;
+            var color = new ColorHsvF((int)(hue * 360f), 0.7f, 1f); // or your own hsv helper
+
+            var style = new DrawStyle(
+                new Paint(color, default(Stroke)),
+                FeatherPx: 1.0f
+            );
+
+            _barMaterials[i] = new SdfMaterialDef(style);
+
+            // attach material to the primitive
+            ISdf2Node tagged = new SdfMaterialNode
             {
                 Child = _barRects[i],
+                Material = _barMaterials[i]
+            };
+
+            _barXf[i] = new SdfTransformNode
+            {
+                Child = tagged,
                 LocalToParent = Matrix3x3.CreateRotation(i * 60f),
             };
+
             _barChildren[i] = _barXf[i];
         }
         
@@ -66,15 +89,15 @@ public class SdfPrototype2
             Children = _barChildren,
         };
 
-        var barsSub = new SdfSubtractNode {
-            A = barsUnion,
-            Bs = [barsCenterCircle],
-        };
+        // var barsSub = new SdfSubtractNode {
+            // A = barsUnion,
+            // Bs = [barsCenterCircle],
+        // };
         
-        var barStyle = new DrawStyle(
-            new Paint(new ColorF(0.6f, 0.4f, 1f, 1f), default(Stroke)),
-            FeatherPx: 1.0f
-        );
+        // var barStyle = new DrawStyle(
+            // new Paint(new ColorF(0.6f, 0.4f, 1f, 1f), default(Stroke)),
+            // FeatherPx: 1.0f
+        // );
 
         // ---- window loop ----
         using var app = CodeDrawHost.Started();
@@ -112,7 +135,7 @@ public class SdfPrototype2
             using (layer.ScopeTranslate(layer.Width/2, layer.Height/2))
             using (layer.ScopeRotate(time * 20))
             {
-                layer.DrawSdf(barsSub, barStyle);
+                layer.DrawSdf(barsUnion);
                 // barsSub.DrawDebugRect(layer, ((ColorF)Colors.WHITE) with { A = 0.5f }, barStyle);
             }
             

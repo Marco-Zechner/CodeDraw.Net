@@ -49,7 +49,7 @@ public class SdfPrototype2
         // build graph once
         for (var i = 0; i < 6; i++)
         {
-            _barRects[i] = new SdfRectNode { Rect = new RectWh(0, 0, 20, 80) };
+            _barRects[i] = new SdfRectNode { Rect = new RectWh(0, 0, 30, 80) };
 
             // different color per bar
             var hue = i / 6f;
@@ -79,8 +79,13 @@ public class SdfPrototype2
         }
         
         var barsCenterCircle = new SdfCircleNode {
-            Radius = 20,
+            Radius = 10,
             Center = Vector2.Zero,
+        };
+
+        var offsetCircle = new SdfTransformNode {
+            Child = barsCenterCircle,
+            LocalToParent = Matrix3x3.CreateTranslation(0, 20),
         };
 
         var barsUnion = new SdfSmoothUnionNode
@@ -89,10 +94,10 @@ public class SdfPrototype2
             Children = _barChildren,
         };
 
-        // var barsSub = new SdfSubtractNode {
-            // A = barsUnion,
-            // Bs = [barsCenterCircle],
-        // };
+        var barsSub = new SdfSubtractNode {
+            A = barsUnion,
+            Bs = [offsetCircle],
+        };
         
         // var barStyle = new DrawStyle(
             // new Paint(new ColorF(0.6f, 0.4f, 1f, 1f), default(Stroke)),
@@ -132,10 +137,13 @@ public class SdfPrototype2
                 _barRects[i].Rect = new Rect(new Vector2(0, outwardsOffset), rect.Rect.Size, OriginLocation.BottomCenter);
             }
             
+            offsetCircle.LocalToParent = Matrix3x3.CreateRotation(time * 200f) * Matrix3x3.CreateTranslation(0f, 20f);
+            
             using (layer.ScopeTranslate(layer.Width/2, layer.Height/2))
             using (layer.ScopeRotate(time * 20))
+            using (layer.ScopeScale(2, 2))
             {
-                layer.DrawSdf(barsUnion);
+                layer.DrawSdf(barsSub);
                 // barsSub.DrawDebugRect(layer, ((ColorF)Colors.WHITE) with { A = 0.5f }, barStyle);
             }
             

@@ -29,13 +29,18 @@ internal sealed class SdfGpuMaterialPacker
 
         foreach (var r in def.Rules)
         {
+            var cB = r.ColorB ?? r.ColorA; // fallback
             _rules.Add(new GpuSdfColorRule
             {
                 Mode = (int)r.Mode,
-                R = r.Color.R, G = r.Color.G, B = r.Color.B, A = r.Color.A,
+
+                R = r.ColorA.R, G = r.ColorA.G, B = r.ColorA.B, A = r.ColorA.A,
                 A0 = r.A,
                 B0 = r.B,
                 Feather = MathF.Max(0f, r.FeatherPx),
+                Step = MathF.Max(0f, r.StepPx),
+
+                R2 = cB.R, G2 = cB.G, B2 = cB.B, A2 = cB.A,
             });
         }
 

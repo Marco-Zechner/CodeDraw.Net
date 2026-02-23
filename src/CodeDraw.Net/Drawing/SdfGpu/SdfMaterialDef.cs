@@ -8,15 +8,19 @@ public enum SdfRuleMode
     SdLessThan = 1,
     SdGreaterThan = 2,
     Range = 3,
-    NearValue = 4
+    NearValue = 4,
+    Gradient = 5,
+    GradientStep = 6,
 }
 
 public readonly record struct SdfColorRuleDef(
     SdfRuleMode Mode,
-    ColorF Color,
+    ColorF ColorA,
     float A,
     float B,
-    float FeatherPx
+    float FeatherPx,
+    ColorF? ColorB = null,
+    float StepPx = 0f
 );
 
 public sealed class SdfMaterialDef(in DrawStyle style)

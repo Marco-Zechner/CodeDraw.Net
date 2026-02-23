@@ -1,4 +1,5 @@
-﻿using MarcoZechner.CodeDrawDotNet.Drawing.SdfNode;
+﻿using MarcoZechner.CodeDrawDotNet.Drawing.SdfGpu;
+using MarcoZechner.CodeDrawDotNet.Drawing.SdfNode;
 using MarcoZechner.CodeDrawDotNet.DrawLayer;
 using MarcoZechner.CodeDrawDotNet.Shaders;
 using MarcoZechner.MathDotNet;
@@ -21,7 +22,7 @@ public interface ICodeDrawShapes : ICodeDrawTransformStack
     //     BlendMode blend = BlendMode.SOURCE_OVER_ALPHA, float opacity = 1f);
     // CodeDrawLayer.SdfDrawToken Polygon(ReadOnlySpan<Vector2> points, in DrawStyle style);
 
-    void DrawSdf(ISdf2Node node, in DrawStyle style = default);
+    void DrawSdf(ISdf2Node node, in DrawStyle? style = default, bool forceStrokeOnly = false, SdfDrawAreaOverride? drawAreaOverride = null, int maxBlendSdfs = 8);
     
     IPathBuilder Path(in DrawStyle style = default);
     IShapeCollectionBuilder ShapeCollection(in Matrix3x3? initialTransform = null);

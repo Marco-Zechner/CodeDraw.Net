@@ -29,24 +29,45 @@ public sealed unsafe partial class CodeDrawLayer
 
     private readonly SdfGpuMaterialPacker _sdfPacker = new();
 
-    private void ExecSdfGpu(GL gl, in SdfPlaced placed, in DrawStyle style, bool forceStrokeOnly)
+    private static Rect<int> Union(Rect<int> a, Rect<int> b)
+    {
+        var left   = Math.Min(a.Left, b.Left);
+        var top    = Math.Min(a.Top, b.Top);
+        var right  = Math.Max(a.Right, b.Right);
+        var bottom = Math.Max(a.Bottom, b.Bottom);
+        return new Rect<int>((left, top, right, bottom));
+    }
+    
+    //TODO: forceStrokeOnly is currently a no-op
+    private void ExecSdfGpu(GL gl, in SdfPlaced placed, in DrawStyle style, bool forceStrokeOnly, SdfDrawAreaOverride? drawAreaOverride, int maxBlendSdfs = 8)
     {
         if (_progSdf == null!) return;
         if (!placed.TryGetWorldToLocal(out var w2LPlaced)) return;
 
-        // Conservative bounds in layer space (world==layer px)
-        var bb = (Rect<int>)placed.WorldBounds;
+        // 1) Normal conservative bounds in layer space (world == layer px)
+        var bbTight = (Rect<int>)placed.WorldBounds;
 
-        // NOTE: this draw-call-level pad is still based on the call style.
-        // Once everything is material-driven, compute pad from all used materials or just use a conservative pad.
+        // Compute pad like you already do (based on style).
         var feather = MathG.Max(0f, style.FeatherPx);
         var pad = feather;
+
         var stroke = style.Paint.Stroke;
         if (stroke.Thickness > 0f && stroke.Color.A > 0f)
             pad = MathG.Max(pad, 0.5f * stroke.Thickness + feather);
 
-        bb = bb.Expand((int)pad + 2);
+        bbTight = bbTight.Expand((int)pad + 2);
 
+        // 2) Apply draw area override
+        var bb = bbTight;
+
+        if (drawAreaOverride is { } ov)
+        {
+            bb = ov.Mode == SdfDrawAreaMode.Replace 
+                ? ov.RectPx 
+                : Union(bbTight, ov.RectPx);
+        }
+
+        // 3) Clamp to layer bounds (same as you already do)
         if (bb.Right < bb.Left || bb.Bottom < bb.Top) return;
 
         var left   = Math.Clamp(bb.Left,   0, _w - 1);
@@ -54,8 +75,8 @@ public sealed unsafe partial class CodeDrawLayer
         var top    = Math.Clamp(bb.Top,    0, _h - 1);
         var bottom = Math.Clamp(bb.Bottom, 0, _h - 1);
 
-        var w = (right - left + 1);
-        var h = (bottom - top + 1);
+        var w = right - left + 1;
+        var h = bottom - top + 1;
         if (w <= 0 || h <= 0) return;
 
         // Build prim list + pack materials/rules
@@ -78,11 +99,7 @@ public sealed unsafe partial class CodeDrawLayer
         Uniform2F(gl, _uSdfRes, _w, _h);
         UniformMat3(gl, _uSdfXf, Matrix3x3.Identity);
 
-        // You can keep legacy uniforms for now, but they won't matter if your shader uses materials.
-        gl.Uniform1(_uSdfStrokeThickness, style.Paint.Stroke.Thickness);
-        gl.Uniform1(_uSdfFeatherPx, MathF.Max(0f, style.FeatherPx));
-        gl.Uniform1(_uSdfHasFill, 1);
-        gl.Uniform1(_uSdfHasStroke, 1);
+        gl.Uniform1(_uMaxBlendSdfs, maxBlendSdfs);
 
         gl.DrawElements(GLEnum.Triangles, 6, GLEnum.UnsignedInt, null);
 

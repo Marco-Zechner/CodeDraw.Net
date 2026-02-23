@@ -2,6 +2,7 @@
 using MarcoZechner.CodeDrawDotNet.Drawing;
 using MarcoZechner.CodeDrawDotNet.Drawing.Sdf;
 using MarcoZechner.CodeDrawDotNet.Drawing.Sdf.Primitives;
+using MarcoZechner.CodeDrawDotNet.Drawing.SdfGpu;
 using MarcoZechner.CodeDrawDotNet.Drawing.SdfNode;
 using MarcoZechner.CodeDrawDotNet.DrawLayer.Commands;
 using MarcoZechner.ColorDotNet.RGB;
@@ -38,11 +39,12 @@ public sealed partial class CodeDrawLayer : ICodeDrawShapes
     // Shapes => enqueue SDF draw commands
     // ---------------------------
     
-    public void DrawSdf(ISdf2Node node, in DrawStyle style = default)
+    public void DrawSdf(ISdf2Node node, in DrawStyle? style = null, bool forceStrokeOnly = false, SdfDrawAreaOverride? drawAreaOverride = null, int maxBlendSdfs = 8)
     {
         var compiled = SdfCompiler.Compile(node);  // immutable internal
         var placed = new SdfPlaced(compiled, _xf); // snapshot current layer transform
-        Enqueue(new CmdSdf(placed, style));
+        var styleVal = style ?? default;
+        Enqueue(new CmdSdf(placed, styleVal, forceStrokeOnly, drawAreaOverride, maxBlendSdfs));
     }
 
     public void DebugSdfNode(ISdf2Node node, in DrawStyle style, ColorF color)

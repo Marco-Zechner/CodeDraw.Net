@@ -234,9 +234,7 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
     
     private AutoProgram _progSdf = null!;
     private AutoUniform _uSdfPosSize = null!, _uSdfRes = null!, _uSdfXf = null!;
-    private AutoUniform _uSdfFillColor = null!, _uSdfStrokeColor = null!;
-    private AutoUniform _uSdfStrokeThickness = null!, _uSdfFeatherPx = null!;
-    private AutoUniform _uSdfHasFill = null!, _uSdfHasStroke = null!;
+    private AutoUniform _uMaxBlendSdfs = null!;
     private uint _sdfSsbo; //TODO: make "AutoSSBO" similar to "AutoUniform"
     private uint _sdfMatSsbo;
     private uint _sdfRuleSsbo;
@@ -304,12 +302,7 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
         _uSdfPosSize         = new AutoUniform(_gl, this, _progSdf, "uPosSize");
         _uSdfRes             = new AutoUniform(_gl, this, _progSdf, "uRes");
         _uSdfXf              = new AutoUniform(_gl, this, _progSdf, "uXf");
-        _uSdfFillColor       = new AutoUniform(_gl, this, _progSdf, "uFillColor");
-        _uSdfStrokeColor     = new AutoUniform(_gl, this, _progSdf, "uStrokeColor");
-        _uSdfStrokeThickness = new AutoUniform(_gl, this, _progSdf, "uStrokeThickness");
-        _uSdfFeatherPx       = new AutoUniform(_gl, this, _progSdf, "uFeatherPx");
-        _uSdfHasFill         = new AutoUniform(_gl, this, _progSdf, "uHasFill");
-        _uSdfHasStroke       = new AutoUniform(_gl, this, _progSdf, "uHasStroke");
+        _uMaxBlendSdfs       = new AutoUniform(_gl, this, _progSdf, "uMaxBlendSdfs");
         _sdfSsbo = _gl.GenBuffer();
         _sdfMatSsbo = _gl.GenBuffer();
         _sdfRuleSsbo = _gl.GenBuffer();

@@ -1,19 +1,30 @@
-﻿using System.Runtime.InteropServices;
+﻿
+
+using System.Runtime.InteropServices;
 
 namespace MarcoZechner.CodeDrawDotNet.Drawing.SdfGpu;
 
-// Keep in sync with GLSL struct ColorRule (std430).
-// Size ends up 48 bytes (16-aligned).
+// std430 alignment: keep everything 16-byte friendly.
+// int4 (16 bytes)
+// vec4 color (16)
+// float a,b,feather,step (16)
+// vec4 color2 (16)
+// => total 64 bytes
 [StructLayout(LayoutKind.Sequential, Pack = 4)]
 internal struct GpuSdfColorRule
 {
     public int Mode;
     public int Pad0, Pad1, Pad2;
 
+    // colorA
     public float R, G, B, A;
 
-    public float A0;      // threshold A
-    public float B0;      // threshold B
-    public float Feather; // transition width
-    public float Pad3;
+    // a,b,feather,step
+    public float A0;      // sdMin (or threshold A for other modes)
+    public float B0;      // sdMax (or threshold B for other modes)
+    public float Feather; // transition width / window feather
+    public float Step;    // px step size (only for stepped gradient)
+
+    // colorB (only for gradient modes)
+    public float R2, G2, B2, A2;
 }

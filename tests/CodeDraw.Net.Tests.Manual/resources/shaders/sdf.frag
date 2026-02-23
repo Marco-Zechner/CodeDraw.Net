@@ -5,15 +5,11 @@ in vec2 vWorldPx;
 
 out vec4 oColor;
 
-// -----------------------------------------------------------------------------
-// Legacy per-draw uniforms
-uniform vec4  uFillColor;
-uniform vec4  uStrokeColor;
-uniform float uStrokeThickness;
-uniform float uFeatherPx;
-uniform int   uHasFill;
-uniform int   uHasStroke;
-// -----------------------------------------------------------------------------
+// Compile-time cap
+const int MAX_BLEND_SDFS = 8;
+
+// Runtime control (1..MAX_BLEND_SDFS).
+uniform int uMaxBlendSdfs = 4;
 
 // --- Primitive types ---
 const int SDF_CIRCLE      = 1;
@@ -32,11 +28,13 @@ const int OP_SMOOTH_INTER = 5;
 const int OP_SMOOTH_SUB   = 6;
 
 // --- Rule modes ---
-const int RULE_DISABLED   = 0;
-const int RULE_SD_LT      = 1;
-const int RULE_SD_GT      = 2;
-const int RULE_RANGE      = 3;
-const int RULE_NEAR_VALUE = 4;
+const int RULE_DISABLED     = 0;
+const int RULE_SD_LT        = 1;
+const int RULE_SD_GT        = 2;
+const int RULE_RANGE        = 3;
+const int RULE_NEAR_VALUE   = 4;
+const int RULE_GRADIENT     = 5;
+const int RULE_GRADIENT_STEP= 6;
 
 // -----------------------------------------------------------------------------
 // SSBOs
@@ -89,16 +87,27 @@ layout(std430, binding=1) readonly buffer MaterialBuffer
 
 struct ColorRule
 {
-    int mode;       // 0 disabled, 1 sd<x, 2 sd>x, 3 range, 4 near value
+    int mode;
     int _pad0;
     int _pad1;
     int _pad2;
 
-    vec4 color;     // rgba (straight alpha)
-    float a;        // threshold A (X or min or value)
-    float b;        // threshold B (max or tol)
-    float feather;  // transition width
-    float _pad3;
+    // colorA (straight alpha)
+    vec4 color;
+
+    // thresholds / params:
+    // a = sdMin, b = sdMax for gradient modes
+    float a;
+    float b;
+
+    // feather for other modes, and for gradient modes it's optional edge feathering
+    float feather;
+
+    // step size in pixels for RULE_GRADIENT_STEP (>= 0). ignored otherwise.
+    float step;
+
+    // colorB for gradient modes (straight alpha). ignored otherwise.
+    vec4 color2;
 };
 
 layout(std430, binding=2) readonly buffer RuleBuffer
@@ -107,6 +116,57 @@ layout(std430, binding=2) readonly buffer RuleBuffer
     int _rPadA, _rPadB, _rPadC;
     ColorRule rules[];
 };
+
+// -----------------------------------------------------------------------------
+// Gradient helpers
+// -----------------------------------------------------------------------------
+
+float safeInvRange(float lo, float hi)
+{
+    float d = hi - lo;
+    return (abs(d) < 1e-8) ? 0.0 : (1.0 / d);
+}
+
+float saturate(float x) { return clamp(x, 0.0, 1.0); }
+
+// Continuous gradient factor in [0..1] over sd in [a..b].
+float gradientT(ColorRule r, float sd)
+{
+    float lo = r.a;
+    float hi = r.b;
+    if (lo > hi) { float tmp = lo; lo = hi; hi = tmp; }
+
+    float inv = safeInvRange(lo, hi);
+    float t = (sd - lo) * inv;
+    return saturate(t);
+}
+
+// Stepped gradient: quantize sd to steps of size r.step within [a..b].
+float gradientTStep(ColorRule r, float sd)
+{
+    float lo = r.a;
+    float hi = r.b;
+    if (lo > hi) { float tmp = lo; lo = hi; hi = tmp; }
+
+    float stepPx = max(r.step, 1e-6); // avoid div0
+    float sdQ = lo + floor((sd - lo) / stepPx) * stepPx;
+
+    float inv = safeInvRange(lo, hi);
+    float t = (sdQ - lo) * inv;
+    return saturate(t);
+}
+
+// Optional: feather the edges of the [a..b] window so the gradient only applies inside.
+// This returns 0 outside, ~1 inside, with soft transitions at lo/hi when feather>0.
+float rangeWindowMask(float sd, float lo, float hi, float feather)
+{
+    if (feather <= 0.0)
+    return (sd >= lo && sd <= hi) ? 1.0 : 0.0;
+
+    float m1 = smoothstep(lo - feather, lo + feather, sd);
+    float m2 = 1.0 - smoothstep(hi - feather, hi + feather, sd);
+    return clamp(m1 * m2, 0.0, 1.0);
+}
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -338,6 +398,15 @@ float ruleMask(ColorRule r, float sd)
         if (r.feather <= 0.0) return (d <= tol) ? 1.0 : 0.0;
         return 1.0 - smoothstep(tol - r.feather, tol + r.feather, d);
     }
+
+    // For gradient modes, mask is "inside [a..b]" (optionally feathered).
+    if (r.mode == RULE_GRADIENT || r.mode == RULE_GRADIENT_STEP)
+    {
+        float lo = min(r.a, r.b);
+        float hi = max(r.a, r.b);
+        return rangeWindowMask(sd, lo, hi, r.feather);
+    }
+
     return 0.0;
 }
 
@@ -345,15 +414,35 @@ float ruleMask(ColorRule r, float sd)
 vec4 applyRulesRGBA(vec4 base, float sd, int firstRule, int count)
 {
     vec4 col = base;
+
     for (int i = 0; i < count; i++)
     {
         ColorRule r = rules[firstRule + i];
         if (r.mode == RULE_DISABLED) continue;
 
+        if (r.mode == RULE_GRADIENT)
+        {
+            float m = ruleMask(r, sd);
+            float t = gradientT(r, sd);
+            vec4 g = mix(r.color, r.color2, t);
+            col = mix(col, g, m);
+            continue;
+        }
+
+        if (r.mode == RULE_GRADIENT_STEP)
+        {
+            float m = ruleMask(r, sd);
+            float t = gradientTStep(r, sd);
+            vec4 g = mix(r.color, r.color2, t);
+            col = mix(col, g, m);
+            continue;
+        }
+
+        // existing rules:
         float m = ruleMask(r, sd);
-        // overwrite RGBA
         col = mix(col, r.color, m);
     }
+
     return col;
 }
 
@@ -535,18 +624,191 @@ vec4 shadeMaterial(int matId, float sd)
     return rgba;
 }
 
+// Pushes a candidate (delta + matId) into a small sorted top-K list (ascending delta).
+void pushCandidate(inout float deltas[MAX_BLEND_SDFS],
+inout int   mats[MAX_BLEND_SDFS],
+int k,
+float delta,
+int matId)
+{
+    // Reject obviously far candidates early (optional)
+    // if (delta > 1e6) return;
+
+    // Insert sort into fixed array
+    // Find insertion pos
+    int pos = k;
+    for (int i = 0; i < k; i++)
+    {
+        if (delta < deltas[i]) { pos = i; break; }
+    }
+    if (pos >= k) return;
+
+    // Shift down
+    for (int i = k - 1; i > pos; i--)
+    {
+        deltas[i] = deltas[i - 1];
+        mats[i]   = mats[i - 1];
+    }
+
+    deltas[pos] = delta;
+    mats[pos]   = matId;
+}
+
+// Blend K materials by softmax weights.
+// sd is the final scene distance; deltas are (d_i - sdMin).
+vec4 blendMaterialsSoftmax(float sd,
+float deltas[MAX_BLEND_SDFS],
+int mats[MAX_BLEND_SDFS],
+int k,
+float beta)
+{
+    // beta controls how "wide" the mix is:
+    // larger beta => sharper, smaller beta => more gooey blending
+    // beta unit is 1/px (since sd is in px).
+    beta = max(beta, 1e-6);
+
+    // Compute weights
+    float wSum = 0.0;
+    float w[MAX_BLEND_SDFS];
+
+    for (int i = 0; i < k; i++)
+    {
+        // deltas[0] is 0-ish (best). Others are >=0
+        float x = -beta * deltas[i];
+        // Avoid underflow a bit
+        x = max(x, -80.0);
+        w[i] = exp(x);
+        wSum += w[i];
+    }
+
+    if (wSum <= 1e-8)
+    return vec4(0.0);
+
+    // Weighted sum in premultiplied space (helps a lot)
+    vec4 acc = vec4(0.0);
+
+    for (int i = 0; i < k; i++)
+    {
+        float wi = w[i] / wSum;
+
+        vec4 c = shadeMaterial(mats[i], sd);
+
+        // premul accumulate
+        acc.rgb += c.rgb * c.a * wi;
+        acc.a   += c.a * wi;
+    }
+
+    // unpremul
+    if (acc.a > 1e-8) acc.rgb /= acc.a;
+    return acc;
+}
+
+// Collect top-K union contributors near the final surface.
+// We base proximity on delta = d_i - sdMin, where sdMin is the minimum distance among union participants.
+// Note: This ignores subtractors; you can extend it, but start with unions.
+void collectUnionContributors(vec2 pWorld,
+out float sdMin,
+out float deltas[MAX_BLEND_SDFS],
+out int mats[MAX_BLEND_SDFS],
+int k)
+{
+    // init
+    sdMin = 1e30;
+    for (int i = 0; i < MAX_BLEND_SDFS; i++)
+    {
+        deltas[i] = 1e30;
+        mats[i]   = 0;
+    }
+
+    // First pass: compute sdMin of the scene as you already do? We'll do local min among union-like ops.
+    // If you want exact match with your sceneEval (including smooth union), sdMin is still the result.
+    // Here we use plain min(d_i) as a stable reference for deltas.
+    // If you want tighter matching, you can set sdMin = sceneEval(pWorld).d (but then deltas can be negative for smoothMin).
+    for (int i = 0; i < primCount; i++)
+    {
+        Prim pr = prims[i];
+
+        // Ignore subtractors here (they're applied at end in your pipeline).
+        if (pr.op == OP_SUBTRACT || pr.op == OP_SMOOTH_SUB) continue;
+
+        vec2 pLocal = (pr.worldToLocal * vec4(pWorld, 0.0, 1.0)).xy;
+        float d = evalPrimLocal(pr.type, pLocal, pr);
+
+        // For intersection, the active surface uses max; mixing there is different.
+        // Skip intersects for now, or handle separately.
+        // For now: consider only union-ish ops:
+        // - base prim (i==0) has no op meaning
+        // - OP_UNION / OP_SMOOTH_UNION
+        bool unionish = (i == 0) ||
+        (pr.op == OP_UNION) ||
+        (pr.op == OP_SMOOTH_UNION);
+
+        if (!unionish) continue;
+
+        sdMin = min(sdMin, d);
+    }
+
+    if (sdMin > 1e29)
+    {
+        sdMin = 1e30;
+        return;
+    }
+
+    // Second pass: push top-K closest by delta
+    for (int i = 0; i < primCount; i++)
+    {
+        Prim pr = prims[i];
+        if (pr.op == OP_SUBTRACT || pr.op == OP_SMOOTH_SUB) continue;
+
+        vec2 pLocal = (pr.worldToLocal * vec4(pWorld, 0.0, 1.0)).xy;
+        float d = evalPrimLocal(pr.type, pLocal, pr);
+
+        bool unionish = (i == 0) ||
+        (pr.op == OP_UNION) ||
+        (pr.op == OP_SMOOTH_UNION);
+        if (!unionish) continue;
+
+        float delta = max(d - sdMin, 0.0);
+        pushCandidate(deltas, mats, k, delta, pr.matId);
+    }
+}
+
 void main()
 {
+    // Keep your exact distance logic for geometry (including subtract)
     AccMat acc = sceneEval(vWorldPx);
     float sd   = acc.d;
 
-    // Blend the two materials if present
-    vec4 c0 = shadeMaterial(acc.m0, sd);
-    vec4 c1 = shadeMaterial(acc.m1, sd);
-    vec4 outC = mix(c0, c1, clamp01(acc.w));
+    // If you want: only do multi-blend near surface for speed.
+    // e.g. if abs(sd) > 100.0 -> just use dominant mat
+    // but you said cost is fine.
 
-    // Kill extremely tiny alpha
+    int k = clamp(uMaxBlendSdfs, 1, MAX_BLEND_SDFS);
+
+    float sdMin;
+    float deltas[MAX_BLEND_SDFS];
+    int mats[MAX_BLEND_SDFS];
+
+    collectUnionContributors(vWorldPx, sdMin, deltas, mats, k);
+
+    // If collection failed, fall back to your old 2-mat blend
+    vec4 outC;
+    if (sdMin > 1e29)
+    {
+        vec4 c0 = shadeMaterial(acc.m0, sd);
+        vec4 c1 = shadeMaterial(acc.m1, sd);
+        outC = mix(c0, c1, clamp01(acc.w));
+    }
+    else
+    {
+        // Choose beta relative to your smooth union K scale.
+        // Rough rule: beta ~ 1 / (effectiveBlendWidthPx)
+        // If you tend to use pr.k ~ 10..30, beta around 0.15..0.05 is reasonable.
+        float beta = 0.10;
+
+        outC = blendMaterialsSoftmax(sd, deltas, mats, k, beta);
+    }
+
     if (outC.a <= 0.0) discard;
-
     oColor = outC;
 }

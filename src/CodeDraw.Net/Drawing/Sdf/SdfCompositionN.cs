@@ -168,16 +168,14 @@ internal readonly record struct SdfSmoothSubtractN(ISdf2 A, ISdf2[] Bs, float K)
             db = Bs[0].DistanceLocal(p);
             for (var i = 1; i < Bs.Length; i++)
                 db = MathF.Min(db, Bs[i].DistanceLocal(p));
-        }
-        else
-        {
-            db = Bs[0].DistanceLocal(p);
-            for (var i = 1; i < Bs.Length; i++)
-                db = SdfMath.SmoothMin(db, Bs[i].DistanceLocal(p), k);
+            
+            return MathF.Max(da, -db);
         }
 
-        if (k <= 0f) return MathF.Max(da, -db);
-
+        db = Bs[0].DistanceLocal(p);
+        for (var i = 1; i < Bs.Length; i++)
+            db = SdfMath.SmoothMin(db, Bs[i].DistanceLocal(p), k);
+        
         // smooth(A, -B)
         return SmoothMax(da, -db, k);
     }

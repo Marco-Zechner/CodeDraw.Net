@@ -46,7 +46,7 @@ public class SdfPrototype2
         // build graph once
         for (var i = 0; i < 6; i++)
         {
-            _barRects[i] = new SdfRectNode { Rect = new RectBounds(0, -10, 80, 10) };
+            _barRects[i] = new SdfRectNode { Rect = new RectWh(0, 0, 20, 80) };
             _barXf[i] = new SdfTransformNode
             {
                 Child = _barRects[i],
@@ -101,13 +101,15 @@ public class SdfPrototype2
             layer.Clear(0.1f, 0.1f, 0.12f, 1f);
 
             // animate: only change transforms, mark dirty via property setters
-            // for (var i = 0; i < 6; i++)
-            // {
-            //     var angle = time * 20f + i * 60f;
-            //     _barXf[i].LocalToParent = Matrix3x3.CreateRotation(angle);
-            // }
             
-            using (layer.ScopeTranslate(450, 400))
+            for (var i = 0; i < 6; i++)
+            {
+                var outwardsOffset = MathG.Sin(60*i+200*time) * 25f + 100;
+                var rect = _barRects[i];
+                _barRects[i].Rect = new Rect(new Vector2(0, outwardsOffset), rect.Rect.Size, OriginLocation.BottomCenter);
+            }
+            
+            using (layer.ScopeTranslate(layer.Width/2, layer.Height/2))
             using (layer.ScopeRotate(time * 20))
             {
                 layer.DrawSdf(barsSub, barStyle);

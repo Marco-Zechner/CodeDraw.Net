@@ -67,7 +67,7 @@ public sealed partial class CodeDrawLayer : ICodeDrawShapes
     // INTERNAL COMMANDS + EXECUTION
     // =====================================================
     
-    internal static void ExecSdf(GL gl, CodeDrawLayer self, SdfPlaced placed, DrawStyle style, bool forceStrokeOnly)
+    internal static void ExecSdfCpu(GL gl, CodeDrawLayer self, SdfPlaced placed, DrawStyle style, bool forceStrokeOnly)
     {
         // Ensure CPU buffer exists + has base content for this frame
         self.ExecCpuBegin(gl, clear: false);

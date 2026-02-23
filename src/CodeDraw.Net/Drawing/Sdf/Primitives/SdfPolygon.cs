@@ -5,6 +5,7 @@ namespace MarcoZechner.CodeDrawDotNet.Drawing.Sdf.Primitives;
 public sealed class SdfPolygon : ISdf2
 {
     private readonly Vector2[] _pts;
+    internal ReadOnlySpan<Vector2> Points => _pts;
     private readonly Rect _bounds;
 
     public SdfPolygon(ReadOnlySpan<Vector2> pts)

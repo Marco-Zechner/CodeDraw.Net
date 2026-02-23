@@ -100,7 +100,7 @@ public class SdfPrototype1
                     Radius = 60
                 };
             
-                circleNode.DrawDebugRect(layer, DebugWhite(0.5f));
+                circleNode.DrawDebugRect(layer, DebugWhite(0.1f));
                 layer.DrawSdf(circleNode, circleStyle);
             }
 
@@ -119,7 +119,7 @@ public class SdfPrototype1
                 C = new Vector2(200, 150)
             };
             
-            triNode.DrawDebugRect(layer, DebugWhite(0.5f));
+            triNode.DrawDebugRect(layer, DebugWhite(0.1f));
             layer.DrawSdf(triNode, triStyle);
 
             // ======================
@@ -133,7 +133,7 @@ public class SdfPrototype1
                 new Vector2(-40, 0)
             };
             
-            using (layer.ScopeTranslate(700, 300))
+            using (layer.ScopeTranslate(700, 200))
             using (layer.ScopeRotate(time * 90f))
             {
                 var polyNode = new SdfPolygonNode
@@ -141,7 +141,20 @@ public class SdfPrototype1
                     Points = polyPoints,
                 };
             
-                polyNode.DrawDebugRect(layer, DebugWhite(0.5f));
+                polyNode.DrawDebugRect(layer, DebugWhite(0.1f));
+                layer.DrawSdf(polyNode, styleRed);
+            }            
+            
+            using (layer.ScopeTranslate(700, 400))
+            using (layer.ScopeRotate(time * 90f))
+            {
+                var polyNode = new SdfPolylineNode {
+                    Points = polyPoints,
+                    Closed = true,
+                    Radius = 1,
+                };
+            
+                polyNode.DrawDebugRect(layer, DebugWhite(0.1f));
                 layer.DrawSdf(polyNode, styleRed);
             }
 
@@ -157,7 +170,7 @@ public class SdfPrototype1
                 P1 = new Vector2(300, 550)
             };
             
-            segNode.DrawDebugRect(layer, DebugWhite(0.5f));
+            segNode.DrawDebugRect(layer, DebugWhite(0.1f));
             layer.DrawSdf(segNode, lineStyle);
 
             // ======================
@@ -185,7 +198,7 @@ public class SdfPrototype1
                 
                 var union = Sdf.SmoothUnion(25, bars);
 
-                union.DrawDebugRect(layer, DebugWhite(0.5f), barStyle);
+                union.DrawDebugRect(layer, DebugWhite(0.1f), barStyle);
                 layer.DrawSdf(union, barStyle);
             }
             
@@ -206,7 +219,7 @@ public class SdfPrototype1
                     Bs = [circleNode],
                 };
                 
-                subNode.DrawDebugRect(layer, DebugWhite(0.5f));
+                subNode.DrawDebugRect(layer, DebugWhite(0.1f));
                 layer.DrawSdf(subNode, subStyle);
             }
             

@@ -19,6 +19,13 @@ public sealed class SdfPolylineNode : SdfNodeBase
         get => _closed;
         set { _closed = value; MarkDirty(); }
     }
+    
+    private float _radius = 0f;
+    public required float Radius
+    {
+        get => _radius;
+        set { _radius = MathF.Max(0f, value); MarkDirty(); }
+    }
 
-    override internal ISdf2 Build(SdfCompileContext ctx) => new SdfPolyline(_points, _closed);
+    override internal ISdf2 Build(SdfCompileContext ctx) => new SdfPolyline(_points, _closed, _radius);
 }

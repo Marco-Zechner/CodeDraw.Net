@@ -38,7 +38,7 @@ public sealed unsafe partial class CodeDrawLayer
         if (!placed.TryGetWorldToLocal(out var w2LPlaced)) return;
 
         // Conservative bounds in layer space (world==layer px)
-        Rect<int> bb = (Rect<int>)placed.WorldBounds;
+        var bb = (Rect<int>)placed.WorldBounds;
 
         var feather = MathG.Max(0f, style.FeatherPx);
         var pad = feather;
@@ -174,14 +174,14 @@ public sealed unsafe partial class CodeDrawLayer
 
             case SdfUnionN u:
             {
-                for (int i = 0; i < u.Children.Length; i++)
+                for (var i = 0; i < u.Children.Length; i++)
                     EmitWithOp(u.Children[i], worldToLocal, outPrims, i==0 && isFirst, OP_UNION, 0f);
                 return;
             }
 
             case SdfIntersectN it:
             {
-                for (int i = 0; i < it.Children.Length; i++)
+                for (var i = 0; i < it.Children.Length; i++)
                     EmitWithOp(it.Children[i], worldToLocal, outPrims, i==0 && isFirst, OP_INTERSECT, 0f);
                 return;
             }
@@ -189,7 +189,7 @@ public sealed unsafe partial class CodeDrawLayer
             case SdfSmoothUnionN su:
             {
                 var k = MathF.Max(0f, su.K);
-                for (int i = 0; i < su.Children.Length; i++)
+                for (var i = 0; i < su.Children.Length; i++)
                     EmitWithOp(su.Children[i], worldToLocal, outPrims, i==0 && isFirst, k>0f ? OP_SMOOTH_UNION : OP_UNION, k);
                 return;
             }
@@ -199,7 +199,7 @@ public sealed unsafe partial class CodeDrawLayer
                 // A - (union Bs) hard subtract folds fine with repeated max(acc, -d)
                 Emit(sub.A, worldToLocal, outPrims, isFirst);
 
-                for (int i = 0; i < sub.Bs.Length; i++)
+                for (var i = 0; i < sub.Bs.Length; i++)
                     EmitWithOp(sub.Bs[i], worldToLocal, outPrims, isFirst:false, OP_SUBTRACT, 0f);
 
                 return;
@@ -210,7 +210,7 @@ public sealed unsafe partial class CodeDrawLayer
                 var k = MathF.Max(0f, si.K);
                 var op = k > 0f ? OP_SMOOTH_INTER : OP_INTERSECT;
 
-                for (int i = 0; i < si.Children.Length; i++)
+                for (var i = 0; i < si.Children.Length; i++)
                     EmitWithOp(si.Children[i], worldToLocal, outPrims, i == 0 && isFirst, op, k);
 
                 return;
@@ -242,6 +242,18 @@ public sealed unsafe partial class CodeDrawLayer
                 foreach (var t in ss.Bs) 
                     EmitWithOp(t, worldToLocal, outPrims, isFirst: false, op, k);
 
+                return;
+            }
+            
+            case SdfPolygon poly:
+            {
+                EmitConvexPolygonAsTriangles(poly, worldToLocal, outPrims, isFirst);
+                return;
+            }
+            
+            case SdfPolyline pl:
+            {
+                EmitPolylineAsSegments(pl, worldToLocal, outPrims, isFirst);
                 return;
             }
         }
@@ -330,5 +342,90 @@ public sealed unsafe partial class CodeDrawLayer
         }
 
         return p;
+    }
+    
+    private static void EmitConvexPolygonAsTriangles(
+        SdfPolygon poly,
+        in Matrix3x3 worldToLocal,
+        List<GpuSdfPrim> outPrims,
+        bool isFirst)
+    {
+        // You need a way to access the points from SdfPolygon.
+        // Right now _pts is private, so add an internal getter in SdfPolygon:
+        //   internal ReadOnlySpan<Vector2> Points => _pts;
+        var pts = poly.Points;
+
+        if (pts.Length < 3)
+            return;
+
+        // First triangle can be "first overall" (shader does acc=d on i==0).
+        // Subsequent triangles should be UNION (carry op).
+        for (var i = 1; i + 1 < pts.Length; i++)
+        {
+            var tri = new SdfTriangle(pts[0], pts[i], pts[i + 1]);
+
+            // Emit triangle primitive
+            // For the first triangle: respect isFirst
+            // For others: force UNION op on the first primitive emitted for that triangle.
+            Emit(tri, worldToLocal, outPrims, isFirst && i == 1);
+
+            // If it's not the first overall triangle, enforce UNION on the first emitted prim.
+            // (In practice Emit(tri, ...) will add exactly one prim, but keep it robust.)
+            if (isFirst && i == 1) continue;
+
+            var idx = outPrims.Count - 1;
+            var p = outPrims[idx];
+            p.Op = OP_UNION;
+            p.K = 0f;
+            outPrims[idx] = p;
+        }
+    }
+    
+    private static void EmitPolylineAsSegments(
+        SdfPolyline pl,
+        in Matrix3x3 worldToLocal,
+        List<GpuSdfPrim> outPrims,
+        bool isFirst)
+    {
+        var pts = pl.Points;
+        if (pts.Length < 2) return;
+
+        var radius = pl.Radius;
+
+        // segments i-1 -> i
+        var firstEmitted = false;
+        for (var i = 1; i < pts.Length; i++)
+        {
+            EmitOneSegment(pts[i - 1], pts[i], radius, worldToLocal, outPrims, isFirst && !firstEmitted);
+            firstEmitted = true;
+        }
+
+        if (pl.Closed)
+        {
+            EmitOneSegment(pts[^1], pts[0], radius, worldToLocal, outPrims, isFirst && !firstEmitted);
+        }
+    }
+    
+    private static void EmitOneSegment(
+        Vector2 a,
+        Vector2 b,
+        float radius,
+        in Matrix3x3 worldToLocal,
+        List<GpuSdfPrim> outPrims,
+        bool isFirstForScene)
+    {
+        var seg = new SdfSegment { A = a, B = b, Radius = radius };
+
+        // Emit will add one primitive.
+        Emit(seg, worldToLocal, outPrims, isFirstForScene);
+
+        // If this isn't the very first primitive overall, union it in.
+        if (isFirstForScene) return;
+
+        var idx = outPrims.Count - 1;
+        var p = outPrims[idx];
+        p.Op = OP_UNION;
+        p.K = 0f;
+        outPrims[idx] = p;
     }
 }

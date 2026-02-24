@@ -15,17 +15,71 @@ uniform float uAmbientStrength;
 uniform vec3  uAmbientColor;
 uniform vec3  uLightColor;
 
-// -----------------------------------------------------------------------------
-// Utils
-// -----------------------------------------------------------------------------
+uniform float uTerrainSpec  = 0.03; // basically off (0..0.08)
+uniform float uWaterSpec    = 0.55; // shiny water
+uniform float uTerrainRough = 1.0;  // 0.6..1.6 (higher = rougher)
+
+// Water motion knobs
+uniform vec2  uWaterDir = vec2(-0.7, 0.7); // base flow direction in UV
+uniform float uWaterSpeed = -0.1;          // UV/sec base 
+uniform float uCurrentTwist = 0.100;       // how much terrain bends the flow 
+uniform float uCurrentCurl  = 0.005;       // small curl noise contribution   
+
+// Foam knobs
+uniform float uFoamStrength = 1.0;
+uniform float uFoamShoreWidth = 0.020;      // in height units (depth)
+uniform float uFoamCrestStart = 0.05;       // where foam starts on steepness (0..1)
+uniform float uFoamCrestWidth = 0;        // softness
+
 float saturate(float x) { return clamp(x, 0.0, 1.0); }
 
 float unpackHeight(vec4 hPacked)
 {
-    // matches your pack: average of lanes
     return (hPacked.r + hPacked.g + hPacked.b + hPacked.a) * 0.25;
 }
 
+// ------------------------------------------------------------
+// Seam-proof height sampling (no half-texel offset, no filtering)
+// ------------------------------------------------------------
+float heightAt(vec2 uv)
+{
+    ivec2 ts = textureSize(uHeightMap, 0);
+
+    uv = clamp(uv, vec2(0.0), vec2(1.0));
+
+    vec2 p = uv * (vec2(ts) - vec2(1.0));
+    ivec2 i0 = ivec2(floor(p));
+    vec2  f  = fract(p);
+
+    ivec2 i1 = min(i0 + ivec2(1, 0), ts - ivec2(1));
+    ivec2 i2 = min(i0 + ivec2(0, 1), ts - ivec2(1));
+    ivec2 i3 = min(i0 + ivec2(1, 1), ts - ivec2(1));
+
+    float h00 = unpackHeight(texelFetch(uHeightMap, i0, 0));
+    float h10 = unpackHeight(texelFetch(uHeightMap, i1, 0));
+    float h01 = unpackHeight(texelFetch(uHeightMap, i2, 0));
+    float h11 = unpackHeight(texelFetch(uHeightMap, i3, 0));
+
+    float hx0 = mix(h00, h10, f.x);
+    float hx1 = mix(h01, h11, f.x);
+    return mix(hx0, hx1, f.y);
+}
+
+vec3 terrainNormal(vec2 uv)
+{
+    float hScale = 140.0;
+
+    float l = hScale * heightAt(uv - vec2(uPix.x, 0.0));
+    float r = hScale * heightAt(uv + vec2(uPix.x, 0.0));
+    float d = hScale * heightAt(uv - vec2(0.0, uPix.y));
+    float u = hScale * heightAt(uv + vec2(0.0, uPix.y));
+
+    return normalize(vec3(l - r, d - u, 1.0));
+}
+
+// -----------------------------------------------------------------------------
+// Noise (for water detail / curl)
+// -----------------------------------------------------------------------------
 float hash12(vec2 p)
 {
     vec3 p3 = fract(vec3(p.xyx) * 0.1031);
@@ -53,7 +107,6 @@ float fbm(vec2 x)
     float a = 0.5;
     vec2  shift = vec2(37.0, 91.0);
     mat2  rot = mat2(cos(0.5), sin(0.5), -sin(0.5), cos(0.5));
-
     for (int i = 0; i < 5; i++)
     {
         v += a * valueNoise2(x);
@@ -63,77 +116,105 @@ float fbm(vec2 x)
     return v;
 }
 
-// bilinear-ish height sample using uPix
-float heightAt(vec2 uv)
+// 2D curl from scalar noise (cheap-ish). Returns a small sideways velocity field.
+vec2 curl2(vec2 p)
 {
-    // clamp to avoid sampling outside
-    uv = clamp(uv, vec2(0.0), vec2(1.0));
-
-    // sample 4 neighbors in pixel space
-    vec2 invPix = vec2(1.0 / max(uPix.x, 1e-9), 1.0 / max(uPix.y, 1e-9));
-    vec2 p = uv * invPix;
-    vec2 f = fract(p);
-    vec2 ip = floor(p) * uPix;
-
-    float tl = unpackHeight(texture(uHeightMap, ip));
-    float tr = unpackHeight(texture(uHeightMap, ip + vec2(uPix.x, 0.0)));
-    float bl = unpackHeight(texture(uHeightMap, ip + vec2(0.0, uPix.y)));
-    float br = unpackHeight(texture(uHeightMap, ip + vec2(uPix.x, uPix.y)));
-
-    float t = mix(tl, tr, f.x);
-    float b = mix(bl, br, f.x);
-    return mix(t, b, f.y);
+    float e = 1.25; // in "noise domain" units
+    float n1 = fbm(p + vec2(0.0, e));
+    float n2 = fbm(p - vec2(0.0, e));
+    float n3 = fbm(p + vec2(e, 0.0));
+    float n4 = fbm(p - vec2(e, 0.0));
+    // d/dy and d/dx approximations
+    float dy = (n1 - n2) / (2.0 * e);
+    float dx = (n3 - n4) / (2.0 * e);
+    return vec2(dy, -dx);
 }
 
-vec3 terrainNormal(vec2 uv)
+// -----------------------------------------------------------------------------
+// Water flow: coherent direction + terrain bending + small curl
+// -----------------------------------------------------------------------------
+vec2 flowDir(vec2 uv, float hT)
 {
-    // “dry” look: smaller height scale in the normal so it’s less glossy/smooth
-    float hScale = 140.0;
+    vec2 d = uWaterDir;
+    float l = length(d);
+    d = (l > 1e-6) ? d / l : vec2(-0.7, 0.7);
 
-    float l = hScale * heightAt(uv - vec2(uPix.x, 0.0));
-    float r = hScale * heightAt(uv + vec2(uPix.x, 0.0));
-    float d = hScale * heightAt(uv - vec2(0.0, uPix.y));
-    float u = hScale * heightAt(uv + vec2(0.0, uPix.y));
+    // Terrain gradient bends flow (currents follow “channels”).
+    // Using height samples directly: grad points uphill; currents tend to be deflected around it.
+    float hx = heightAt(uv + vec2(uPix.x, 0.0)) - heightAt(uv - vec2(uPix.x, 0.0));
+    float hy = heightAt(uv + vec2(0.0, uPix.y)) - heightAt(uv - vec2(0.0, uPix.y));
+    vec2 grad = vec2(hx, hy) / max(2.0 * min(uPix.x, uPix.y), 1e-6);
 
-    return normalize(vec3(l - r, d - u, 1.0));
+    // Only really affect water, and mostly near shore (where terrain matters).
+    float shore = saturate(1.0 - (uWaterLevel - hT) / 0.06); // 1 near shore, 0 deeper
+    vec2 bend = normalize(vec2(-grad.y, grad.x) + 1e-6) * uCurrentTwist * shore;
+
+    // Curl noise adds interest everywhere, but small.
+    vec2 c = curl2(uv * 24.0 + uTime * 0.25) * uCurrentCurl;
+
+    vec2 outD = d + bend + c;
+    float ll = length(outD);
+    return (ll > 1e-6) ? outD / ll : d;
 }
 
-float waterHeight(vec2 uv)
+// Advect UV in the same direction but with different “detail levels” (different scales/speeds)
+vec2 advectUv(vec2 uv, vec2 dir, float speed, float t)
 {
-    // More "water-y" than just voronoi jitter:
-    // a couple of traveling sine waves + low amp fbm ripples
-    float t = uTime * 0.12;
+    return uv + dir * (t * speed);
+}
 
-    // big swell
+// -----------------------------------------------------------------------------
+// Water surface: multi-band traveling waves (same direction, different speeds)
+// -----------------------------------------------------------------------------
+float waterHeight(vec2 uv, vec2 dir, float hT)
+{
+    // Normalize direction and build along/perp basis
+    vec2 d = dir;
+    vec2 p = vec2(-d.y, d.x);
+
+    float t = uTime;
+
+    // Base “swell” aligned with direction
+    float s0 = dot(uv, d) * 18.0 + t * (1.2 * uWaterSpeed / max(length(d), 1e-6));
+    float s1 = dot(uv, d) * 11.0 - t * (0.9 * uWaterSpeed / max(length(d), 1e-6));
+
     float swell =
-    0.008 * sin((uv.x * 14.0 + uv.y * 6.0) + t * 2.0) +
-    0.006 * sin((uv.x * 8.0  - uv.y * 11.0) - t * 1.7);
+    0.010 * sin(s0) +
+    0.007 * sin(s1);
 
-    // small ripples
-    float rip = (fbm(uv * 24.0 + vec2(t, -t * 0.7)) * 2.0 - 1.0) * 0.004;
+    // Mid detail: same direction, faster, smaller amplitude
+    float m0 = dot(uv, d) * 42.0 + t * (2.8 * uWaterSpeed);
+    float mid = 0.0045 * sin(m0);
 
-    return uWaterLevel + swell + rip;
+    // Fine ripples: use fbm, also moving same direction, fastest
+    vec2 uvFine = uv * 70.0 + d * (t * (4.5 * uWaterSpeed)) + vec2(t * 0.15, -t * 0.11);
+    float fine = (fbm(uvFine) * 2.0 - 1.0) * 0.0028;
+
+    // Shore sharpening: slightly higher and choppier near shallow water
+    float depth = max(uWaterLevel - hT, 0.0);
+    float shore = saturate(1.0 - depth / 0.05);
+
+    float shoreBoost = 1.0 + 0.8 * shore;
+
+    return uWaterLevel + (swell + mid + fine) * shoreBoost;
 }
 
-vec3 waterNormal(vec2 uv)
+vec3 waterNormal(vec2 uv, vec2 dir, float hT)
 {
     float epsx = uPix.x;
     float epsy = uPix.y;
 
-    float h0 = waterHeight(uv);
-    float hx = waterHeight(uv + vec2(epsx, 0.0));
-    float hy = waterHeight(uv + vec2(0.0, epsy));
+    float h0 = waterHeight(uv, dir, hT);
+    float hx = waterHeight(uv + vec2(epsx, 0.0), dir, hT);
+    float hy = waterHeight(uv + vec2(0.0, epsy), dir, hT);
 
-    // scale up so waves read as waves, but keep it sane
     float k = 220.0;
-    vec3 n = normalize(vec3((h0 - hx) * k, (h0 - hy) * k, 1.0));
-    return n;
+    return normalize(vec3((h0 - hx) * k, (h0 - hy) * k, 1.0));
 }
 
+// ---- shadows: simple raymarch in heightfield ----
 float softShadow(vec3 p0, vec3 sunDir)
 {
-    // Terrain-only shadowing (water doesn’t cast meaningful shadow here)
-    // Start slightly above surface to avoid self-hit
     vec3 p = p0 + sunDir * 0.002;
 
     const int MAX_STEPS = 170;
@@ -145,23 +226,18 @@ float softShadow(vec3 p0, vec3 sunDir)
         if (p.z > 1.05) break;
 
         float hT = heightAt(p.xy);
-        if (hT > p.z)
-        return 0.0; // in shadow
+        if (hT > p.z) return 0.0;
 
         float dz = p.z - hT;
         float stepLen = max(minStep, dz * 0.06);
         p += sunDir * stepLen;
     }
 
-    return 1.0; // lit
+    return 1.0;
 }
 
 vec3 terrainColor(float h, vec3 n)
 {
-    // less “wet”: don’t overdrive brightness, keep bands, add subtle variation
-    float v = (hash12(floor(vUv / max(uPix, vec2(1e-6))) ) * 2.0 - 1.0) * 0.02;
-    h = clamp(h + v, 0.0, 1.0);
-
     vec3 sand   = vec3(0.839, 0.714, 0.620);
     vec3 grass  = vec3(0.596, 0.678, 0.353);
     vec3 bush   = vec3(0.396, 0.522, 0.255);
@@ -178,15 +254,56 @@ vec3 terrainColor(float h, vec3 n)
     else if (h < 0.86) col = stone;
     else if (h < 0.93) col = slate;
 
-    // steep rock forcing
     float flatness = dot(n, vec3(0.0, 0.0, 1.0));
     float steep = 1.0 - smoothstep(0.58, 0.78, flatness);
     float high  = smoothstep(0.55, 0.78, h);
     float forceStone = steep * high;
 
-    col = mix(col, stone, forceStone);
+    return mix(col, stone, forceStone);
+}
 
-    return col;
+// -----------------------------------------------------------------------------
+// Foam: (A) shoreline foam based on depth, (B) crest foam based on steep normals
+// -----------------------------------------------------------------------------
+float shorelineFoam(float depth)
+{
+    // depth = water - terrain, so 0 at shoreline and positive in water
+    // Strongest at shoreline, fades out into water over uFoamShoreWidth.
+    float w = max(uFoamShoreWidth, 1e-5);
+    float f = 1.0 - smoothstep(0.0, w, depth);
+    return f;
+}
+
+float crestFoam(vec3 nW)
+{
+    // Use how much the normal tilts away from up as “choppiness”.
+    // 1 - n.z is 0 on flat, larger on crests.
+    float steep = 1.0 - clamp(nW.z, 0.0, 1.0);
+    float f = smoothstep(uFoamCrestStart, uFoamCrestStart + uFoamCrestWidth, steep);
+    return f;
+}
+
+float foamMask(vec2 uv, vec2 dir, float hT, float hW, vec3 nW)
+{
+    float depth = max(hW - hT, 0.0);
+
+    float shore = shorelineFoam(depth);
+    float crest = crestFoam(nW);
+
+    // Add animated breakup so it’s not a perfect band.
+    float t = uTime * 0.45;
+    float n = fbm(uv * 55.0 + dir * (t * 0.7));
+    n = saturate((n - 0.45) * 2.2); // threshold-ish
+
+    // Shore foam: strong + a bit of noisy breakup
+    float shoreFoam = shore * (0.65 + 0.35 * n);
+
+    // Crest foam: mostly in water, and reduced at deep water
+    float deep = saturate(depth / 0.12);
+    float crestFoam = crest * (1.0 - 0.75 * deep) * (0.55 + 0.45 * n);
+
+    float f = saturate(shoreFoam + crestFoam);
+    return f * uFoamStrength;
 }
 
 void main()
@@ -194,70 +311,78 @@ void main()
     vec2 uv = vUv;
 
     float hT = heightAt(uv);
-    float hW = waterHeight(uv);
 
-    float isWater = step(hT, hW); // 1 if water covers terrain here
+    // Terrain-aware flow direction (gives you “more interesting than top-left”)
+    vec2 dir = flowDir(uv, hT);
+
+    float hW = waterHeight(uv, dir, hT);
+
+    float isWater = step(hT, hW);
     float depth = max(hW - hT, 0.0);
 
     vec3 nT = terrainNormal(uv);
-    vec3 nW = waterNormal(uv);
+    vec3 nW = waterNormal(uv, dir, hT);
+    vec3 n  = normalize(mix(nT, nW, isWater));
 
-    vec3 n = normalize(mix(nT, nW, isWater));
-
-    // Sun direction (from surface towards sun)
     vec3 sunDir = normalize(uSunPos - vec3(0.5, 0.5, 0.0));
 
-    // Surface point at visible surface height
     float hSurf = mix(hT, hW, isWater);
     vec3 pSurf = vec3(uv, hSurf);
 
-    // Shadow factor (terrain occlusion)
     float lit = softShadow(pSurf, sunDir);
 
-    // Lighting (less “wet ground”)
-    float ndl = max(dot(n, sunDir), 0.0);
+    // --- Diffuse ---
+    float ndlTerrain = pow(max(dot(nT, sunDir), 0.0), uTerrainRough);
+    float ndlWater   = max(dot(nW, sunDir), 0.0);
+    float ndlMix = mix(ndlTerrain, ndlWater, isWater);
 
-    // ambient + directional
     vec3 ambient = clamp(uAmbientColor * uAmbientStrength, 0.0, 1.0);
-    vec3 direct  = clamp(uLightColor * (0.18 + 0.82 * ndl) * lit, 0.0, 2.0);
+    vec3 direct  = clamp(uLightColor * (0.10 + 0.90 * ndlMix) * lit, 0.0, 2.0);
 
-    // View
+    // --- View / half vector ---
     vec3 viewPos = vec3(0.5, 0.5, 2.0);
     vec3 V = normalize(viewPos - pSurf);
     vec3 H = normalize(sunDir + V);
 
-    // Terrain shading
+    // --- Base colors ---
     vec3 colTerrain = terrainColor(hT, nT);
 
-    // Water shading: depth tint + fresnel + spec
     vec3 deepWater = vec3(0.00, 0.15, 0.28);
     vec3 shallow   = vec3(0.10, 0.35, 0.45);
 
     float waterTint = saturate(depth / 0.08);
     vec3 colWater = mix(shallow, deepWater, waterTint);
 
-    // Fresnel (stronger at grazing angles)
+    // Foam color (slightly warm white so it sits in the scene)
+    float foam = foamMask(uv, dir, hT, hW, nW) * isWater;
+    vec3 foamCol = vec3(0.92, 0.95, 0.98);
+
+    // Mix foam into water base before lighting (so it gets shaded too)
+    colWater = mix(colWater, foamCol, foam);
+
+    vec3 base = mix(colTerrain, colWater, isWater);
+    vec3 litCol = (ambient + direct) * base;
+
+    // --- Fresnel (water only) ---
     float fres = pow(1.0 - max(dot(nW, V), 0.0), 5.0);
     fres = clamp(fres, 0.0, 1.0);
 
-    // Specular: only really on water, and only if lit
-    float spec = pow(max(dot(nW, H), 0.0), 64.0) * 0.8;
-    vec3 specCol = uLightColor * spec * lit;
+    // --- Specular ---
+    // Reduce water spec in shallow water + in foam (foam is diffuse/matte).
+    float shallowKill = 1.0 - smoothstep(0.0, 0.02, depth);
+    float foamKill = 1.0 - foam;
+    float specMask = (1.0 - 0.65 * shallowKill) * foamKill;
 
-    // Reduce “wet” ground spec almost to zero
-    float terrainSpec = pow(max(dot(nT, H), 0.0), 32.0) * 0.06 * lit;
-    vec3 terrainSpecCol = uLightColor * terrainSpec;
+    float waterSpec = pow(max(dot(nW, H), 0.0), 96.0) * uWaterSpec * lit * specMask;
+    vec3  waterSpecCol = uLightColor * waterSpec;
 
-    // Combine base material
-    vec3 base = mix(colTerrain, colWater, isWater);
+    float terrainSpec = pow(max(dot(nT, H), 0.0), 16.0) * uTerrainSpec * lit;
+    vec3  terrainSpecCol = uLightColor * terrainSpec;
 
-    // Apply lighting to base (water gets a little fresnel brighten)
-    vec3 litCol = (ambient + direct) * base;
+    // Extra terms
+    vec3 waterExtra =
+    (waterSpecCol + fres * vec3(0.06, 0.10, 0.12)) * isWater;
 
-    // Add spec/fresnel (water)
-    vec3 waterExtra = (specCol + fres * vec3(0.10, 0.18, 0.22)) * isWater;
-
-    // Add tiny terrain spec
     vec3 terrainExtra = terrainSpecCol * (1.0 - isWater);
 
     oColor = vec4(litCol + waterExtra + terrainExtra, 1.0);

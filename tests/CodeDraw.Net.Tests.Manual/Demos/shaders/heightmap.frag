@@ -3,13 +3,19 @@
 in vec2 vUv;
 out vec4 oColor;
 
-uniform vec2  uMapPos;     // world offset in "map uv space"
-uniform vec2  uRes;        // (W/H, 1)  (CodeDraw provides this in your pipeline)
-uniform float uHeightAmp;  // 0..1+
+uniform vec2  uMapPos;
+uniform vec2  uRes;          // pixels (W,H)
+uniform float uHeightAmp = 1.0;
 
-// ----------------------------------------------------------------------------
-// Noise (fast value noise + fbm)
-// ----------------------------------------------------------------------------
+// --- island controls ---
+uniform float uIslandRadius = 0.85;  // bigger = larger island (0.6..1.2)
+uniform float uIslandEdge   = 0.35;  // softness of edge (0.15..0.6)
+
+// --- height shaping ---
+uniform float uSeaLevelBias = 0.00;  // shifts heights up/down (-0.2..0.2)
+uniform float uPeakSoftness = 2.0;   // higher => less flat cap (1.2..4.0)
+uniform float uDetail       = 0.35;  // adds small detail on top (0..0.7)
+
 float hash12(vec2 p)
 {
     vec3 p3 = fract(vec3(p.xyx) * 0.13);
@@ -17,8 +23,7 @@ float hash12(vec2 p)
     return fract((p3.x + p3.y) * p3.z);
 }
 
-// IMPORTANT: do NOT name this "noise2" (GLSL has a built-in noise2 returning vec2)
-float valueNoise2(vec2 x)
+float valueNoise(vec2 x)
 {
     vec2 i = floor(x);
     vec2 f = fract(x);
@@ -38,45 +43,67 @@ float fbm(vec2 x)
     float a = 0.5;
     vec2  shift = vec2(100.0);
     mat2  rot = mat2(cos(0.5), sin(0.5), -sin(0.5), cos(0.5));
-
     for (int i = 0; i < 5; i++)
     {
-        v += a * valueNoise2(x);
+        v += a * valueNoise(x);
         x = rot * x * 2.0 + shift;
         a *= 0.5;
     }
     return v;
 }
 
-// Pack height into RGBA (4 lanes) like your original
+// flipped pack: smallest lane in R, largest in A
 vec4 packHeight(float h)
 {
     h = clamp(h, 0.0, 1.0);
+    float x = h * 4.0;
+    return vec4(
+    clamp(x,       0.0, 1.0),
+    clamp(x - 1.0, 0.0, 1.0),
+    clamp(x - 2.0, 0.0, 1.0),
+    clamp(x - 3.0, 0.0, 1.0)
+    );
+}
 
-    vec4 outv = vec4(0.0);
-    h *= 4.0;
-
-    outv.r = clamp(h - 3.0, 0.0, 1.0);
-    outv.g = clamp(h - 2.0, 0.0, 1.0);
-    outv.b = clamp(h - 1.0, 0.0, 1.0);
-    outv.a = clamp(h,       0.0, 1.0);
-
-    return outv;
+// Soft clip (prevents hard plateau):
+// maps [0..inf) into [0..1) smoothly.
+float softClip01(float x, float k)
+{
+    // k ~ 1..4
+    x = max(x, 0.0);
+    return 1.0 - exp(-x * k);
 }
 
 void main()
 {
-    vec2 p = (vUv * uRes) + uMapPos;
+    float aspect = (uRes.y > 1e-6) ? (uRes.x / uRes.y) : 1.0;
+    vec2 resAspect = vec2(aspect, 1.0);
 
-    float n = 1.1 * fbm(p * 5.0);
-    n = pow(max(n, 0.0), 1.5);
+    vec2 p = (vUv * resAspect) + uMapPos;
 
-    // island falloff
-    vec2 c = (vUv - vec2(0.5)) * vec2(uRes.x, 1.0);
-    float d = length(c) * 2.0;
-    float island = clamp(1.3 - d, 0.0, 1.0);
+    // Base landmass noise (0..~1)
+    float n = fbm(p * 4.0);
 
-    float h = clamp(n * island * uHeightAmp, 0.0, 1.0);
+    // Add some higher-frequency detail so peaks aren’t just “one blob”
+    float nHi = fbm(p * 14.0);
+    n = mix(n, 0.65 * n + 0.35 * nHi, clamp(uDetail, 0.0, 1.0));
+
+    // Make mountains feel “mountainy”
+    // (push mid-highs up while keeping lowlands)
+    n = pow(max(n, 0.0), 1.35);
+
+    // Island mask: bigger + smoother edge
+    vec2 c = (vUv - vec2(0.5)) * vec2(aspect, 1.0);
+    float d = length(c); // 0 at center
+
+    // radius controls where it starts fading, edge controls softness
+    float mask = 1.0 - smoothstep(uIslandRadius, uIslandRadius + uIslandEdge, d);
+
+    // Height before clip
+    float hRaw = (n * mask) * uHeightAmp + uSeaLevelBias;
+
+    // Soft clip to avoid flat plateau at 1.0
+    float h = softClip01(hRaw, max(uPeakSoftness, 1e-3));
 
     oColor = packHeight(h);
 }

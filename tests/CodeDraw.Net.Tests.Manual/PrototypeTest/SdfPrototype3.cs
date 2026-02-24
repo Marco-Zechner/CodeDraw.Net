@@ -17,7 +17,7 @@ public class SdfPrototype3
     public SdfPrototype3()
     {
         // ---- window loop ----
-        using var app = CodeDrawHost.Started();
+        using var app = CodeDrawHost.Start();
         var win = new CodeDrawWindow(1920, 1080, 50, 50, "SDF Prototype 3 - RoundedBox Rings");
 
         // ---- SDF: rounded rect in local space ----

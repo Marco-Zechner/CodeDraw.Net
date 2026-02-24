@@ -15,7 +15,7 @@ public class Prototype6
     [ConstructorPrototype(6)]
     public Prototype6()
     {
-        using var app = CodeDrawHost.Started();
+        using var app = CodeDrawHost.Start();
         
         var window = new CodeDrawWindow(1920, 1080, 50, 50, "Prototype6 - Grid Test");
         var textLayer = new CodeDrawLayer(window.Width, window.Height);
@@ -274,7 +274,7 @@ public class Prototype6
             window.Layer.Clear(0, 0, 0, 1);
             
             
-            window.Layer.CustomRect(
+            window.Layer.DrawCustomRect(
                 textLayer.FullRect,
                 shader: glowShader,
                 uniforms: Uniforms.Of(
@@ -287,7 +287,7 @@ public class Prototype6
                 )
             );
             
-            window.Layer.CustomRect(
+            window.Layer.DrawCustomRect(
                 textLayer.FullRect,
                 shader: circleCopyShader,
                 uniforms: Uniforms.Of(

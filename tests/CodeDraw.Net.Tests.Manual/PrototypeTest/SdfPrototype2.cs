@@ -105,7 +105,7 @@ public class SdfPrototype2
         // );
 
         // ---- window loop ----
-        using var app = CodeDrawHost.Started();
+        using var app = CodeDrawHost.Start();
         var win = new CodeDrawWindow(900, 600, 50, 50, "SDF Prototype 2");
         var time = 0f;
 

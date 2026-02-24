@@ -28,6 +28,6 @@ public interface ICodeDrawShapes : ICodeDrawTransformStack
     IShapeCollectionBuilder ShapeCollection(in Matrix3x3? initialTransform = null);
 
     CodeDrawLayer.BlitSrcStage Blit(CodeDrawLayer src);
-    void CustomRect(Rect<int> rect, CodeDrawShader shader, Uniforms uniforms);
+    void DrawCustomRect(Rect<int> rect, CodeDrawShader shader, Uniforms uniforms);
     void PostProcess(CodeDrawShader shader, Uniforms uniforms);
 }

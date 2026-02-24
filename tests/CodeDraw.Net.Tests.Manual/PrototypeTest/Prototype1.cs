@@ -12,7 +12,7 @@ public sealed class Prototype1
     [ConstructorPrototype(1)]
     public Prototype1()
     {
-        using var app = CodeDrawHost.Started();
+        using var app = CodeDrawHost.Start();
         
         
         var winCombined = new CodeDrawWindow(800, 500, "Combined");

@@ -10,7 +10,7 @@ public class Prototype5
     [ConstructorPrototype(5)]
     public Prototype5()
     {
-        using var app = CodeDrawHost.Started();
+        using var app = CodeDrawHost.Start();
         
         var win = new CodeDrawWindow(720, 420, 50, 50, "Prototype5 - Text Debug");
 

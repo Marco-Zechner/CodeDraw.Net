@@ -38,7 +38,7 @@ public class SdfPrototype1
             MonospaceSnapLineAlignToCells = true
         };
         
-        using var app = CodeDrawHost.Started();
+        using var app = CodeDrawHost.Start();
 
         var win = new CodeDrawWindow(900, 600, 50, 50, "SDF Prototype 1");
         var time = 0f;

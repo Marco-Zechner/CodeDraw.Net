@@ -2,15 +2,8 @@
 
 Goal
 - Keep SDF formulas in one place (C#), but render on GPU (GLSL).
-- Support CSG (Union/Intersect/Subtract/SmoothUnion) on GPU too.
 - Support "#include"-style shader composition + hot reload.
 
-Core idea
-- CPU SDF structs stay for:
-    - bounds (LocalBounds)
-    - picking/debug
-    - parameter extraction
-    - building a GPU “SDF program”
 - GPU uses a generic SDF fragment shader that:
     - evaluates a shape tree (or instruction list) per fragment
     - returns signed distance d

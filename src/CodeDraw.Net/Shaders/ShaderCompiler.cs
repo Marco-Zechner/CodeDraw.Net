@@ -8,7 +8,7 @@ public static class ShaderCompiler
 {
     private static void ThrowIfNonAscii(string src, string label)
     {
-        for (int i = 0; i < src.Length; i++)
+        for (var i = 0; i < src.Length; i++)
         {
             if (src[i] <= 0x7F) continue;
             ThrowWithContext(src, label, i, $"non-ASCII char U+{(int)src[i]:X4}");
@@ -17,7 +17,7 @@ public static class ShaderCompiler
 
     private static void ThrowIfNul(string src, string label)
     {
-        for (int i = 0; i < src.Length; i++)
+        for (var i = 0; i < src.Length; i++)
         {
             if (src[i] != '\0') continue;
             ThrowWithContext(src, label, i, "NUL (\\0) character");
@@ -42,7 +42,7 @@ public static class ShaderCompiler
         index = Math.Clamp(index, 0, Math.Max(0, src.Length - 1));
 
         int line = 1, col = 1;
-        for (int k = 0; k < index; k++)
+        for (var k = 0; k < index; k++)
         {
             if (src[k] == '\n') { line++; col = 1; }
             else col++;
@@ -57,16 +57,16 @@ public static class ShaderCompiler
         if (line is null)
             return BuildHead(lines, 12);
 
-        int target = Math.Clamp(line.Value, 1, Math.Max(1, lines.Length));
-        int start = Math.Max(1, target - radius);
-        int end = Math.Min(lines.Length, target + radius);
+        var target = Math.Clamp(line.Value, 1, Math.Max(1, lines.Length));
+        var start = Math.Max(1, target - radius);
+        var end = Math.Min(lines.Length, target + radius);
 
         var sb = new StringBuilder();
         sb.AppendLine($"--- Shader context ({start}..{end} of {lines.Length}) ---");
 
-        for (int i = start; i <= end; i++)
+        for (var i = start; i <= end; i++)
         {
-            bool isTarget = (i == target);
+            var isTarget = (i == target);
             var prefix = isTarget ? ">>" : "  ";
 
             sb.Append(prefix);
@@ -78,7 +78,7 @@ public static class ShaderCompiler
                 // indent aligns with "  ####: "
                 sb.Append("      "); // 2 for prefix + 4 digits
                 sb.Append("  ");     // ": "
-                for (int c = 1; c < col.Value; c++) sb.Append(' ');
+                for (var c = 1; c < col.Value; c++) sb.Append(' ');
                 sb.AppendLine("^");
             }
         }
@@ -95,11 +95,94 @@ public static class ShaderCompiler
             sb.AppendLine($"{i + 1,4}: {lines[i]}");
         return sb.ToString();
     }
-    
+
+    /// <summary>
+    /// Replaces non-ASCII characters that occur inside single-line comments (// ... end of line)
+    /// with the literal sequence "\?" (backslash + question mark).
+    /// Leaves non-ASCII elsewhere untouched (and thus still caught by ThrowIfNonAscii).
+    /// </summary>
+    private static string ReplaceNonAsciiInLineComments(string src)
+    {
+        if (string.IsNullOrEmpty(src)) return src;
+
+        // Preserve original newline style as much as possible; easiest is to process by lines and re-join with '\n'
+        // after normalizing. (Your context builder already normalizes CRLF anyway.)
+        var normalized = src.Replace("\r\n", "\n");
+        var lines = normalized.Split('\n');
+
+        for (int li = 0; li < lines.Length; li++)
+        {
+            var line = lines[li];
+
+            int commentStart = FindLineCommentStartOutsideQuotes(line);
+            if (commentStart < 0) continue;
+
+            // Only sanitize the comment tail.
+            var head = line[..commentStart];
+            var tail = line[commentStart..];
+
+            bool changed = false;
+            var sb = new StringBuilder(tail.Length);
+
+            foreach (char ch in tail)
+            {
+                if (ch <= 0x7F)
+                {
+                    sb.Append(ch);
+                    continue;
+                }
+
+                // Replace ANY non-ASCII in comment with literal "\?"
+                sb.Append("\\?");
+                changed = true;
+            }
+
+            if (changed)
+                lines[li] = head + sb.ToString();
+        }
+
+        return string.Join("\n", lines);
+
+        // Finds '//' that is not inside single or double quotes.
+        // Minimal state machine with backslash-escape handling for quotes.
+        static int FindLineCommentStartOutsideQuotes(string line)
+        {
+            bool inDouble = false;
+            bool inSingle = false;
+            bool escape = false;
+
+            for (int i = 0; i < line.Length - 1; i++)
+            {
+                char c = line[i];
+
+                if (escape)
+                {
+                    escape = false;
+                    continue;
+                }
+
+                if (c == '\\')
+                {
+                    // Only treat backslash as escape inside quotes; outside quotes it doesn't matter.
+                    if (inDouble || inSingle) escape = true;
+                    continue;
+                }
+
+                if (!inSingle && c == '\"') { inDouble = !inDouble; continue; }
+                if (!inDouble && c == '\'') { inSingle = !inSingle; continue; }
+
+                if (!inDouble && !inSingle && c == '/' && line[i + 1] == '/')
+                    return i;
+            }
+
+            return -1;
+        }
+    }
+
+        
     // ============================================================
     // GLSL compilation
     // ============================================================
-
 
     private static uint CreateShader(GL gl, GLEnum type, string src, string label)
     {
@@ -107,6 +190,9 @@ public static class ShaderCompiler
 
         // Preflight: catch the “premature EOF” family of pain early.
         ThrowIfNul(src, label);
+        
+        src = ReplaceNonAsciiInLineComments(src);
+        
         ThrowIfNonAscii(src, label);
 
         gl.ShaderSource(s, src);

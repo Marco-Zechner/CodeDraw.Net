@@ -14,7 +14,7 @@ public class Prototype3
     [ConstructorPrototype(3)]
     public Prototype3()
     {
-        using var app = CodeDrawHost.Started();
+        using var app = CodeDrawHost.Start();
         
         var win1 = new CodeDrawWindow(400, 400 , "Prototype3");
         var orbitShader = CodeDrawShader.CsProject("orbitDots", "PrototypeTest/shaders");
@@ -120,12 +120,12 @@ public class Prototype3
 
             layer.Clear();
             layer.SetBlendMode(BlendMode.NONE);
-            layer.CustomRect(
+            layer.DrawCustomRect(
                 layer.FullRect,
                 shader: colorShiftShader,
                 uniforms: Uniforms.Of(
                     UniformValue.Tex2D("uTexCopy", win1.Layer),
-                    UniformValue.Float("uTime", layer.LayerAliveForSeconds())
+                    UniformValue.Float("uTime", layer.TimeAliveSeconds)
                 )
             );
             layer.Render();
@@ -140,7 +140,7 @@ public class Prototype3
             layer.SetBlendMode(BlendMode.NONE);
             layer.DrawLayer(win1.Layer);
             layer.PostProcess(colorShiftPpShader, 
-                UniformValue.Float("uTime", layer.LayerAliveForSeconds())
+                UniformValue.Float("uTime", layer.TimeAliveSeconds)
                 );
             layer.Render();
         };
@@ -157,11 +157,11 @@ public class Prototype3
     {
         var size = radiusOrbit * 2 + radiusDot * 2;
             
-        layer.CustomRect(
+        layer.DrawCustomRect(
             new RectWh<int>(centerX-size/2, centerY-size/2, size, size),
             shader: orbitShader,
             uniforms: Uniforms.Of(
-                UniformValue.Float("uTime", layer.LayerAliveForSeconds()),
+                UniformValue.Float("uTime", layer.TimeAliveSeconds),
                 UniformValue.Float4("uColor", color.R, color.G, color.B, color.A),
                 UniformValue.Float("uRadius1", radiusDot),
                 UniformValue.Float("uRadius2", radiusOrbit),

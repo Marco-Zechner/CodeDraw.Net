@@ -46,7 +46,7 @@ public sealed class Prototype2
     [ConstructorPrototype(2)]
     public Prototype2()
     {
-        using var app = CodeDrawHost.Started();
+        using var app = CodeDrawHost.Start();
         
         var winSrc = new CodeDrawWindow(800, 500, 50, 120, "2B: Source (Pattern Atlas)");
         var winDst = new CodeDrawWindow(800, 500, 850, 120, "2B: Dest (Crop/Place Tests)");
@@ -139,11 +139,11 @@ public sealed class Prototype2
             layer.DrawDebugRect(mx, my, 16, 16, 0f, 0f, 0f, 1f);
             layer.DrawDebugRect(mx + 3, my + 3, 10, 10, 1f, 1f, 1f, 1f);
 
-            layer.CustomRect(
+            layer.DrawCustomRect(
                 layer.FullRect,
                 shader: orbitShader,
                 uniforms: Uniforms.Of(
-                    UniformValue.Float("uTime", layer.LayerAliveForSeconds()),
+                    UniformValue.Float("uTime", layer.TimeAliveSeconds),
                     UniformValue.Float4("uColor", 1,1,1,1),
                     UniformValue.Float("uRadius1", 20),
                     UniformValue.Float("uRadius2", 200f),
@@ -161,11 +161,11 @@ public sealed class Prototype2
         {
             var size = radiusOrbit * 2 + radiusDot * 2;
             
-            layer.CustomRect(
+            layer.DrawCustomRect(
                 new RectWh<int>(centerX-size/2, centerY-size/2, size, size),
                 shader: orbitShader,
                 uniforms: Uniforms.Of(
-                    UniformValue.Float("uTime", layer.LayerAliveForSeconds()),
+                    UniformValue.Float("uTime", layer.TimeAliveSeconds),
                     UniformValue.Float4("uColor", color.R, color.G, color.B, color.A),
                     UniformValue.Float("uRadius1", radiusDot),
                     UniformValue.Float("uRadius2", radiusOrbit),

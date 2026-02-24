@@ -13,7 +13,7 @@ public sealed class Prototype7
     [ConstructorPrototype(7)]
     public Prototype7()
     {
-        using var app = CodeDrawHost.Started();
+        using var app = CodeDrawHost.Start();
         
         var win = new CodeDrawWindow(1100, 720, 50, 50, "Prototype7 - Text Render Showcase");
 

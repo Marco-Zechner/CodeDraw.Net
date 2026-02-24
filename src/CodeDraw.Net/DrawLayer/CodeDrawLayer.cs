@@ -49,11 +49,13 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
     // --- time base for uTime ---
     private readonly long _timeStartTicks = Stopwatch.GetTimestamp();
 
-    public float LayerAliveForSeconds() //TODO stop if disposed?
+    public float TimeAliveSeconds //TODO stop if disposed?
     {
-        var now = Stopwatch.GetTimestamp();
-        var dt = (now - _timeStartTicks) / (double)Stopwatch.Frequency;
-        return (float)dt;
+        get {
+            var now = Stopwatch.GetTimestamp();
+            var dt = (now - _timeStartTicks) / (double)Stopwatch.Frequency;
+            return (float)dt;
+        }
     }
 
     // ---- external shader cache (now supports both layer-copy + custom-rect) ----

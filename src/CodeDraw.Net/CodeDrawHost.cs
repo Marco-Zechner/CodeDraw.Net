@@ -5,7 +5,7 @@ public static class CodeDrawHost
     private static readonly Lock _gate = new();
     private static CodeDrawApp? _current;
 
-    public static CodeDrawApp Started()
+    public static CodeDrawApp Start()
     {
         lock (_gate)
         {

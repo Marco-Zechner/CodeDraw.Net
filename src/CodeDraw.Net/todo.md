@@ -53,4 +53,4 @@ BUG: files are constantly being read
 ---
 
 TODO:
-each sdf should take a style, (union should blend styles, intersect should probably take 1 of the 2?)
+sdf morph between shapes? probably by doing lerp on 2 distances...

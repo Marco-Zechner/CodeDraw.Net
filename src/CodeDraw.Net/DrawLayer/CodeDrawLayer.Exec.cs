@@ -145,10 +145,11 @@ public sealed unsafe partial class CodeDrawLayer
         if (entry.UTex >= 0) gl.Uniform1(entry.UTex, 0);
 
         // built-in uRes
+        if (entry.UPosSize >= 0) Uniform4F(gl, entry.UPosSize, 0, 0, _w, _h);
         if (entry.URes >= 0) Uniform2F(gl, entry.URes, _w, _h);
 
         // user uniforms (start texture units at 1 because unit 0 is reserved for uTex)
-        if (!ApplyUserUniforms(gl, prog, shader.Key, uniforms, providesTexture: true, ["uTex","uRes"], out int usedTexUnits))
+        if (!ApplyUserUniforms(gl, prog, shader.Key, uniforms, providesTexture: true, ["uTex","uPosSize", "uRes"], out int usedTexUnits))
             return;
 
         gl.DrawElements(GLEnum.Triangles, 6, GLEnum.UnsignedInt, null);

@@ -88,6 +88,9 @@ public readonly record struct Rect<T>(Vector2<T> Position, Vector2<T> Size, Orig
 
     public T Width  => Right - Left;
     public T Height => Bottom - Top;
+    
+    public T X => Position.X;
+    public T Y => Position.Y;
 
     public Vector2<T> Center
         => new(

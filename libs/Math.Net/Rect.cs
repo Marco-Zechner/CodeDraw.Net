@@ -77,6 +77,9 @@ public readonly record struct Rect(Vector2 Position, Vector2 Size, Origin LocalO
     public float Width => Right - Left;
     public float Height => Bottom - Top;
     
+    public float X => Position.X;
+    public float Y => Position.Y;
+    
     public Vector2 Center => new((Left + Right) * 0.5f, (Top + Bottom) * 0.5f);
 
     public Vector2 Min => new(Left, Top);

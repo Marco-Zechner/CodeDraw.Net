@@ -54,3 +54,7 @@ BUG: files are constantly being read
 
 TODO:
 sdf morph between shapes? probably by doing lerp on 2 distances...
+
+window.SetPositionLocal(monitor, x, y); //position relative to monitor
+window.SetFullscreen(monitor); //fullscreen on monitor
+window.SetBorderlessFullscreen(monitor); //borderless fullscreen on monitor

@@ -1,4 +1,5 @@
-﻿using Silk.NET.GLFW;
+﻿using MarcoZechner.MathDotNet;
+using Silk.NET.GLFW;
 
 namespace MarcoZechner.CodeDrawDotNet.Window;
 
@@ -16,9 +17,13 @@ public sealed class WindowInput
 
         public double MouseX { get; private set; }
         public double MouseY { get; private set; }
+        
+        public Vector2<double> MousePos => new(MouseX, MouseY);
 
         public double WheelDx { get; private set; }
         public double WheelDy { get; private set; }
+        
+        public Vector2<double> WheelDelta => new(WheelDx, WheelDy);
 
         /// <summary>
         /// Checks if the specified modifier key(s) are currently toggled on (CapsLock, NumpadLock) or held down (Shift, Ctrl, Alt, Super).

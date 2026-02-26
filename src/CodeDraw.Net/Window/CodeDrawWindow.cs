@@ -565,8 +565,8 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
                     if (uBlitTex >= 0) GlHelper.Uniform1(gl, uBlitTex, 0);
                     if (uForceOpaque >= 0) GlHelper.Uniform1(gl,uForceOpaque, opaque ? 1 : 0);
                     if (uPresentMode >= 0) GlHelper.Uniform1(gl,uPresentMode, (int)snap.PresentMode);
-                    if (uWindowSize >= 0) GlHelper.Uniform2(gl, uWindowSize, client.X, client.Y);
-                    if (uLayerSize >= 0)  GlHelper.Uniform2(gl, uLayerSize, layer.Width, layer.Height);
+                    if (uWindowSize >= 0) GlHelper.Uniform2F(gl, uWindowSize, client.X, client.Y);
+                    if (uLayerSize >= 0)  GlHelper.Uniform2F(gl, uLayerSize, layer.Width, layer.Height);
                     
                     if (snap.PresentMode == WindowPresentMode.Camera && uW2L >= 0)
                     {

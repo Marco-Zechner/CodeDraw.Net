@@ -722,10 +722,10 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
 
             switch (u.Type)
             {
-                case UniformType.FLOAT1: GlHelper.Uniform1(gl, info.Loc, u.A); break;
-                case UniformType.FLOAT2: GlHelper.Uniform2(gl, info.Loc, u.A, u.B); break;
-                case UniformType.FLOAT3: GlHelper.Uniform3(gl, info.Loc, u.A, u.B, u.C); break;
-                case UniformType.FLOAT4: GlHelper.Uniform4(gl, info.Loc, u.A, u.B, u.C, u.D); break;
+                case UniformType.FLOAT1: GlHelper.Uniform1F(gl, info.Loc, u.A); break;
+                case UniformType.FLOAT2: GlHelper.Uniform2F(gl, info.Loc, u.A, u.B); break;
+                case UniformType.FLOAT3: GlHelper.Uniform3F(gl, info.Loc, u.A, u.B, u.C); break;
+                case UniformType.FLOAT4: GlHelper.Uniform4F(gl, info.Loc, u.A, u.B, u.C, u.D); break;
 
                 case UniformType.TEX_2D:
                 {
@@ -757,7 +757,7 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
                     break;
                 }
                 
-                case UniformType.COLOR: GlHelper.Uniform4(gl, info.Loc, u.ColorF.R, u.ColorF.G, u.ColorF.B, u.ColorF.A); break;
+                case UniformType.COLOR: GlHelper.Uniform4F(gl, info.Loc, u.ColorF.R, u.ColorF.G, u.ColorF.B, u.ColorF.A); break;
 
                 default:
                     throw new ArgumentOutOfRangeException();

@@ -53,7 +53,7 @@ public sealed class WindowCamera2D
                 // Keep sx=viewX/windowW constant => viewX scales with windowW.
                 // Only if ViewSizeLayer is not "auto"; if it's auto, it naturally follows newW/newH anyway.
                 if (ViewSizeLayer.X > 0) ViewSizeLayer = ViewSizeLayer with { X = ViewSizeLayer.X * (newW / oldW)};
-                if (ViewSizeLayer.Y > 0) ViewSizeLayer = ViewSizeLayer with { X = ViewSizeLayer.Y * (newH / oldH)};
+                if (ViewSizeLayer.Y > 0) ViewSizeLayer = ViewSizeLayer with { Y = ViewSizeLayer.Y * (newH / oldH)};
                 break;
             }
 

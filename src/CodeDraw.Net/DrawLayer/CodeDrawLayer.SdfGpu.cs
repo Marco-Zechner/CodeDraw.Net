@@ -95,8 +95,8 @@ public sealed unsafe partial class CodeDrawLayer
         gl.UseProgram(_progSdf);
         gl.BindVertexArray(_vao);
 
-        GlHelper.Uniform4(gl, _uSdfPosSize, left, top, w, h);
-        GlHelper.Uniform2(gl, _uSdfRes, _w, _h);
+        GlHelper.Uniform4F(gl, _uSdfPosSize, left, top, w, h);
+        GlHelper.Uniform2F(gl, _uSdfRes, _w, _h);
         GlHelper.UniformMat3(gl, _uSdfXf, Matrix3x3.Identity);
 
         GlHelper.Uniform1(gl, _uMaxBlendSdfs, maxBlendSdfs);

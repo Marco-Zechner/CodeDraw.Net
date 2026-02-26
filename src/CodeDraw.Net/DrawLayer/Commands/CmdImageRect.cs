@@ -24,13 +24,13 @@ internal sealed class CmdDrawImage : ICmd
         gl.BindVertexArray(layer._vao);
 
         if (layer._uImageDstRectPx >= 0)
-            GlHelper.Uniform4(gl, layer._uImageDstRectPx, dst.Left, dst.Top, dst.Width, dst.Height);
+            GlHelper.Uniform4F(gl, layer._uImageDstRectPx, dst.Left, dst.Top, dst.Width, dst.Height);
 
         if (layer._uImageDstResPx >= 0)
-            GlHelper.Uniform2(gl, layer._uImageDstResPx, layer.Width, layer.Height);
+            GlHelper.Uniform2F(gl, layer._uImageDstResPx, layer.Width, layer.Height);
 
         if (layer._uImageSrcUvRect >= 0)
-            GlHelper.Uniform4(gl, layer._uImageSrcUvRect, u0, v0, u1, v1);
+            GlHelper.Uniform4F(gl, layer._uImageSrcUvRect, u0, v0, u1, v1);
 
         gl.ActiveTexture(GLEnum.Texture0);
         gl.BindTexture(GLEnum.Texture2D, tex);
@@ -79,7 +79,7 @@ internal sealed class CmdDrawImage : ICmd
     {
         outDst = dst;
 
-        const bool DECODER_NEEDS_FLIP = false; // stb/top-left origin => needs flip for GL UVs
+        const bool DECODER_NEEDS_FLIP = true; // stb/top-left origin => needs flip for GL UVs
         var effectiveFlip = opt.FlipY ^ DECODER_NEEDS_FLIP;
         
         // default full source rect

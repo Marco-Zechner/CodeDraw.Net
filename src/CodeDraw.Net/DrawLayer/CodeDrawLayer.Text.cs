@@ -175,7 +175,7 @@ public sealed unsafe partial class CodeDrawLayer
         gl.BindVertexArray(_textVao);
         gl.UseProgram(_progText);
 
-        if (_uTextRes >= 0) GlHelper.Uniform2(gl, _uTextRes, _w, _h);
+        if (_uTextRes >= 0) GlHelper.Uniform2F(gl, _uTextRes, _w, _h);
         if (_uTextAtlas >= 0) GlHelper.Uniform1(gl, _uTextAtlas, 0);
         if (_uTextXf >= 0) GlHelper.UniformMat3(gl, _uTextXf, xf);
 

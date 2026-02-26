@@ -7,19 +7,23 @@ namespace MarcoZechner.CodeDrawDotNet;
 public static unsafe class GlHelper
 {
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static void Uniform1(GL gl, int loc, float val)
+    internal static void Uniform1(GL gl, int loc, int val)
         => gl.Uniform1(loc, val);
     
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static void Uniform2(GL gl, int loc, float x, float y)
+    internal static void Uniform1F(GL gl, int loc, float val)
+        => gl.Uniform1(loc, val);    
+    
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void Uniform2F(GL gl, int loc, float x, float y)
         => gl.Uniform2(loc, x, y);   
     
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static void Uniform3(GL gl, int loc, float x, float y, float z)
+    internal static void Uniform3F(GL gl, int loc, float x, float y, float z)
         => gl.Uniform3(loc, x, y, z);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static void Uniform4(GL gl, int loc, float x, float y, float z, float w)
+    internal static void Uniform4F(GL gl, int loc, float x, float y, float z, float w)
         => gl.Uniform4(loc, x, y, z, w);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

@@ -81,7 +81,7 @@ public sealed unsafe partial class CodeDrawLayer
         gl.ActiveTexture(GLEnum.Texture0);
         gl.BindTexture(GLEnum.Texture2D, _cpu.Tex);
 
-        if (_uBlitTex >= 0) gl.Uniform1(_uBlitTex, 0);
+        if (_uBlitTex >= 0) GlHelper.Uniform1(gl, _uBlitTex, 0);
 
         gl.DrawElements(GLEnum.Triangles, 6, GLEnum.UnsignedInt, null);
 

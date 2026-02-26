@@ -41,11 +41,11 @@ public sealed unsafe partial class CodeDrawLayer
 
         gl.ActiveTexture(GLEnum.Texture0);
         gl.BindTexture(GLEnum.Texture2D, tex);
-        if (self._uLayerRectTex >= 0) gl.Uniform1(self._uLayerRectTex, 0);
+        if (self._uLayerRectTex >= 0) GlHelper.Uniform1(gl, self._uLayerRectTex, 0);
 
-        Uniform4F(gl, self._uLayerRectDstRectPx, dstRectPx.Left, dstRectPx.Top, dstRectPx.Width, dstRectPx.Height);
-        Uniform2F(gl, self._uLayerRectDstResPx, self._w, self._h);
-        Uniform4F(gl, self._uLayerRectSrcUvRect, u0, v0, du, dv);
+        GlHelper.Uniform4(gl, self._uLayerRectDstRectPx, dstRectPx.Left, dstRectPx.Top, dstRectPx.Width, dstRectPx.Height);
+        GlHelper.Uniform2(gl, self._uLayerRectDstResPx, self._w, self._h);
+        GlHelper.Uniform4(gl, self._uLayerRectSrcUvRect, u0, v0, du, dv);
 
         gl.DrawElements(GLEnum.Triangles, 6, GLEnum.UnsignedInt, null);
 

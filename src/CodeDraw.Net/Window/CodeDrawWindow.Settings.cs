@@ -97,6 +97,12 @@ public partial class CodeDrawWindow
         Settings = raw with { State = raw.State != state ? state : WindowState.Windowed };
     }
 
+    public WindowPresentMode PresentMode
+    { 
+        get => Settings.PresentMode;
+        set => Settings = RawSettings with { PresentMode = value };
+    }
+
     public WindowFrameMode FrameMode
     {
         get => Settings.FrameMode;

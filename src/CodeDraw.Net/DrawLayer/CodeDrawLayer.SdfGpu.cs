@@ -95,11 +95,11 @@ public sealed unsafe partial class CodeDrawLayer
         gl.UseProgram(_progSdf);
         gl.BindVertexArray(_vao);
 
-        Uniform4F(gl, _uSdfPosSize, left, top, w, h);
-        Uniform2F(gl, _uSdfRes, _w, _h);
-        UniformMat3(gl, _uSdfXf, Matrix3x3.Identity);
+        GlHelper.Uniform4(gl, _uSdfPosSize, left, top, w, h);
+        GlHelper.Uniform2(gl, _uSdfRes, _w, _h);
+        GlHelper.UniformMat3(gl, _uSdfXf, Matrix3x3.Identity);
 
-        gl.Uniform1(_uMaxBlendSdfs, maxBlendSdfs);
+        GlHelper.Uniform1(gl, _uMaxBlendSdfs, maxBlendSdfs);
 
         gl.DrawElements(GLEnum.Triangles, 6, GLEnum.UnsignedInt, null);
 

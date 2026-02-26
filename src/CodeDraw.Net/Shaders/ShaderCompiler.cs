@@ -285,7 +285,7 @@ public static class ShaderCompiler
 
         gl.BindVertexArray(0);
         gl.BindBuffer(GLEnum.ArrayBuffer, 0);
-        gl.BindBuffer(GLEnum.ElementArrayBuffer, 0);
+        // gl.BindBuffer(GLEnum.ElementArrayBuffer, 0);
 
         return (vao, vbo, ebo);
     }

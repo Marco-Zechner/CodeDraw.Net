@@ -47,17 +47,11 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
     public Vector2 UnprojectWindowToLayer(Vector2 windowPx)
         => Camera.WindowToLayerPoint(windowPx);
     
-    private readonly float[] _tmpMat3 = new float[9];
 
     private void UploadMat3_RowMajor(GL gl, int loc, in Matrix3x3 m)
     {
-        // row-major layout
-        _tmpMat3[0] = m.M11; _tmpMat3[1] = m.M12; _tmpMat3[2] = m.M13;
-        _tmpMat3[3] = m.M21; _tmpMat3[4] = m.M22; _tmpMat3[5] = m.M23;
-        _tmpMat3[6] = m.M31; _tmpMat3[7] = m.M32; _tmpMat3[8] = m.M33;
-
         // transpose=true because GLSL expects column-major when transpose=false
-        gl.UniformMatrix3(loc, 1, true, _tmpMat3);
+        GlHelper.UniformMat3(gl, loc, m, true);
     }
     
     // only used for final cleanup once. Close/Open should not touch this.
@@ -568,11 +562,11 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
                     gl.BindVertexArray(vao);
                     gl.ActiveTexture(GLEnum.Texture0);
                     gl.BindTexture(GLEnum.Texture2D, lastTex);
-                    if (uBlitTex >= 0) gl.Uniform1(uBlitTex, 0);
-                    if (uForceOpaque >= 0) gl.Uniform1(uForceOpaque, opaque ? 1 : 0);
-                    if (uPresentMode >= 0) gl.Uniform1(uPresentMode, (int)snap.PresentMode);
-                    if (uWindowSize >= 0) Uniform2F(gl, uWindowSize, client.X, client.Y);
-                    if (uLayerSize >= 0)  Uniform2F(gl, uLayerSize, layer.Width, layer.Height);
+                    if (uBlitTex >= 0) GlHelper.Uniform1(gl, uBlitTex, 0);
+                    if (uForceOpaque >= 0) GlHelper.Uniform1(gl,uForceOpaque, opaque ? 1 : 0);
+                    if (uPresentMode >= 0) GlHelper.Uniform1(gl,uPresentMode, (int)snap.PresentMode);
+                    if (uWindowSize >= 0) GlHelper.Uniform2(gl, uWindowSize, client.X, client.Y);
+                    if (uLayerSize >= 0)  GlHelper.Uniform2(gl, uLayerSize, layer.Width, layer.Height);
                     
                     if (snap.PresentMode == WindowPresentMode.Camera && uW2L >= 0)
                     {
@@ -637,12 +631,4 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
         _presentThread = new Thread(PresentLoop) { IsBackground = true, Name = $"Presenter:{raw.Title}" };
         _presentThread.Start();
     }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void Uniform2F(GL gl, int loc, float x, float y)
-        => gl.Uniform2(loc, x, y);
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void Uniform4F(GL gl, int loc, float x, float y, float z, float w)
-        => gl.Uniform4(loc, x, y, z, w);
 }

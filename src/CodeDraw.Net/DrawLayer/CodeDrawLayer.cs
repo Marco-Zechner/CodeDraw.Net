@@ -2,9 +2,9 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using MarcoZechner.CodeDrawDotNet.DrawLayer.Commands;
+using MarcoZechner.CodeDrawDotNet.Images;
 using MarcoZechner.CodeDrawDotNet.Shaders;
 using MarcoZechner.CodeDrawDotNet.Window;
-using MarcoZechner.MathDotNet;
 using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
 using Monitor = System.Threading.Monitor;
@@ -15,28 +15,7 @@ namespace MarcoZechner.CodeDrawDotNet.DrawLayer;
 
 public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
 {
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void Uniform2F(GL gl, int loc, float x, float y)
-        => gl.Uniform2(loc, x, y);
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void Uniform4F(GL gl, int loc, float x, float y, float z, float w)
-        => gl.Uniform4(loc, x, y, z, w);
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void UniformMat3(GL gl, int loc, in Matrix3x3 m)
-    {
-        // Column-major layout for GLSL mat3.
-        // c# Matrix3x3 is row-major, so we transpose it by swapping indices.
-        Span<float> tmp = [
-            m.M11, m.M12, m.M13,
-            m.M21, m.M22, m.M23,
-            m.M31, m.M32, m.M33,
-        ];
-
-        fixed (float* p = tmp)
-            gl.UniformMatrix3(loc, 1, true, p);
-    }
     
     private static int _nextLayerId;
     public int LayerId { get; } = Interlocked.Increment(ref _nextLayerId);
@@ -227,7 +206,7 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
     private (float r, float g, float b, float a) _clearColor = (0f, 0f, 0f, 0f);
 
     private bool _initComplete;
-    private uint _vao, _vbo, _ebo;
+    internal uint _vao, _vbo, _ebo;
 
     private AutoProgram _progRect = null!, _progBlit = null!, _progLayerRect = null!;
     private AutoUniform _uRectPosSize = null!, _uRectColor = null!, _uRectRes = null!, _uRectXf = null!;
@@ -241,6 +220,9 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
     private uint _sdfMatSsbo;
     private uint _sdfRuleSsbo;
 
+    internal AutoProgram _progImageRect = null!;
+    internal AutoUniform _uImageDstRectPx = null!, _uImageDstResPx = null!, _uImageSrcUvRect = null!, _uImageTex = null!;
+    
     private int _w, _h;
 
     private readonly AutoResetEvent _published = new(false);
@@ -308,6 +290,12 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
         _sdfSsbo = _gl.GenBuffer();
         _sdfMatSsbo = _gl.GenBuffer();
         _sdfRuleSsbo = _gl.GenBuffer();
+        
+        _progImageRect = new AutoProgram(this, ShaderPath.Engine("imageRectShader"));
+        _uImageDstRectPx = new AutoUniform(_gl, this, _progImageRect, "uDstRectPx");
+        _uImageDstResPx  = new AutoUniform(_gl, this, _progImageRect, "uDstResPx");
+        _uImageSrcUvRect = new AutoUniform(_gl, this, _progImageRect, "uSrcUvRect");
+        _uImageTex       = new AutoUniform(_gl, this, _progImageRect, "uTex");
     }
 
     public void Dispose()
@@ -475,6 +463,7 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
             _sdfRuleSsbo = 0;
 
             ShaderStore.DisposeConsumer(_gl, this);
+            ImageStore.DisposeConsumer(_gl, this);
 
             if (_vao != 0) _gl.DeleteVertexArray(_vao);
             if (_vbo != 0) _gl.DeleteBuffer(_vbo);
@@ -630,7 +619,7 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
         _gl.BindVertexArray(_vao);
         _gl.ActiveTexture(GLEnum.Texture0);
         _gl.BindTexture(GLEnum.Texture2D, _pub.Tex);
-        if (_uBlitTex >= 0) _gl.Uniform1(_uBlitTex, 0);
+        if (_uBlitTex >= 0) GlHelper.Uniform1(_gl, _uBlitTex, 0);
 
         _gl.Disable(GLEnum.Blend);
         _gl.DrawElements(GLEnum.Triangles, 6, GLEnum.UnsignedInt, null);
@@ -733,10 +722,10 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
 
             switch (u.Type)
             {
-                case UniformType.FLOAT1: gl.Uniform1(info.Loc, u.A); break;
-                case UniformType.FLOAT2: gl.Uniform2(info.Loc, u.A, u.B); break;
-                case UniformType.FLOAT3: gl.Uniform3(info.Loc, u.A, u.B, u.C); break;
-                case UniformType.FLOAT4: gl.Uniform4(info.Loc, u.A, u.B, u.C, u.D); break;
+                case UniformType.FLOAT1: GlHelper.Uniform1(gl, info.Loc, u.A); break;
+                case UniformType.FLOAT2: GlHelper.Uniform2(gl, info.Loc, u.A, u.B); break;
+                case UniformType.FLOAT3: GlHelper.Uniform3(gl, info.Loc, u.A, u.B, u.C); break;
+                case UniformType.FLOAT4: GlHelper.Uniform4(gl, info.Loc, u.A, u.B, u.C, u.D); break;
 
                 case UniformType.TEX_2D:
                 {
@@ -754,7 +743,7 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
 
                     gl.ActiveTexture(GLEnum.Texture0 + nextTexUnit);
                     gl.BindTexture(GLEnum.Texture2D, tex);
-                    gl.Uniform1(info.Loc, nextTexUnit);
+                    GlHelper.Uniform1(gl, info.Loc, nextTexUnit);
 
                     nextTexUnit++;
                     break;
@@ -764,19 +753,11 @@ public sealed unsafe partial class CodeDrawLayer : IDisposable, IShaderConsumer
                     // IMPORTANT: Your Matrix3x3 is row-major in C#.
                     // GLSL expects column-major data layout unless transpose=true.
                     // Easiest: upload with transpose=true and send row-major as-is.
-                    Span<float> tmp = [
-                        u.Mat.M11, u.Mat.M12, u.Mat.M13,
-                        u.Mat.M21, u.Mat.M22, u.Mat.M23,
-                        u.Mat.M31, u.Mat.M32, u.Mat.M33,
-                    ];
-
-                    fixed (float* p = tmp)
-                        gl.UniformMatrix3(info.Loc, 1, true, p);
-
+                    GlHelper.UniformMat3(gl, info.Loc, u.Mat, true);
                     break;
                 }
                 
-                case UniformType.COLOR: gl.Uniform4(info.Loc, u.ColorF.R, u.ColorF.G, u.ColorF.B, u.ColorF.A); break;
+                case UniformType.COLOR: GlHelper.Uniform4(gl, info.Loc, u.ColorF.R, u.ColorF.G, u.ColorF.B, u.ColorF.A); break;
 
                 default:
                     throw new ArgumentOutOfRangeException();

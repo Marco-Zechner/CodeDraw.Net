@@ -42,7 +42,7 @@ public sealed unsafe partial class CodeDrawLayer
         gl.ActiveTexture(GLEnum.Texture0);
         gl.BindTexture(GLEnum.Texture2D, tex);
 
-        if (uTexLoc >= 0) gl.Uniform1(uTexLoc, 0);
+        if (uTexLoc >= 0) GlHelper.Uniform1(gl, uTexLoc, 0);
 
         gl.DrawElements(GLEnum.Triangles, 6, GLEnum.UnsignedInt, null);
 
@@ -90,8 +90,8 @@ public sealed unsafe partial class CodeDrawLayer
         gl.UseProgram(prog);
         gl.BindVertexArray(_vao);
 
-        if (uPosSize >= 0) Uniform4F(gl, uPosSize, rect.Left, rect.Top, rect.Width, rect.Height);
-        if (uRes >= 0) Uniform2F(gl, uRes, _w, _h);
+        if (uPosSize >= 0) GlHelper.Uniform4(gl, uPosSize, rect.Left, rect.Top, rect.Width, rect.Height);
+        if (uRes >= 0) GlHelper.Uniform2(gl, uRes, _w, _h);
         
         // User uniforms
         var usedTexUnits = 0;
@@ -142,11 +142,11 @@ public sealed unsafe partial class CodeDrawLayer
         // built-in uTex = current work texture
         gl.ActiveTexture(GLEnum.Texture0);
         gl.BindTexture(GLEnum.Texture2D, _work.Tex);
-        if (entry.UTex >= 0) gl.Uniform1(entry.UTex, 0);
+        if (entry.UTex >= 0) GlHelper.Uniform1(gl, entry.UTex, 0);
 
         // built-in uRes
-        if (entry.UPosSize >= 0) Uniform4F(gl, entry.UPosSize, 0, 0, _w, _h);
-        if (entry.URes >= 0) Uniform2F(gl, entry.URes, _w, _h);
+        if (entry.UPosSize >= 0) GlHelper.Uniform4(gl, entry.UPosSize, 0, 0, _w, _h);
+        if (entry.URes >= 0) GlHelper.Uniform2(gl, entry.URes, _w, _h);
 
         // user uniforms (start texture units at 1 because unit 0 is reserved for uTex)
         if (!ApplyUserUniforms(gl, prog, shader.Key, uniforms, providesTexture: true, ["uTex","uPosSize", "uRes"], out int usedTexUnits))
@@ -175,10 +175,10 @@ public sealed unsafe partial class CodeDrawLayer
         gl.UseProgram(_progRect);
         gl.BindVertexArray(_vao);
 
-        Uniform4F(gl, _uRectPosSize, x, y, w, h);
-        Uniform4F(gl, _uRectColor, r, g, b, a);
-        Uniform2F(gl, _uRectRes, _w, _h);
-        if (_uRectXf >= 0) UniformMat3(gl, _uRectXf, xf);
+        GlHelper.Uniform4(gl, _uRectPosSize, x, y, w, h);
+        GlHelper.Uniform4(gl, _uRectColor, r, g, b, a);
+        GlHelper.Uniform2(gl, _uRectRes, _w, _h);
+        if (_uRectXf >= 0) GlHelper.UniformMat3(gl, _uRectXf, xf);
 
         gl.DrawElements(GLEnum.Triangles, 6, GLEnum.UnsignedInt, null);
 

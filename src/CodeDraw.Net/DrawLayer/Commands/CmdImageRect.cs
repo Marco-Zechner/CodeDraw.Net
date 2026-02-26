@@ -79,7 +79,7 @@ internal sealed class CmdDrawImage : ICmd
     {
         outDst = dst;
 
-        const bool DECODER_NEEDS_FLIP = true; // stb/top-left origin => needs flip for GL UVs
+        const bool DECODER_NEEDS_FLIP = false; // stb/top-left origin => needs flip for GL UVs
         var effectiveFlip = opt.FlipY ^ DECODER_NEEDS_FLIP;
         
         // default full source rect

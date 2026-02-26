@@ -15,7 +15,7 @@ vec4 sample_layer_uv(vec2 uv)
 {
     if (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0)
     return vec4(0.0);
-    return texture(uTex, uv);
+    return texture(uTex, vec2(uv.x, 1-uv.y)); //TODO: find is the issue with flipped why is somewhere else, aka if this is a real fix, or just a hack
 }
 
 void main()

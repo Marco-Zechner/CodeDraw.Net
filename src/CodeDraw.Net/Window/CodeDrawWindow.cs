@@ -47,12 +47,6 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
     public Vector2 UnprojectWindowToLayer(Vector2 windowPx)
         => Camera.WindowToLayerPoint(windowPx);
     
-
-    private void UploadMat3_RowMajor(GL gl, int loc, in Matrix3x3 m)
-    {
-        // transpose=true because GLSL expects column-major when transpose=false
-        GlHelper.UniformMat3(gl, loc, m, true);
-    }
     
     // only used for final cleanup once. Close/Open should not touch this.
     private int _releasedIdOnce;
@@ -568,11 +562,8 @@ public sealed unsafe partial class CodeDrawWindow : IDisposable, IShaderConsumer
                     if (uWindowSize >= 0) GlHelper.Uniform2F(gl, uWindowSize, client.X, client.Y);
                     if (uLayerSize >= 0)  GlHelper.Uniform2F(gl, uLayerSize, layer.Width, layer.Height);
                     
-                    if (snap.PresentMode == WindowPresentMode.Camera && uW2L >= 0)
-                    {
-                        var m = Camera.WindowToLayer;
-                        UploadMat3_RowMajor(gl, uW2L, m);
-                    }
+                    if (snap.PresentMode == WindowPresentMode.Camera && uW2L >= 0) 
+                        GlHelper.UniformMat3(gl, uW2L, Camera.WindowToLayer, true);
                     
                     gl.DrawElements(GLEnum.Triangles, 6, GLEnum.UnsignedInt, null);
                     gl.BindTexture(GLEnum.Texture2D, 0);

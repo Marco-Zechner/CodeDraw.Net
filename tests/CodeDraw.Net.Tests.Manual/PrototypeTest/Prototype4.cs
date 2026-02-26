@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using MarcoZechner.CodeDrawDotNet.DrawLayer;
 using MarcoZechner.CodeDrawDotNet.Shaders;
+using MarcoZechner.CodeDrawDotNet.Text;
 using MarcoZechner.CodeDrawDotNet.Window;
 using MarcoZechner.ColorDotNet;
 using MarcoZechner.MathDotNet;
@@ -140,6 +141,15 @@ public class Prototype4
                 float h = thick ? 3 : GRID_THIN;
                 layer.DrawDebugRect(0, y, _worldSize.X, h, 1f, 1f, 1f, a);
             }
+
+            var style = new TextStyle() {
+                Font = FontRef.FromFile(@"C:\DevProjects\CodeDraw.Net\tests\CodeDraw.Net.Tests.Manual\resources\fonts\FiraCode-VF.ttf")
+                    .WithVariant(FontVariant.Regular),
+                Align = TextAlign.Center,
+                VAlign = TextVAlign.Top,
+                SizePx = 50,
+            };
+            layer.DrawText("Hello", layer.Width/2,40, style);
 
             // --- World origin marker (top-left of workarea) ---
             // Big L-corner + label-ish blocks

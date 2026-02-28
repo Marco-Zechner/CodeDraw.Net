@@ -141,3 +141,5 @@ temp/
 
 
 .csdepscan/
+tests/**/*.png
+tests/**/*.jpg

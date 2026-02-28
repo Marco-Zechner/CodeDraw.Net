@@ -1,21 +1,13 @@
-﻿// CodeDrawLayer.SdfGpu.cs  (UPDATED: upload materials + rules + per-prim MatId tagging)
-//
-// You need 2 extra SSBOs in CodeDrawLayer:
-//   private uint _sdfMatSsbo;
-//   private uint _sdfRuleSsbo;
-//
-// And in EnsureInit():
-//   _sdfMatSsbo  = _gl.GenBuffer();
-//   _sdfRuleSsbo = _gl.GenBuffer();
-//
-// Also: bind points in shader are fixed: prims=0, mats=1, rules=2.
-
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using MarcoZechner.CodeDrawDotNet.Drawing;
 using MarcoZechner.CodeDrawDotNet.Drawing.Sdf;
 using MarcoZechner.CodeDrawDotNet.Drawing.Sdf.Primitives;
 using MarcoZechner.CodeDrawDotNet.Drawing.SdfGpu;
+using MarcoZechner.CodeDrawDotNet.Drawing.SdfNode;
+using MarcoZechner.CodeDrawDotNet.Drawing.SdfNode.Composition;
+using MarcoZechner.CodeDrawDotNet.Drawing.SdfNode.Primitives;
+using MarcoZechner.CodeDrawDotNet.Drawing.SdfNode.Transform;
 using MarcoZechner.MathDotNet;
 using Silk.NET.OpenGL;
 
@@ -37,8 +29,7 @@ public sealed unsafe partial class CodeDrawLayer
         var bottom = Math.Max(a.Bottom, b.Bottom);
         return new Rect<int>((left, top, right, bottom));
     }
-    
-    //TODO: forceStrokeOnly is currently a no-op
+
     private void ExecSdfGpu(GL gl, in SdfPlaced placed, in DrawStyle style, bool forceStrokeOnly, SdfDrawAreaOverride? drawAreaOverride, int maxBlendSdfs = 8)
     {
         if (_progSdf == null!) return;
@@ -47,7 +38,6 @@ public sealed unsafe partial class CodeDrawLayer
         // 1) Normal conservative bounds in layer space (world == layer px)
         var bbTight = (Rect<int>)placed.WorldBounds;
 
-        // Compute pad like you already do (based on style).
         var feather = MathG.Max(0f, style.FeatherPx);
         var pad = feather;
 
@@ -59,15 +49,14 @@ public sealed unsafe partial class CodeDrawLayer
 
         // 2) Apply draw area override
         var bb = bbTight;
-
         if (drawAreaOverride is { } ov)
         {
-            bb = ov.Mode == SdfDrawAreaMode.Replace 
-                ? ov.RectPx 
+            bb = ov.Mode == SdfDrawAreaMode.Replace
+                ? ov.RectPx
                 : Union(bbTight, ov.RectPx);
         }
 
-        // 3) Clamp to layer bounds (same as you already do)
+        // 3) Clamp to layer bounds
         if (bb.Right < bb.Left || bb.Bottom < bb.Top) return;
 
         var left   = Math.Clamp(bb.Left,   0, _w - 1);
@@ -83,7 +72,10 @@ public sealed unsafe partial class CodeDrawLayer
         _sdfPacker.Clear();
 
         var prims = new List<GpuSdfPrim>(64);
-        FlattenToGpuPrims(placed.Shape, w2LPlaced, prims, _sdfPacker, currentMatId: 0, isFirst:true);
+
+        // NOTE: you MUST pass the root node here; the compiled ISdf2 does not carry Material.
+        // So SdfPlaced needs a RootNode (or CmdSdf carries it).
+        FlattenToGpuPrims(placed.RootNode, w2LPlaced, prims, _sdfPacker, forceStrokeOnly);
 
         if (prims.Count == 0) return;
 
@@ -131,7 +123,6 @@ public sealed unsafe partial class CodeDrawLayer
 
     private void UploadMaterials(GL gl, ReadOnlySpan<GpuSdfMaterial> mats)
     {
-        // SSBO header: [int materialCount][padding]
         var headerSize = 16;
         var matSize = sizeof(GpuSdfMaterial);
         var totalBytes = headerSize + matSize * mats.Length;
@@ -173,15 +164,15 @@ public sealed unsafe partial class CodeDrawLayer
     }
 
     // -------------------------------------------------------------------------
-    // Flattening (UPDATED): carries a currentMatId and supports SdfMaterialTag
+    // Flattening (Node-walk): resolve Material on SdfNodeBase, emit prims with MatId.
     // -------------------------------------------------------------------------
 
-    private const int T_CIRCLE = 1;
-    private const int T_RECT = 2;
-    private const int T_ROUNDEDRECT = 3;
-    private const int T_SEGMENT = 4;
-    private const int T_TRIANGLE = 5;
-    private const int T_ELLIPSE = 6;
+    private const int CIRCLE = 1;
+    private const int RECT = 2;
+    private const int ROUNDEDRECT = 3;
+    private const int SEGMENT = 4;
+    private const int TRIANGLE = 5;
+    private const int ELLIPSE = 6;
 
     private const int OP_UNION = 1;
     private const int OP_INTERSECT = 2;
@@ -191,128 +182,211 @@ public sealed unsafe partial class CodeDrawLayer
     private const int OP_SMOOTH_SUB = 6;
 
     private static void FlattenToGpuPrims(
-        ISdf2 sdf,
+        ISdf2Node root,
         in Matrix3x3 worldToLocal,
         List<GpuSdfPrim> outPrims,
         SdfGpuMaterialPacker packer,
-        int currentMatId,
-        bool isFirst)
+        bool forceStrokeOnly)
     {
-        // Keep your size check
         if (sizeof(GpuSdfPrim) != 128)
             throw new InvalidOperationException($"GpuSdfPrim size is {sizeof(GpuSdfPrim)}, expected 128.");
 
-        Emit(sdf, worldToLocal, outPrims, packer, currentMatId, isFirst);
+        var ctx = new SdfCompileContext();
+        outPrims.Clear();
+        packer.Clear();
+
+        var defaultMat = new SdfActiveMaterial(SdfDefaultMaterial.Instance, SdfColorOverwrite.OnlyDefault);
+        EmitNode(root, worldToLocal, outPrims, packer, ctx, defaultMat, true, forceStrokeOnly);
     }
 
-    private static void Emit(
-        ISdf2 sdf,
+    private static SdfActiveMaterial ResolveActive(in SdfActiveMaterial active, SdfMaterial? nodeMat)
+    {
+        if (nodeMat == null) return active;
+
+        // Parent forces everything: ignore child materials.
+        if (active.Overwrite == SdfColorOverwrite.Everything)
+            return active;
+
+        // OnlyDefault: child overrides parent (only when child has a material at all).
+        return new SdfActiveMaterial(nodeMat, nodeMat.Overwrite);
+    }
+
+    private static void EmitNode(
+        ISdf2Node node,
         in Matrix3x3 worldToLocal,
         List<GpuSdfPrim> outPrims,
         SdfGpuMaterialPacker packer,
-        int currentMatId,
-        bool isFirst)
+        SdfCompileContext ctx,
+        SdfActiveMaterial activeMat,
+        bool isFirst,
+        bool forceStrokeOnly)
     {
-        switch (sdf)
-        {
-            case SdfMaterialTag tag:
-            {
-                var matId = packer.GetOrAdd(tag.Material);
-                Emit(tag.Child, worldToLocal, outPrims, packer, matId, isFirst);
-                return;
-            }
+        if (node is SdfNodeBase nb)
+            activeMat = ResolveActive(activeMat, nb.Material);
 
-            case SdfTransform t:
+        switch (node)
+        {
+            // ----------------- Transform -----------------
+            case SdfTransformNode t:
             {
                 if (!Matrix3x3.TryInvert(t.LocalToParent, out var parentToChild))
-                    throw new InvalidOperationException("SdfTransform requires invertible matrix.");
+                    throw new InvalidOperationException("SdfTransformNode requires invertible LocalToParent.");
+
                 var w2C = parentToChild * worldToLocal;
-                Emit(t.Child, w2C, outPrims, packer, currentMatId, isFirst);
+                EmitNode(t.Child, w2C, outPrims, packer, ctx, activeMat, isFirst, forceStrokeOnly);
                 return;
             }
 
-            case SdfUnionN u:
+            // ----------------- Composition -----------------
+            case SdfUnionNode u:
             {
-                for (var i = 0; i < u.Children.Length; i++)
-                    EmitWithOp(u.Children[i], worldToLocal, outPrims, packer, currentMatId, i==0 && isFirst, OP_UNION, 0f);
+                var children = u.Children ?? [];
+                for (int i = 0; i < children.Length; i++)
+                    EmitNodeWithOp(children[i], worldToLocal, outPrims, packer, ctx, activeMat,
+                        i == 0 && isFirst, OP_UNION, 0f, forceStrokeOnly);
                 return;
             }
 
-            case SdfIntersectN it:
+            case SdfIntersectNode it:
             {
-                for (var i = 0; i < it.Children.Length; i++)
-                    EmitWithOp(it.Children[i], worldToLocal, outPrims, packer, currentMatId, i==0 && isFirst, OP_INTERSECT, 0f);
+                var children = it.Children ?? [];
+                for (int i = 0; i < children.Length; i++)
+                    EmitNodeWithOp(children[i], worldToLocal, outPrims, packer, ctx, activeMat,
+                        i == 0 && isFirst, OP_INTERSECT, 0f, forceStrokeOnly);
                 return;
             }
 
-            case SdfSmoothUnionN su:
+            case SdfSmoothUnionNode su:
             {
+                var children = su.Children ?? [];
                 var k = MathF.Max(0f, su.K);
                 var op = k > 0f ? OP_SMOOTH_UNION : OP_UNION;
-                for (var i = 0; i < su.Children.Length; i++)
-                    EmitWithOp(su.Children[i], worldToLocal, outPrims, packer, currentMatId, i==0 && isFirst, op, k);
+
+                for (int i = 0; i < children.Length; i++)
+                    EmitNodeWithOp(children[i], worldToLocal, outPrims, packer, ctx, activeMat,
+                        i == 0 && isFirst, op, k, forceStrokeOnly);
                 return;
             }
 
-            case SdfSmoothIntersectN si:
+            case SdfSmoothIntersectNode si:
             {
+                var children = si.Children ?? [];
                 var k = MathF.Max(0f, si.K);
                 var op = k > 0f ? OP_SMOOTH_INTER : OP_INTERSECT;
-                for (var i = 0; i < si.Children.Length; i++)
-                    EmitWithOp(si.Children[i], worldToLocal, outPrims, packer, currentMatId, i==0 && isFirst, op, k);
+
+                for (int i = 0; i < children.Length; i++)
+                    EmitNodeWithOp(children[i], worldToLocal, outPrims, packer, ctx, activeMat,
+                        i == 0 && isFirst, op, k, forceStrokeOnly);
                 return;
             }
 
-            case SdfSubtractN sub:
+            case SdfSubtractNode sub:
             {
-                Emit(sub.A, worldToLocal, outPrims, packer, currentMatId, isFirst);
-                for (var i = 0; i < sub.Bs.Length; i++)
-                    EmitWithOp(sub.Bs[i], worldToLocal, outPrims, packer, currentMatId, isFirst:false, OP_SUBTRACT, 0f);
+                EmitNode(sub.A, worldToLocal, outPrims, packer, ctx, activeMat, isFirst, forceStrokeOnly);
+
+                var bs = sub.Bs ?? [];
+                for (int i = 0; i < bs.Length; i++)
+                    EmitNodeWithOp(bs[i], worldToLocal, outPrims, packer, ctx, activeMat,
+                        false, OP_SUBTRACT, 0f, forceStrokeOnly);
                 return;
             }
 
-            case SdfSmoothSubtractN ss:
+            case SdfSmoothSubtractNode ss:
             {
-                Emit(ss.A, worldToLocal, outPrims, packer, currentMatId, isFirst);
+                EmitNode(ss.A, worldToLocal, outPrims, packer, ctx, activeMat, isFirst, forceStrokeOnly);
 
+                var bs = ss.Bs ?? [];
                 var k = MathF.Max(0f, ss.K);
                 var op = k > 0f ? OP_SMOOTH_SUB : OP_SUBTRACT;
-                foreach (var b in ss.Bs)
-                    EmitWithOp(b, worldToLocal, outPrims, packer, currentMatId, isFirst:false, op, k);
+
+                for (int i = 0; i < bs.Length; i++)
+                    EmitNodeWithOp(bs[i], worldToLocal, outPrims, packer, ctx, activeMat,
+                        false, op, k, forceStrokeOnly);
                 return;
             }
 
-            case SdfPolygon poly:
+            // ----------------- Primitives (node types) -----------------
+            case SdfCircleNode:
+            case SdfRectNode:
+            case SdfRoundedRectNode:
+            case SdfTriangleNode:
+            case SdfEllipseNode:
+            case SdfSegmentNode:
             {
-                EmitConvexPolygonAsTriangles(poly, worldToLocal, outPrims, packer, currentMatId, isFirst);
+                var sdf = SdfCompiler.Compile(node, ctx);
+                var matId = packer.GetOrAdd(activeMat.Material, forceStrokeOnly);
+                outPrims.Add(MakePrim(sdf, worldToLocal, matId, OP_UNION, 0f));
                 return;
             }
 
-            case SdfPolyline pl:
+            // Polygon/polyline nodes: emit multiple prims while preserving material/op behavior.
+            case SdfPolygonNode polyNode:
             {
-                EmitPolylineAsSegments(pl, worldToLocal, outPrims, packer, currentMatId, isFirst);
+                var sdf = SdfCompiler.Compile(polyNode, ctx);
+                var matId = packer.GetOrAdd(activeMat.Material, forceStrokeOnly);
+
+                if (sdf is SdfPolygon poly)
+                {
+                    EmitConvexPolygonAsTriangles(poly, worldToLocal, outPrims, matId, isFirst);
+                    return;
+                }
+
+                // Fallback (shouldn't happen): treat as single prim if possible
+                outPrims.Add(MakePrim(sdf, worldToLocal, matId, OP_UNION, 0f));
+                return;
+            }
+
+            case SdfPolylineNode plNode:
+            {
+                var sdf = SdfCompiler.Compile(plNode, ctx);
+                var matId = packer.GetOrAdd(activeMat.Material, forceStrokeOnly);
+
+                if (sdf is SdfPolyline pl)
+                {
+                    EmitPolylineAsSegments(pl, worldToLocal, outPrims, matId, isFirst);
+                    return;
+                }
+
+                outPrims.Add(MakePrim(sdf, worldToLocal, matId, OP_UNION, 0f));
+                return;
+            }
+            
+            case SdfMaterialOverrideNode mo:
+            {
+                EmitNode(mo.Child, worldToLocal, outPrims, packer, ctx, activeMat, isFirst, forceStrokeOnly);
+                return;
+            }
+
+            // ----------------- Unknown node fallback -----------------
+            default:
+            {
+                // WARNING: This collapses the subtree and therefore loses child-material detail.
+                // It is here only as a "don't crash" fallback.
+                var sdf = SdfCompiler.Compile(node, ctx);
+                var matId = packer.GetOrAdd(activeMat.Material, forceStrokeOnly);
+                outPrims.Add(MakePrim(sdf, worldToLocal, matId, OP_UNION, 0f));
                 return;
             }
         }
-
-        outPrims.Add(MakePrim(sdf, worldToLocal, currentMatId, opOverride: OP_UNION, k: 0f));
     }
 
-    private static void EmitWithOp(
-        ISdf2 child,
+    private static void EmitNodeWithOp(
+        ISdf2Node child,
         in Matrix3x3 w2L,
         List<GpuSdfPrim> outPrims,
         SdfGpuMaterialPacker packer,
-        int currentMatId,
+        SdfCompileContext ctx,
+        SdfActiveMaterial activeMat,
         bool isFirst,
         int op,
-        float k)
+        float k,
+        bool forceStrokeOnly)
     {
         var before = outPrims.Count;
-        Emit(child, w2L, outPrims, packer, currentMatId, isFirst);
+        EmitNode(child, w2L, outPrims, packer, ctx, activeMat, isFirst, forceStrokeOnly);
 
         if (outPrims.Count <= before) return;
-        if (before == 0) return; // first prim is base; shader ignores op
+        if (before == 0) return;
 
         var p = outPrims[before];
         p.Op = op;
@@ -335,35 +409,35 @@ public sealed unsafe partial class CodeDrawLayer
         switch (sdf)
         {
             case SdfCircle c:
-                p.Type = T_CIRCLE;
+                p.Type = CIRCLE;
                 p.P0x = c.Center.X; p.P0y = c.Center.Y; p.P0z = c.Radius; p.P0w = 0f;
                 break;
 
             case SdfRect r:
-                p.Type = T_RECT;
+                p.Type = RECT;
                 p.P0x = r.R.Left; p.P0y = r.R.Top; p.P0z = r.R.Right; p.P0w = r.R.Bottom;
                 break;
 
             case SdfRoundedRect rr:
-                p.Type = T_ROUNDEDRECT;
+                p.Type = ROUNDEDRECT;
                 p.P0x = rr.R.Left; p.P0y = rr.R.Top; p.P0z = rr.R.Right; p.P0w = rr.R.Bottom;
                 p.P1x = rr.Radius;
                 break;
 
             case SdfSegment s:
-                p.Type = T_SEGMENT;
+                p.Type = SEGMENT;
                 p.P0x = s.A.X; p.P0y = s.A.Y; p.P0z = s.B.X; p.P0w = s.B.Y;
                 p.P1x = s.Radius;
                 break;
 
             case SdfTriangle t:
-                p.Type = T_TRIANGLE;
+                p.Type = TRIANGLE;
                 p.P0x = t.A.X; p.P0y = t.A.Y; p.P0z = t.B.X; p.P0w = t.B.Y;
                 p.P1x = t.C.X; p.P1y = t.C.Y;
                 break;
 
             case SdfEllipse e:
-                p.Type = T_ELLIPSE;
+                p.Type = ELLIPSE;
                 p.P0x = e.Center.X; p.P0y = e.Center.Y;
                 p.P1x = e.Radius.X; p.P1y = e.Radius.Y;
                 break;
@@ -376,26 +450,31 @@ public sealed unsafe partial class CodeDrawLayer
         return p;
     }
 
+    // NOTE: This assumes polygon is convex (your earlier helper name said "Convex").
     private static void EmitConvexPolygonAsTriangles(
         SdfPolygon poly,
         in Matrix3x3 worldToLocal,
         List<GpuSdfPrim> outPrims,
-        SdfGpuMaterialPacker packer,
-        int currentMatId,
-        bool isFirst)
+        int matId,
+        bool isFirstForScene)
     {
         var pts = poly.Points;
         if (pts.Length < 3) return;
+
+        var firstEmitted = false;
 
         for (var i = 1; i + 1 < pts.Length; i++)
         {
             var tri = new SdfTriangle(pts[0], pts[i], pts[i + 1]);
 
-            // Emit one prim
-            outPrims.Add(MakePrim(tri, worldToLocal, currentMatId, OP_UNION, 0f));
+            outPrims.Add(MakePrim(tri, worldToLocal, matId, OP_UNION, 0f));
 
-            // First overall prim is base; leave as-is
-            if (isFirst && i == 1) continue;
+            // If this is the FIRST prim of the whole scene, it should remain base (shader ignores op anyway).
+            if (isFirstForScene && !firstEmitted)
+            {
+                firstEmitted = true;
+                continue;
+            }
 
             // Ensure union op for subsequent triangles
             var idx = outPrims.Count - 1;
@@ -403,6 +482,8 @@ public sealed unsafe partial class CodeDrawLayer
             p.Op = OP_UNION;
             p.K = 0f;
             outPrims[idx] = p;
+
+            firstEmitted = true;
         }
     }
 
@@ -410,9 +491,8 @@ public sealed unsafe partial class CodeDrawLayer
         SdfPolyline pl,
         in Matrix3x3 worldToLocal,
         List<GpuSdfPrim> outPrims,
-        SdfGpuMaterialPacker packer,
-        int currentMatId,
-        bool isFirst)
+        int matId,
+        bool isFirstForScene)
     {
         var pts = pl.Points;
         if (pts.Length < 2) return;
@@ -423,12 +503,12 @@ public sealed unsafe partial class CodeDrawLayer
 
         for (var i = 1; i < pts.Length; i++)
         {
-            EmitOneSegment(pts[i - 1], pts[i], radius, worldToLocal, outPrims, currentMatId, isFirst && !firstEmitted);
+            EmitOneSegment(pts[i - 1], pts[i], radius, worldToLocal, outPrims, matId, isFirstForScene && !firstEmitted);
             firstEmitted = true;
         }
 
         if (pl.Closed)
-            EmitOneSegment(pts[^1], pts[0], radius, worldToLocal, outPrims, currentMatId, isFirst && !firstEmitted);
+            EmitOneSegment(pts[^1], pts[0], radius, worldToLocal, outPrims, matId, isFirstForScene && !firstEmitted);
     }
 
     private static void EmitOneSegment(
@@ -437,11 +517,12 @@ public sealed unsafe partial class CodeDrawLayer
         float radius,
         in Matrix3x3 worldToLocal,
         List<GpuSdfPrim> outPrims,
-        int currentMatId,
+        int matId,
         bool isFirstForScene)
     {
-        var seg = new SdfSegment { A = a, B = b, Radius = radius };
-        outPrims.Add(MakePrim(seg, worldToLocal, currentMatId, OP_UNION, 0f));
+        var seg = new SdfSegment(a, b);
+
+        outPrims.Add(MakePrim(seg, worldToLocal, matId, OP_UNION, 0f));
 
         if (!isFirstForScene)
         {

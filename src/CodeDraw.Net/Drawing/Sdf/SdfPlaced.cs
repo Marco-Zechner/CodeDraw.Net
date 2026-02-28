@@ -1,18 +1,18 @@
-﻿using MarcoZechner.MathDotNet;
+﻿using MarcoZechner.CodeDrawDotNet.Drawing.SdfNode;
+using MarcoZechner.MathDotNet;
 
 namespace MarcoZechner.CodeDrawDotNet.Drawing.Sdf;
 
 internal readonly record struct SdfPlaced
 {
-
-    public SdfPlaced(ISdf2 Shape, Matrix3x3 LocalToWorld)
+    public SdfPlaced(ISdf2Node rootNode, ISdf2 shape, Matrix3x3 localToWorld)
     {
-        this.Shape = Shape;
-        this.LocalToWorld = LocalToWorld;
-        
-        var lb = Shape.LocalBounds;
+        RootNode = rootNode;
+        Shape = shape;
+        LocalToWorld = localToWorld;
 
-        // IMPORTANT: We treat Rect as min/max here:
+        var lb = shape.LocalBounds;
+
         var p0 = Matrix3x3.TransformAffine(LocalToWorld, new Vector2(lb.Left,  lb.Top));
         var p1 = Matrix3x3.TransformAffine(LocalToWorld, new Vector2(lb.Right, lb.Top));
         var p2 = Matrix3x3.TransformAffine(LocalToWorld, new Vector2(lb.Right, lb.Bottom));
@@ -23,20 +23,20 @@ internal readonly record struct SdfPlaced
         var maxX = MathG.Max(MathG.Max(p0.X, p1.X), MathG.Max(p2.X, p3.X));
         var maxY = MathG.Max(MathG.Max(p0.Y, p1.Y), MathG.Max(p2.Y, p3.Y));
 
-        var wb = Rect.FromMinMaxUnchecked(new Vector2(minX, minY), new Vector2(maxX, maxY));
-
-        WorldBounds = wb;
+        WorldBounds = Rect.FromMinMaxUnchecked(new Vector2(minX, minY), new Vector2(maxX, maxY));
     }
 
     public Rect WorldBounds { get; }
     public ISdf2 Shape { get; }
+    public ISdf2Node RootNode { get; }           // <-- needed for material walk
     public Matrix3x3 LocalToWorld { get; init; }
 
     public bool TryGetWorldToLocal(out Matrix3x3 w2L)
         => Matrix3x3.TryInvert(LocalToWorld, out w2L);
 
-    public void Deconstruct(out ISdf2 shape, out Matrix3x3 localToWorld)
+    public void Deconstruct(out ISdf2Node rootNode, out ISdf2 shape, out Matrix3x3 localToWorld)
     {
+        rootNode = RootNode;
         shape = Shape;
         localToWorld = LocalToWorld;
     }

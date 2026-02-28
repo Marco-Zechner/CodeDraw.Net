@@ -1,7 +1,7 @@
 ﻿using System.Runtime.InteropServices;
 using MarcoZechner.ColorDotNet.RGB;
-using MarcoZechner.CodeDrawDotNet.Drawing.Sdf;
 using MarcoZechner.CodeDrawDotNet.Drawing.Sdf.Primitives;
+using MarcoZechner.CodeDrawDotNet.Drawing.SdfNode;
 using MarcoZechner.CodeDrawDotNet.DrawLayer;
 using MarcoZechner.CodeDrawDotNet.DrawLayer.Commands;
 using MarcoZechner.MathDotNet;
@@ -11,6 +11,7 @@ namespace MarcoZechner.CodeDrawDotNet.Drawing;
 internal sealed class PathBuilderImpl(CodeDrawLayer layer, in Matrix3x3 xf, in DrawStyle style) : IPathBuilder
 {
     private readonly Matrix3x3 _xfAtStart = xf;
+
     private DrawStyle _style = style;
     private Paint? _paintOverride;
     private Stroke? _strokeOverride;
@@ -38,7 +39,6 @@ internal sealed class PathBuilderImpl(CodeDrawLayer layer, in Matrix3x3 xf, in D
 
     public IPathBuilder QuadTo(float cx, float cy, float x, float y)
     {
-        // simple subdivision
         if (!_hasCurrent) return MoveTo(x, y);
 
         var p0 = _pts[^1];
@@ -85,7 +85,6 @@ internal sealed class PathBuilderImpl(CodeDrawLayer layer, in Matrix3x3 xf, in D
     {
         if (!_hasCurrent)
         {
-            // start at arc start
             var rad0 = startDeg * MathF.PI / 180f;
             MoveTo(cx + MathF.Cos(rad0) * radius, cy + MathF.Sin(rad0) * radius);
         }
@@ -103,11 +102,7 @@ internal sealed class PathBuilderImpl(CodeDrawLayer layer, in Matrix3x3 xf, in D
         return this;
     }
 
-    public IPathBuilder Close()
-    {
-        _closed = true;
-        return this;
-    }
+    public IPathBuilder Close() { _closed = true; return this; }
 
     public IPathBuilder Fill(ColorF fill) { _fillOverride = fill; return this; }
     public IPathBuilder Stroke(in Stroke stroke) { _strokeOverride = stroke; return this; }
@@ -116,7 +111,14 @@ internal sealed class PathBuilderImpl(CodeDrawLayer layer, in Matrix3x3 xf, in D
 
     public void Draw()
     {
-        if (_pts.Count < 2) return;
+        if (TryBuildCmd(out var cmd))
+            layer.Enqueue(cmd);
+    }
+
+    internal bool TryBuildCmd(out CmdSdf cmd)
+    {
+        cmd = default;
+        if (_pts.Count < 2) return false;
 
         var paint = _style.Paint;
 
@@ -126,21 +128,27 @@ internal sealed class PathBuilderImpl(CodeDrawLayer layer, in Matrix3x3 xf, in D
 
         var style = _style with { Paint = paint };
 
+        // Transitional: leaf material derived from style.
+        var mat = new SdfMaterial(style, SdfColorOverwrite.OnlyDefault);
+
         if (_closed && _pts.Count >= 3)
         {
-            layer.Enqueue(new CmdSdf(
-                new SdfPlaced(new SdfPolygon(CollectionsMarshal.AsSpan(_pts)), _xfAtStart),
-                style
-            ));
+            var prim = new SdfPolygon(CollectionsMarshal.AsSpan(_pts));
+            cmd = new CmdSdf(
+                Placed: SdfPlacedFactory.FromPrimitive(prim, _xfAtStart, mat),
+                Style: style
+            );
+            return true;
         }
         else
         {
-            // stroke-only if open
-            layer.Enqueue(new CmdSdf(
-                new SdfPlaced(new SdfPolyline(CollectionsMarshal.AsSpan(_pts), closed: false), _xfAtStart),
-                style,
+            var prim = new SdfPolyline(CollectionsMarshal.AsSpan(_pts), closed: false, radius: 0f);
+            cmd = new CmdSdf(
+                Placed: SdfPlacedFactory.FromPrimitive(prim, _xfAtStart, mat),
+                Style: style,
                 ForceStrokeOnly: true
-            ));
+            );
+            return true;
         }
     }
 }

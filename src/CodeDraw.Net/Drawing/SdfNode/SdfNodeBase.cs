@@ -20,6 +20,13 @@ public abstract class SdfNodeBase : ISdf2Node, IVersionedSdfNode
 
     protected void MarkDirty() => _version++;
 
+    private SdfMaterial? _material;
+    public SdfMaterial? Material
+    {
+        get => _material;
+        set { _material = value; MarkDirty(); }
+    }
+    
     ISdf2 ISdf2Node.Build(SdfCompileContext ctx) => Build(ctx);
     internal abstract ISdf2 Build(SdfCompileContext ctx);
 
@@ -43,7 +50,7 @@ public abstract class SdfNodeBase : ISdf2Node, IVersionedSdfNode
     public Rect CoverageBoundsPx(in Matrix3x3 layerTransform, in DrawStyle style = default)
     {
         var compiled = SdfCompiler.Compile(this);
-        var placed = new SdfPlaced(compiled, layerTransform);
+        var placed = new SdfPlaced(this, compiled, layerTransform);
 
         // Base world bounds of the compiled SDF (no feather/stroke yet)
         var bb = placed.WorldBounds;

@@ -16,8 +16,6 @@ public class SdfPrototype2
 {
     // --- persistent nodes (allocated once) ---
     private readonly SdfRectNode[] _barRects = new SdfRectNode[6];
-    private readonly SdfMaterialDef[] _barMaterials = new SdfMaterialDef[6];
-    private readonly SdfTransformNode[] _barXf = new SdfTransformNode[6];
     private readonly ISdf2Node[] _barChildren = new ISdf2Node[6];
 
     [ConstructorPrototype("SdfPrototype2")]
@@ -49,33 +47,25 @@ public class SdfPrototype2
         // build graph once
         for (var i = 0; i < 6; i++)
         {
-            _barRects[i] = new SdfRectNode { Rect = new RectWh(0, 0, 30, 80) };
-
             // different color per bar
             var hue = i / 6f;
             var color = new ColorHsvF((int)(hue * 360f), 0.7f, 1f); // or your own hsv helper
-
+            
             var style = new DrawStyle(
                 new Paint(color, default(Stroke)),
                 FeatherPx: 1.0f
             );
+            
+            _barRects[i] = new SdfRectNode {
+                Rect = new RectWh(0, 0, 30, 80),
+                Material = new SdfMaterial(style)
+            };
 
-            _barMaterials[i] = new SdfMaterialDef(style);
-
-            // attach material to the primitive
-            ISdf2Node tagged = new SdfMaterialNode
+            _barChildren[i] = new SdfTransformNode
             {
                 Child = _barRects[i],
-                Material = _barMaterials[i]
-            };
-
-            _barXf[i] = new SdfTransformNode
-            {
-                Child = tagged,
                 LocalToParent = Matrix3x3.CreateRotation(i * 60f),
             };
-
-            _barChildren[i] = _barXf[i];
         }
         
         var barsCenterCircle = new SdfCircleNode {

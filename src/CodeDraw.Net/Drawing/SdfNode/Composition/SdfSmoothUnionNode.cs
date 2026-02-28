@@ -5,10 +5,10 @@ namespace MarcoZechner.CodeDrawDotNet.Drawing.SdfNode.Composition;
 public sealed class SdfSmoothUnionNode : SdfNodeBase
 {
     private ISdf2Node[] _children = [];
-    public required ISdf2Node[]? Children
+    public required ISdf2Node[] Children
     {
         get => _children;
-        set { _children = value ?? []; MarkDirty(); }
+        set { _children = value; MarkDirty(); }
     }
 
     private float _k = 8f;

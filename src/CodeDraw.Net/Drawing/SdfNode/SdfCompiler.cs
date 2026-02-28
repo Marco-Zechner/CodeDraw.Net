@@ -2,14 +2,6 @@
 
 namespace MarcoZechner.CodeDrawDotNet.Drawing.SdfNode;
 
-internal sealed class SdfCompileContext
-{
-    internal readonly Dictionary<ISdf2Node, CacheEntry> Cache = new();
-    internal readonly HashSet<ISdf2Node> Visiting = [];
-
-    internal readonly record struct CacheEntry(ISdf2 Built, int Version);
-}
-
 internal static class SdfCompiler
 {
     internal static ISdf2 Compile(ISdf2Node node)
@@ -37,9 +29,4 @@ internal static class SdfCompiler
 
     private static int GetVersion(ISdf2Node node)
         => node is IVersionedSdfNode vn ? vn.Version : 0;
-}
-
-internal interface IVersionedSdfNode
-{
-    int Version { get; }
 }

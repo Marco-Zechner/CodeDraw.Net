@@ -56,7 +56,7 @@ public class SdfPrototype3
             FeatherPx: 1.25f
         );
         
-        var mat = new SdfMaterialDef(baseStyle);
+        var mat = new SdfMaterial(baseStyle);
 
         // IMPORTANT: your rules are "last wins overwrite".
         // So do:
@@ -65,7 +65,7 @@ public class SdfPrototype3
         //  3) rings overwrite (placed last so they show up)
         //
         // Inside: sd < 0
-        mat.Rules.Add(new SdfColorRuleDef(
+        mat.Rules.Add(new SdfColorRule(
             SdfRuleMode.SdLessThan,
             insideOrange0,
             0f, 0f,
@@ -73,7 +73,7 @@ public class SdfPrototype3
         ));
 
         // Outside: sd > 0
-        mat.Rules.Add(new SdfColorRuleDef(
+        mat.Rules.Add(new SdfColorRule(
             SdfRuleMode.SdGreaterThan,
             outsideBlue0,
             0f, 0f,
@@ -84,7 +84,7 @@ public class SdfPrototype3
         // Inside gradient: sd in [-falloffMax .. 0]
         // Near boundary (sd=0) => insideOrange0
         // Far inside   (sd=-falloffMax) => insideOrangeFar
-        mat.Rules.Add(new SdfColorRuleDef(
+        mat.Rules.Add(new SdfColorRule(
             SdfRuleMode.Gradient,
             ColorA: insideOrangeFar,   // at sd=-falloffMax
             A: -300,
@@ -96,7 +96,7 @@ public class SdfPrototype3
         // Outside gradient: sd in [0 .. +falloffMax]
         // Near boundary (sd=0) => outsideBlue0
         // Far outside   (sd=+falloffMax) => outsideBlueFar
-        mat.Rules.Add(new SdfColorRuleDef(
+        mat.Rules.Add(new SdfColorRule(
             SdfRuleMode.GradientStep,
             ColorA: outsideBlue0,      // at sd=0
             A: 0f,
@@ -119,7 +119,7 @@ public class SdfPrototype3
             var d = i * padding;
 
             // Outside ring at +d
-            // mat.Rules.Add(new SdfColorRuleDef(
+            // mat.Rules.Add(new SdfColorRule(
             //     SdfRuleMode.NearValue,
             //     ringBrightBlue,
             //     d,               // A = target sd value
@@ -128,7 +128,7 @@ public class SdfPrototype3
             // ));
 
             // Inside ring at -d
-            mat.Rules.Add(new SdfColorRuleDef(
+            mat.Rules.Add(new SdfColorRule(
                 SdfRuleMode.NearValue,
                 ringBrightOrange,
                 -d,
@@ -139,13 +139,7 @@ public class SdfPrototype3
         
         var union = new SdfUnionNode()
         {
-            Children = [rr, circle]
-        };
-
-        // Tag the SDF with the material
-        ISdf2Node root = new SdfMaterialNode
-        {
-            Child = union,
+            Children = [rr, circle],
             Material = mat
         };
 
@@ -184,7 +178,7 @@ public class SdfPrototype3
             using (layer.ScopeTranslate(layer.Width / 2f, layer.Height / 2f))
             {
                 layer.DrawSdf(
-                    root,
+                    union,
                     style: null,
                     forceStrokeOnly: false,
                     drawAreaOverride: new SdfDrawAreaOverride(layer.FullRect, SdfDrawAreaMode.Replace)

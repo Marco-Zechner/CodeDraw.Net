@@ -41,10 +41,39 @@ public sealed partial class CodeDrawLayer : ICodeDrawShapes
     
     public void DrawSdf(ISdf2Node node, in DrawStyle? style = null, bool forceStrokeOnly = false, SdfDrawAreaOverride? drawAreaOverride = null, int maxBlendSdfs = 8)
     {
-        var compiled = SdfCompiler.Compile(node);  // immutable internal
-        var placed = new SdfPlaced(compiled, _xf); // snapshot current layer transform
-        var styleVal = style ?? default;
-        Enqueue(new CmdSdf(placed, styleVal, forceStrokeOnly, drawAreaOverride, maxBlendSdfs));
+        // pick style used for padding + default material, etc.
+        var usedStyle =
+            style
+            ?? (node is SdfNodeBase { Material: not null } nb ? nb.Material.Style : SdfDefaultMaterial.Instance.Style);
+
+        var rootForPlaced = node;
+
+        if (style.HasValue)
+        {
+            var mat = new SdfMaterial(usedStyle, overwrite: SdfColorOverwrite.Everything);
+
+            rootForPlaced = new SdfMaterialOverrideNode
+            {
+                Child = node,
+                Material = mat,
+            };
+        }
+
+        var compiled = SdfCompiler.Compile(rootForPlaced);
+
+        var placed = new SdfPlaced(
+            rootNode: rootForPlaced,
+            shape: compiled,
+            localToWorld: CurrentTransform
+        );
+
+        Enqueue(new CmdSdf(
+            Placed: placed,
+            Style: usedStyle,
+            ForceStrokeOnly: forceStrokeOnly,
+            DrawAreaOverride: drawAreaOverride,
+            MaxBlendSdfs: maxBlendSdfs
+        ));
     }
 
     public void DebugSdfNode(ISdf2Node node, in DrawStyle style, ColorF color)

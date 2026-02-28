@@ -12,10 +12,10 @@ public sealed class SdfSubtractNode : SdfNodeBase
     }
 
     private ISdf2Node[] _bs = [];
-    public required ISdf2Node[]? Bs
+    public required ISdf2Node[] Bs
     {
         get => _bs;
-        set { _bs = value ?? []; MarkDirty(); }
+        set { _bs = value; MarkDirty(); }
     }
 
     override internal ISdf2 Build(SdfCompileContext ctx)

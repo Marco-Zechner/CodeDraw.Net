@@ -1,5 +1,5 @@
-﻿using MarcoZechner.CodeDrawDotNet.Drawing.Sdf;
-using MarcoZechner.CodeDrawDotNet.Drawing.Sdf.Primitives;
+﻿using MarcoZechner.CodeDrawDotNet.Drawing.Sdf.Primitives;
+using MarcoZechner.CodeDrawDotNet.Drawing.SdfNode;
 using MarcoZechner.CodeDrawDotNet.DrawLayer;
 using MarcoZechner.CodeDrawDotNet.DrawLayer.Commands;
 using MarcoZechner.CodeDrawDotNet.Shaders;
@@ -42,21 +42,36 @@ internal sealed class ShapeCollectionBuilderImpl(CodeDrawLayer layer, in Matrix3
     public IShapeCollectionBuilder AddRect(in Rect r, in Paint paint)
     {
         var style = new DrawStyle(paint);
-        _commands.Add(new CmdSdf(new SdfPlaced(new SdfRect(r), _xf), style));
+        var mat = new SdfMaterial(style, SdfColorOverwrite.OnlyDefault);
+
+        _commands.Add(new CmdSdf(
+            Placed: SdfPlacedFactory.FromPrimitive(new SdfRect(r), _xf, mat),
+            Style: style
+        ));
         return this;
     }
 
     public IShapeCollectionBuilder AddCircle(float cx, float cy, float radius, in Paint paint)
     {
         var style = new DrawStyle(paint);
-        _commands.Add(new CmdSdf(new SdfPlaced(new SdfCircle(new Vector2(cx, cy), radius), _xf), style));
+        var mat = new SdfMaterial(style, SdfColorOverwrite.OnlyDefault);
+
+        _commands.Add(new CmdSdf(
+            Placed: SdfPlacedFactory.FromPrimitive(new SdfCircle(new Vector2(cx, cy), radius), _xf, mat),
+            Style: style
+        ));
         return this;
     }
 
     public IShapeCollectionBuilder AddPolygon(ReadOnlySpan<Vector2> pts, in Paint paint)
     {
         var style = new DrawStyle(paint);
-        _commands.Add(new CmdSdf(new SdfPlaced(new SdfPolygon(pts), _xf), style));
+        var mat = new SdfMaterial(style, SdfColorOverwrite.OnlyDefault);
+
+        _commands.Add(new CmdSdf(
+            Placed: SdfPlacedFactory.FromPrimitive(new SdfPolygon(pts), _xf, mat),
+            Style: style
+        ));
         return this;
     }
 
@@ -132,19 +147,8 @@ internal sealed class ShapeCollectionBuilderImpl(CodeDrawLayer layer, in Matrix3
 
         public void Draw()
         {
-            // Instead of enqueueing directly, we grab what the inner would enqueue by calling Draw(),
-            // but we need it to add into _col._cmds.
-            //
-            // Easiest: duplicate PathBuilderImpl.Draw() logic in here:
-            // (kept explicit to avoid reflection or private field peeking)
-
-            // This is a pragmatic hack: just re-run a simplified copy by instantiating the same SDF
-            // and pushing into _cmds. If you want, I’ll refactor PathBuilderImpl to expose a
-            // "BuildCmds()" method.
-
-            // For now: do nothing; use layer.Path() when you need paths inside collections,
-            // or refactor PathBuilderImpl to share code.
-            throw new NotImplementedException("Refactor PathBuilderImpl to support collection recording cleanly.");
+            if (_inner.TryBuildCmd(out var cmd))
+                _col._commands.Add(cmd);
         }
     }
 }

@@ -1,11 +1,12 @@
 ﻿using System.Runtime.InteropServices;
+using MarcoZechner.CodeDrawDotNet.Drawing.SdfNode;
+using MarcoZechner.ColorDotNet.RGB;
 
 namespace MarcoZechner.CodeDrawDotNet.Drawing.SdfGpu;
 
 internal sealed class SdfGpuMaterialPacker
 {
-    // Reference-equality reuse is fine to start with (one node holds one material instance).
-    private readonly Dictionary<SdfMaterialDef, int> _matIndex = new();
+    private readonly Dictionary<SdfMaterial, int> _matIndex = new();
     private readonly List<GpuSdfMaterial> _mats = new(16);
     private readonly List<GpuSdfColorRule> _rules = new(64);
 
@@ -18,18 +19,20 @@ internal sealed class SdfGpuMaterialPacker
         _mats.Clear();
         _rules.Clear();
     }
+       
+    private const float DEFAULT_THICKNESS_PX = 1.5f;
 
-    public int GetOrAdd(SdfMaterialDef def)
+    public int GetOrAdd(SdfMaterial mat, bool forceStrokeOnly)
     {
-        if (_matIndex.TryGetValue(def, out var idx))
+        if (_matIndex.TryGetValue(mat, out var idx))
             return idx;
 
         var ruleFirst = _rules.Count;
-        var ruleCount = def.Rules.Count;
+        var ruleCount = mat.Rules.Count;
 
-        foreach (var r in def.Rules)
+        foreach (var r in mat.Rules)
         {
-            var cB = r.ColorB ?? r.ColorA; // fallback
+            var cB = r.ColorB ?? r.ColorA;
             _rules.Add(new GpuSdfColorRule
             {
                 Mode = (int)r.Mode,
@@ -44,27 +47,57 @@ internal sealed class SdfGpuMaterialPacker
             });
         }
 
-        var style = def.Style;
+        var style = mat.Style;
+
         var fill = style.Paint.Fill;
         var stroke = style.Paint.Stroke;
 
-        // Note: Style.Opacity is not baked here; if you want global per-shape opacity,
-        // multiply it into FillA/StrokeA at packing time.
-        var mat = new GpuSdfMaterial
+        // Detect whether an explicit stroke exists.
+        var hasExplicitStroke = stroke is { Thickness: > 0f, Color.A: > 0f };
+
+        // ---- forceStrokeOnly policy ----
+        if (forceStrokeOnly)
+        {
+            // Disable fill always.
+            fill = fill with { A = 0f };
+
+            // If there's no stroke, synthesize one from fill (or white if fill is also transparent).
+            if (!hasExplicitStroke)
+            {
+                // choose source color
+                var c = style.Paint.Fill.A > 0f ? style.Paint.Fill : new ColorF(1f, 1f, 1f);
+
+                // pick a reasonable default thickness
+
+                stroke = stroke with
+                {
+                    Color = c,
+                    Thickness = DEFAULT_THICKNESS_PX,
+                };
+
+                hasExplicitStroke = true;
+            }
+        }
+
+        var gpu = new GpuSdfMaterial
         {
             FillR = fill.R, FillG = fill.G, FillB = fill.B, FillA = fill.A,
+
             StrokeR = stroke.Color.R, StrokeG = stroke.Color.G, StrokeB = stroke.Color.B, StrokeA = stroke.Color.A,
             StrokeThickness = MathF.Max(0f, stroke.Thickness),
+
             FeatherPx = MathF.Max(0f, style.FeatherPx),
-            HasFill = fill.A > 0f ? 1 : 0,
-            HasStroke = (stroke.Thickness > 0f && stroke.Color.A > 0f) ? 1 : 0,
+
+            HasFill = !forceStrokeOnly && fill.A > 0f ? 1 : 0,
+            HasStroke = hasExplicitStroke ? 1 : 0,
+
             RuleFirst = ruleFirst,
             RuleCount = ruleCount,
         };
 
         idx = _mats.Count;
-        _mats.Add(mat);
-        _matIndex.Add(def, idx);
+        _mats.Add(gpu);
+        _matIndex.Add(mat, idx);
         return idx;
     }
 }
